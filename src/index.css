@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Theme CSS Variables */
+:root {
+  --color-primary: #3b82f6;
+  --color-secondary: #1e40af;
+  --color-accent: #60a5fa;
+  --color-primary-custom: #3b82f6;
+}
+
+/* Apply theme colors to Tailwind classes */
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.border-primary {
+  border-color: var(--color-primary);
+}
+
+.hover\:bg-primary:hover {
+  background-color: var(--color-primary);
+}
+
+.hover\:text-primary:hover {
+  color: var(--color-primary);
+}
+
+.hover\:border-primary:hover {
+  border-color: var(--color-primary);
+}
+
+.focus\:border-primary:focus {
+  border-color: var(--color-primary);
+}
+
+.focus\:ring-primary:focus {
+  --tw-ring-color: var(--color-primary);
+}
+
+/* Gradient classes using CSS variables (selected color -> light grey) */
+.bg-gradient-primary {
+  background: linear-gradient(to right, var(--color-primary), #f3f4f6);
+}
+
+.bg-gradient-primary-text {
+  background: linear-gradient(to right, var(--color-primary), #f3f4f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Dark theme text utilities for contrast */
+.dark .text-default { color: #e5e7eb; }
+.dark .text-muted { color: #9ca3af; }
+.dark .heading-default { color: #f9fafb; }
+
+/* Global dark theme text override: force common text colors to white for readability */
+.dark body,
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark p,
+.dark span,
+.dark label,
+.dark li,
+.dark td,
+.dark th,
+.dark div {
+  color: #ffffff;
+}
+
+/* Override common gray text utility classes in dark mode to white */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-gray-400,
+.dark .text-gray-300,
+.dark .text-gray-200,
+.dark .text-gray-100 {
+  color: #ffffff !important;
+}
+
+/* Preserve semantic accent colors in dark mode */
+.dark .text-green-600 { color: #16a34a !important; }
+.dark .text-yellow-600 { color: #ca8a04 !important; }
+.dark .text-red-600 { color: #dc2626 !important; }
+.dark .text-blue-600 { color: #2563eb !important; }
+.dark .text-primary { color: var(--color-primary) !important; }
+
+/* Utility for status badges to keep inner text dark for readability */
+.badge-text-dark { color: #111827 !important; }
+.dark .badge-text-dark { color: #111827 !important; }
+
+.hover\:bg-gradient-primary:hover {
+  background: linear-gradient(to right, var(--color-primary), #f3f4f6);
+}
+
+.shadow-primary {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--color-primary);
+}
+

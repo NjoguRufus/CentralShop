@@ -1,0 +1,329 @@
+{
+  "intents": [
+    {
+      "tag": "check_stock",
+      "patterns": [
+        "How many iPhones do we have?",
+        "Stock level for product ID 456",
+        "Do we have any more of the blue jacket in large?",
+        "What's the inventory for Samsung TVs?",
+        "How many units of product X are left?",
+        "Check stock for item Y",
+        "What's our stock level?",
+        "Inventory count for product",
+        "Do we have product Z in stock?",
+        "Stock status of item",
+        "How much inventory do we have?",
+        "Product availability",
+        "Check availability",
+        "Stock check",
+        "Inventory levels"
+      ],
+      "entities": ["product_name", "product_id", "product_category"]
+    },
+    {
+      "tag": "sales_report_today",
+      "patterns": [
+        "How much did we sell today?",
+        "Today's revenue",
+        "What were today's sales?",
+        "Sales for today",
+        "Today's total sales",
+        "Revenue today",
+        "How much money did we make today?",
+        "Today's earnings",
+        "Daily sales report",
+        "Today's performance",
+        "Sales summary today"
+      ],
+      "entities": ["date", "time_period"]
+    },
+    {
+      "tag": "sales_report_yesterday",
+      "patterns": [
+        "How much did we sell yesterday?",
+        "Yesterday's revenue",
+        "What were yesterday's sales?",
+        "Sales for yesterday",
+        "Yesterday's total sales",
+        "Revenue yesterday",
+        "How much money did we make yesterday?",
+        "Yesterday's earnings",
+        "Daily sales report yesterday",
+        "Yesterday's performance",
+        "Sales summary yesterday"
+      ],
+      "entities": ["date", "time_period"]
+    },
+    {
+      "tag": "sales_report_week",
+      "patterns": [
+        "How much did we sell this week?",
+        "This week's revenue",
+        "What were this week's sales?",
+        "Sales for this week",
+        "Weekly sales report",
+        "This week's total sales",
+        "Revenue this week",
+        "Weekly performance",
+        "Sales summary this week",
+        "Week sales"
+      ],
+      "entities": ["date", "time_period"]
+    },
+    {
+      "tag": "low_stock_items",
+      "patterns": [
+        "What items are low on stock?",
+        "Show me low stock items",
+        "Which products need restocking?",
+        "Items running low",
+        "Low inventory alert",
+        "What needs to be reordered?",
+        "Stock alerts",
+        "Low stock warning",
+        "Products below threshold",
+        "Restock needed"
+      ],
+      "entities": ["stock_threshold"]
+    },
+    {
+      "tag": "out_of_stock_items",
+      "patterns": [
+        "What items are out of stock?",
+        "Show me out of stock items",
+        "Which products are unavailable?",
+        "Items not in stock",
+        "Out of stock alert",
+        "What's completely sold out?",
+        "Zero stock items",
+        "Unavailable products",
+        "Items with no stock",
+        "Sold out products"
+      ],
+      "entities": []
+    },
+    {
+      "tag": "top_selling_products",
+      "patterns": [
+        "What are our top selling products?",
+        "Best selling items today",
+        "Most popular products",
+        "Top performers",
+        "Best sellers",
+        "Highest selling items",
+        "Top products by sales",
+        "Most sold items",
+        "Popular products",
+        "Best selling today"
+      ],
+      "entities": ["time_period", "limit"]
+    },
+    {
+      "tag": "customer_count",
+      "patterns": [
+        "How many customers do we have?",
+        "Total customer count",
+        "Number of customers",
+        "Customer database size",
+        "How many people are in our system?",
+        "Total registered customers",
+        "Customer list size",
+        "How many customers are registered?",
+        "Customer count",
+        "Total customers"
+      ],
+      "entities": []
+    },
+    {
+      "tag": "top_customers",
+      "patterns": [
+        "Who are our top customers?",
+        "Best customers",
+        "Most valuable customers",
+        "Top spenders",
+        "VIP customers",
+        "Loyal customers",
+        "High value customers",
+        "Top customer list",
+        "Best performing customers",
+        "Most frequent customers"
+      ],
+      "entities": ["limit", "time_period"]
+    },
+    {
+      "tag": "employee_count",
+      "patterns": [
+        "How many employees do we have?",
+        "Total employee count",
+        "Number of staff",
+        "Employee database size",
+        "How many people work here?",
+        "Total staff members",
+        "Team size",
+        "How many employees are registered?",
+        "Staff count",
+        "Total employees"
+      ],
+      "entities": []
+    },
+    {
+      "tag": "sales_by_employee",
+      "patterns": [
+        "Who sold the most today?",
+        "Top performing employee",
+        "Best salesperson today",
+        "Employee sales performance",
+        "Who made the most sales?",
+        "Top seller today",
+        "Employee sales ranking",
+        "Best performer today",
+        "Sales by staff member",
+        "Top cashier today"
+      ],
+      "entities": ["time_period", "employee_name"]
+    },
+    {
+      "tag": "product_search",
+      "patterns": [
+        "Find product by name",
+        "Search for item",
+        "Look up product",
+        "Find item in inventory",
+        "Product lookup",
+        "Search inventory",
+        "Find product details",
+        "Item search",
+        "Product finder",
+        "Look for product"
+      ],
+      "entities": ["product_name", "product_id", "product_category"]
+    },
+    {
+      "tag": "business_summary",
+      "patterns": [
+        "Give me a business summary",
+        "Overall business performance",
+        "Business overview",
+        "Summary of operations",
+        "How is the business doing?",
+        "Business status",
+        "Overall performance",
+        "Business report",
+        "Summary report",
+        "Business health"
+      ],
+      "entities": ["time_period"]
+    },
+    {
+      "tag": "invoice_info",
+      "patterns": [
+        "How many invoices do we have?",
+        "Show me invoice summary",
+        "Invoice count",
+        "Total invoices",
+        "How many invoices were created?",
+        "Invoice statistics"
+      ],
+      "entities": ["time_period"]
+    },
+    {
+      "tag": "supplier_info",
+      "patterns": [
+        "How many suppliers do we have?",
+        "Show me suppliers",
+        "Supplier count",
+        "Total suppliers",
+        "List suppliers",
+        "Supplier information"
+      ],
+      "entities": []
+    },
+    {
+      "tag": "expense_info",
+      "patterns": [
+        "How much did we spend?",
+        "Total expenses",
+        "Expense summary",
+        "What are our expenses?",
+        "Spending report",
+        "Expense breakdown"
+      ],
+      "entities": ["time_period"]
+    },
+    {
+      "tag": "service_info",
+      "patterns": [
+        "How many services do we offer?",
+        "Service count",
+        "Available services",
+        "What services do we have?",
+        "Service list",
+        "Service management"
+      ],
+      "entities": []
+    },
+    {
+      "tag": "stock_report",
+      "patterns": [
+        "Generate stock report",
+        "Show stock analysis",
+        "Stock summary",
+        "Inventory report",
+        "Stock valuation",
+        "Low stock report",
+        "Movement report"
+      ],
+      "entities": ["time_period", "report_type"]
+    },
+    {
+      "tag": "help",
+      "patterns": [
+        "What can you help me with?",
+        "What can you do?",
+        "Help me",
+        "What are your capabilities?",
+        "What questions can I ask?",
+        "How can you help?",
+        "What do you know?",
+        "Available commands",
+        "Help menu",
+        "What can I ask?"
+      ],
+      "entities": []
+    }
+  ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
