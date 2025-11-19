@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the changes made to add Electron desktop support to Central Shop POS, along with setup instructions and troubleshooting tips.
+This document outlines the changes made to add Electron desktop support to Central Shop POS, along with setup instructions and troubleshooting tip.
 
 ## Changes Made
 
