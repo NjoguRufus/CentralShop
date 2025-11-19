@@ -15,7 +15,7 @@ if (process.env.VERCEL || process.env.SKIP_ELECTRON_BUILD === 'true') {
 
 try {
   console.log('Installing Electron app dependencies...');
-  execSync('electron-builder install-app-deps', { stdio: 'inherit' });
+  execSync('npx electron-builder install-app-deps', { stdio: 'inherit' });
 } catch (error) {
   console.warn('Warning: electron-builder install-app-deps failed, but continuing...');
   console.warn('This is normal if you\'re not building Electron apps.');
