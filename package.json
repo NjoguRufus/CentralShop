@@ -13,7 +13,7 @@
     "electron:dev": "concurrently \"npm:dev\" \"wait-on http://localhost:5173 && electron electron/main.js\"",
     "electron": "electron electron/main.js",
     "electron:build": "npm run build && electron-builder --win --x64",
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.cjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
