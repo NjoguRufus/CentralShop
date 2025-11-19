@@ -3,11 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 import { useTheme } from '../contexts/ThemeContext';
 import Card from '../components/UI/Card';
 import FormInput from '../components/UI/FormInput';
 import Button from '../components/UI/Button';
 import Dropdown from '../components/UI/Dropdown';
+import InstallPWAButton from '../components/InstallPWAButton';
 import { toast } from 'react-toastify';
 
 interface BusinessInfo {
@@ -66,7 +68,7 @@ const Settings: React.FC = () => {
   const [saving, setSaving] = useState<boolean>(false);
   const [settings, setSettings] = useState<SettingsData>({
     businessInfo: {
-      name: '',
+      name: 'CENTRAL SHOP',
       address: '',
       phone: '',
       logo: ''
@@ -113,7 +115,7 @@ const Settings: React.FC = () => {
         return;
       }
       
-      const docRef = doc(db, 'shops', currentUser.shopId, 'settings', 'general');
+      const docRef = doc(db, getShopCollectionName('settings'), 'general');
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
@@ -123,7 +125,8 @@ const Settings: React.FC = () => {
           ...data,
           businessInfo: {
             ...prev.businessInfo,
-            ...(data.businessInfo || {})
+            ...(data.businessInfo || {}),
+            name: 'CENTRAL SHOP' // Always set to CENTRAL SHOP
           },
           themeSettings: {
             ...prev.themeSettings,
@@ -158,6 +161,10 @@ const Settings: React.FC = () => {
       
       const mergedSettings: SettingsData = {
         ...settings,
+        businessInfo: {
+          ...settings.businessInfo,
+          name: 'CENTRAL SHOP' // Always save as CENTRAL SHOP
+        },
         themeSettings: {
           ...settings.themeSettings,
           mode: theme,
@@ -167,7 +174,7 @@ const Settings: React.FC = () => {
       };
 
       console.log('Saving settings:', mergedSettings);
-      await setDoc(doc(db, 'shops', currentUser.shopId, 'settings', 'general'), mergedSettings);
+      await setDoc(doc(db, getShopCollectionName('settings'), 'general'), mergedSettings);
       console.log('Settings saved successfully');
       toast.success('Settings saved successfully');
       
@@ -201,6 +208,10 @@ const Settings: React.FC = () => {
 
   const handleBusinessInfoChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
+    // Prevent changing business name - it's always CENTRAL SHOP
+    if (name === 'name') {
+      return;
+    }
     setSettings(prev => ({
       ...prev,
       businessInfo: {
@@ -275,9 +286,7 @@ const Settings: React.FC = () => {
     { id: 'business', label: 'Business Info' },
     { id: 'theme', label: 'Theme Settings' },
     { id: 'payments', label: 'Payment Settings' },
-    { id: 'integrations', label: 'Integrations' },
-    { id: 'ai', label: 'AI Assistant' },
-    { id: 'security', label: 'Security' }
+    { id: 'app', label: 'App Settings' }
   ];
 
   const adminProtectedTabs: string[] = [];
@@ -336,13 +345,13 @@ const Settings: React.FC = () => {
                   <img src={settings.businessInfo.logo} alt="Business Logo" className="w-20 h-20 rounded-full mt-2 object-cover" />
                 )}
               </div>
-              <FormInput
-                label="Business Name"
-                name="name"
-                type="text"
-                value={settings.businessInfo.name}
-                onChange={handleBusinessInfoChange}
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Business Name</label>
+                <div className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold">
+                  CENTRAL SHOP
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Business name is fixed and cannot be changed</p>
+              </div>
               <FormInput
                 label="Address"
                 name="address"
@@ -467,30 +476,6 @@ const Settings: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'integrations' && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">Integrations</h3>
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Note:</strong> Integration settings are managed by the system administrator. 
-                  Cloudinary is configured globally and doesn't require individual shop configuration.
-                </p>
-              </div>
-              
-              <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-medium text-gray-800 dark:text-white">Firebase Configuration</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  Firebase configuration is read-only and managed through your environment variables.
-                </p>
-                <div className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <code className="text-sm text-gray-700 dark:text-gray-300">
-                    Project ID: ai-pos-16420
-                  </code>
-                </div>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'payments' && (
             <div className="space-y-6">
               <h3 className="text-lg font-medium text-gray-800 dark:text-white">Payment Methods</h3>
@@ -542,30 +527,8 @@ const Settings: React.FC = () => {
 
                 <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Card Payments</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow customers to pay with credit/debit cards</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.paymentSettings?.enableCardPayments || false}
-                      onChange={(e) => setSettings(prev => ({
-                        ...prev,
-                        paymentSettings: {
-                          ...prev.paymentSettings,
-                          enableCardPayments: e.target.checked
-                        }
-                      }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <div>
                     <h4 className="font-medium text-gray-900 dark:text-white">Debt Payments</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow customers to pay later (debt/credit)</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow customers to pay later (debt/credit). Partial payments are accessed through debt payment.</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -584,243 +547,45 @@ const Settings: React.FC = () => {
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Partial Payments</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow customers to pay part now, part later</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.paymentSettings?.enablePartialPayments || false}
-                      onChange={(e) => setSettings(prev => ({
-                        ...prev,
-                        paymentSettings: {
-                          ...prev.paymentSettings,
-                          enablePartialPayments: e.target.checked
-                        }
-                      }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Auto Download Receipt</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Automatically download receipt when order is completed</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.paymentSettings?.autoDownloadReceipt || false}
-                      onChange={(e) => setSettings(prev => ({
-                        ...prev,
-                        paymentSettings: {
-                          ...prev.paymentSettings,
-                          autoDownloadReceipt: e.target.checked
-                        }
-                      }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Save Receipt</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Enable receipt saving with format selection</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.paymentSettings?.saveReceipt || false}
-                      onChange={(e) => setSettings(prev => ({
-                        ...prev,
-                        paymentSettings: {
-                          ...prev.paymentSettings,
-                          saveReceipt: e.target.checked
-                        }
-                      }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                {settings.paymentSettings?.saveReceipt && (
-                  <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">Receipt Format</h4>
-                    <Dropdown
-                      value={settings.paymentSettings?.receiptFormat || 'PDF'}
-                      onChange={(value) => setSettings(prev => ({
-                        ...prev,
-                        paymentSettings: {
-                          ...prev.paymentSettings,
-                          receiptFormat: value as 'PDF' | 'TXT' | 'Image'
-                        }
-                      }))}
-                      options={[
-                        { value: 'PDF', label: 'PDF Document' },
-                        { value: 'TXT', label: 'Text File' },
-                        { value: 'Image', label: 'Image File' }
-                      ]}
-                      placeholder="Select format"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      Choose the format for saving receipts
-                    </p>
-                  </div>
-                )}
               </div>
-
-              {settings.paymentSettings?.enableCardPayments && (
-                <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg">
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    <strong>Note:</strong> Card payment integration requires additional setup with a payment processor. 
-                    Contact your system administrator to configure card payment processing.
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
-          {activeTab === 'ai' && (
+          {activeTab === 'app' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">AI Assistant Settings</h3>
+              <h3 className="text-lg font-medium text-gray-800 dark:text-white">App Settings</h3>
               
-              {/* AI Mode Selection */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Use External AI</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Enable ChatGPT/Gemini for enhanced responses</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="useExternalAI"
-                      checked={settings.aiAssistant?.useExternalAI || false}
-                      onChange={handleAIAssistantChange}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                {settings.aiAssistant?.useExternalAI && (
-                  <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">AI Provider</label>
-                      <Dropdown
-                        value={settings.aiAssistant?.externalAIProvider || 'chatgpt'}
-                        onChange={(value) => handleAIAssistantChange({ target: { name: 'externalAIProvider', value } })}
-                        options={[
-                          { value: 'chatgpt', label: 'OpenAI ChatGPT' },
-                          { value: 'gemini', label: 'Google Gemini' }
-                        ]}
-                        placeholder="Select AI Provider"
-                      />
+                      <h4 className="font-medium text-gray-900 dark:text-white">Install App</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Install Central Shop POS as a Progressive Web App for better performance and offline access
+                      </p>
                     </div>
-
-                    {settings.aiAssistant?.externalAIProvider === 'chatgpt' && (
-                      <>
-                        <FormInput
-                          label="OpenAI API Key *"
-                          name="openaiApiKey"
-                          type="password"
-                          value={settings.aiAssistant?.openaiApiKey || ''}
-                          onChange={handleAIAssistantChange}
-                          placeholder="Enter your OpenAI API key"
-                          helpText="Get your API key from platform.openai.com"
-                          required
-                        />
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
-                          <Dropdown
-                            value={settings.aiAssistant?.model || 'gpt-3.5-turbo'}
-                            onChange={(value) => handleAIAssistantChange({ target: { name: 'model', value } })}
-                            options={[
-                              { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-                              { value: 'gpt-4', label: 'GPT-4' },
-                              { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
-                            ]}
-                            placeholder="Select Model"
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {settings.aiAssistant?.externalAIProvider === 'gemini' && (
-                      <FormInput
-                        label="Gemini API Key *"
-                        name="geminiApiKey"
-                        type="password"
-                        value={settings.aiAssistant?.geminiApiKey || ''}
-                        onChange={handleAIAssistantChange}
-                        placeholder="Enter your Gemini API key"
-                        helpText="Get your API key from aistudio.google.com"
-                        required
-                      />
-                    )}
+                    <InstallPWAButton />
                   </div>
-                )}
-              </div>
+                </Card>
 
-              {/* Default AI Assistant Info */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Default POS Assistant</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  The built-in POS Assistant is always available and specializes in:
-                </p>
-                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  <li>• Sales analytics and reporting</li>
-                  <li>• Inventory management queries</li>
-                  <li>• Customer insights and analytics</li>
-                  <li>• Employee performance tracking</li>
-                  <li>• Business summaries and dashboards</li>
-                </ul>
-              </div>
-
-              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg">
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                  <strong>Note:</strong> External AI is used for general questions. POS-specific queries are always handled by the built-in assistant for accuracy and data security.
-                </p>
+                <Card className="p-4">
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Offline Mode</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      Central Shop POS works offline. Your data will sync automatically when you're back online.
+                    </p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className={`w-2 h-2 rounded-full ${navigator.onLine ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {navigator.onLine ? 'Online' : 'Offline'}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
               </div>
             </div>
           )}
 
-          {activeTab === 'security' && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">Security Settings</h3>
-              <FormInput
-                label="Admin Password"
-                name="adminPassword"
-                type="password"
-                value={settings.adminPassword}
-                onChange={handleAdminPasswordChange}
-                placeholder="Enter admin password for order deletion"
-                helpText="This password is required to delete orders. Keep it secure and change it regularly."
-              />
-              <FormInput
-                label="Password Hint (Optional)"
-                name="adminPasswordHint"
-                type="text"
-                value={settings.adminPasswordHint}
-                onChange={handleAdminPasswordHintChange}
-                placeholder="Enter a hint to help remember the password"
-                helpText="This hint will be shown when admin authentication is required"
-              />
-              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg">
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                  <strong>Important:</strong> This password is used to verify admin actions like deleting orders. 
-                  Make sure to use a strong password and keep it confidential.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="flex justify-end pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">

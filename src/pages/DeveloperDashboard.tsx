@@ -162,7 +162,7 @@ const DeveloperDashboard: React.FC = () => {
         // Note: MainAdmin is already created in users collection above
         // Shop-specific employee collections will be used for additional shop data if needed
         
-        toast.success('Shop and main admin created successfully');
+        toast.success('Shop and Main admin created successfully');
       }
       
       setIsModalOpen(false);

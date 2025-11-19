@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus, Trash2, CreditCard, DollarSign, Search, ShoppingCart } from 'lucide-react';
-import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import { useNotifications } from '../contexts/NotificationContext';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import Dropdown from '../components/UI/Dropdown';
 import CheckoutModal from '../components/CheckoutModal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
 import { ReceiptService } from '../services/ReceiptService';
@@ -14,11 +16,17 @@ import { BusinessSettingsService } from '../services/BusinessSettingsService';
 import { Product, OrderItem } from '../types';
 import { toast } from 'react-toastify';
 
+interface ProductCategory {
+  id: string;
+  name: string;
+}
+
 const POSSystem: React.FC = () => {
   const { currentUser } = useAuth();
   const { paymentSettings, loading: settingsLoading } = usePaymentSettings();
   const { addNotification } = useNotifications();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -27,11 +35,33 @@ const POSSystem: React.FC = () => {
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const categories = ['All', 'Beverages', 'Food', 'Snacks'];
-
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async (): Promise<void> => {
+    try {
+      if (!currentUser?.shopId) return;
+
+      const q = query(collection(db, getShopCollectionName('productCategories')), orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      const categoriesData: ProductCategory[] = [];
+      querySnapshot.forEach((doc) => {
+        categoriesData.push({
+          id: doc.id,
+          name: doc.data().name
+        });
+      });
+      setCategories(categoriesData);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+      // Don't show error toast for permission errors - rules need to be deployed
+      if (error.code !== 'permission-denied') {
+        toast.error('Failed to load categories');
+      }
+    }
+  };
 
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
@@ -50,7 +80,7 @@ const POSSystem: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, `shops/${currentUser.shopId}/products`), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('products')), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const productsData: Product[] = [];
       querySnapshot.forEach((doc) => {
@@ -139,7 +169,7 @@ const POSSystem: React.FC = () => {
   };
 
   const downloadReceipt = (orderData: any) => {
-    const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
+    const formatCurrency = (amount: number) => `KSH ${amount.toLocaleString()}`;
     const formatDate = (date: Date) => date.toLocaleString('en-US', {
       year: 'numeric',
       month: '2-digit',
@@ -235,7 +265,10 @@ const POSSystem: React.FC = () => {
       </head>
       <body>
         <div class="header">
-          <div class="shop-name">${currentUser?.shopName || 'Shop'}</div>
+          <div style="margin-bottom: 10px; text-align: center;">
+            <img src="/icons/central.png" alt="CENTRAL SHOP Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto;" />
+          </div>
+          <div class="shop-name">CENTRAL SHOP</div>
           <div class="order-info">
             Order: ${orderData.orderId}<br>
             Date: ${formatDate(orderData.timestamp)}<br>
@@ -323,9 +356,11 @@ const POSSystem: React.FC = () => {
       // Determine order status based on payment method
       let orderStatus = 'completed';
       if (paymentData.paymentMethod === 'debt') {
-        orderStatus = 'pending';
-      } else if (paymentData.paymentMethod === 'partial') {
-        orderStatus = 'partial';
+        if (paymentData.partialAmount) {
+          orderStatus = 'partial';
+        } else {
+          orderStatus = 'pending';
+        }
       }
 
       // Create order - filter out undefined values
@@ -342,6 +377,8 @@ const POSSystem: React.FC = () => {
         paymentMethod: paymentData.paymentMethod,
         createdAt: new Date(),
         employeeId: currentUser.uid,
+        employeeName: currentUser.name || 'Cashier',
+        ...(paymentData.customerId && { customerId: paymentData.customerId }),
         ...(paymentData.amountReceived && { amountReceived: paymentData.amountReceived }),
         ...(paymentData.change && { change: paymentData.change }),
         ...(paymentData.customerName && { customerName: paymentData.customerName }),
@@ -351,18 +388,104 @@ const POSSystem: React.FC = () => {
         ...(paymentData.debtAmount && { debtAmount: paymentData.debtAmount }),
         ...(paymentData.partialAmount && { partialAmount: paymentData.partialAmount }),
         ...(paymentData.remainingAmount && { remainingAmount: paymentData.remainingAmount }),
-        ...(paymentData.dueDate && { dueDate: paymentData.dueDate })
+        ...(paymentData.dueDate && { dueDate: paymentData.dueDate }),
+        // Track who issued debt/partial payment
+        ...((paymentData.paymentMethod === 'debt' || paymentData.paymentMethod === 'partial') && {
+          debtIssuedBy: currentUser.name || 'Cashier',
+          debtIssuedById: currentUser.uid
+        })
       };
 
-      // Save order to Firebase
-      await addDoc(collection(db, `shops/${currentUser.shopId}/orders`), orderData);
+      // Save order to Firebase - use shop-specific collection
+      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
+      const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser.shopId!);
+      await addDoc(collection(db, ordersCollectionName), orderData);
+
+      // If debt or partial payment, create invoice and save customer
+      let customerId: string | null = null;
+      if (paymentData.paymentMethod === 'debt' && paymentData.customerName && paymentData.customerPhone) {
+        try {
+          // Check if customer already exists by phone or use provided customerId
+          if (paymentData.customerId) {
+            customerId = paymentData.customerId;
+          } else {
+            const { getShopCollectionName } = await import('../config/shopConfig');
+            const customersRef = collection(db, getShopCollectionName('customers'));
+            const customerQuery = query(customersRef, where('phone', '==', paymentData.customerPhone));
+            const customerSnapshot = await getDocs(customerQuery);
+            
+            if (customerSnapshot.empty) {
+              // Create new customer
+              const newCustomer = {
+                name: paymentData.customerName,
+                phone: paymentData.customerPhone,
+                email: paymentData.customerEmail || '',
+                createdAt: Timestamp.now(),
+                totalPurchases: 0,
+                totalSpent: 0
+              };
+              const customerDocRef = await addDoc(customersRef, newCustomer);
+              customerId = customerDocRef.id;
+            } else {
+              // Use existing customer
+              customerId = customerSnapshot.docs[0].id;
+            }
+          }
+
+          // Create invoice
+          const invoiceNumber = `INV-${Date.now()}`;
+          const invoiceItems = cart.map(item => ({
+            description: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            total: item.price * item.quantity,
+            type: 'product'
+          }));
+
+          // Determine invoice total based on payment method
+          const invoiceTotal = paymentData.partialAmount 
+            ? (paymentData.remainingAmount || (total - (paymentData.partialAmount || 0)))
+            : total;
+
+          const invoiceData = {
+            invoiceNumber,
+            customerId: customerId,
+            items: invoiceItems,
+            subtotal: paymentData.partialAmount 
+              ? (invoiceTotal / 1.16) 
+              : subtotal,
+            tax: paymentData.partialAmount 
+              ? (invoiceTotal - (invoiceTotal / 1.16)) 
+              : tax,
+            total: invoiceTotal,
+            status: 'sent' as const,
+            dueDate: Timestamp.fromDate(new Date(paymentData.dueDate)),
+            shopId: currentUser.shopId,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+            issuedBy: currentUser.name || 'Cashier',
+            issuedById: currentUser.uid,
+            notes: paymentData.partialAmount 
+              ? `Auto-generated from POS checkout - Partial payment. Amount paid: KSH ${paymentData.partialAmount}, Remaining: KSH ${invoiceTotal}`
+              : `Auto-generated from POS checkout - Order debt`
+          };
+
+          await addDoc(collection(db, getShopCollectionName('invoices')), invoiceData);
+          
+          const paymentType = paymentData.partialAmount ? 'Partial payment' : 'Debt';
+          toast.success(`${paymentType} invoice ${invoiceNumber} created and customer saved!`);
+        } catch (error) {
+          console.error('Error creating invoice/customer:', error);
+          toast.error('Order created but failed to create invoice. Please create manually.');
+        }
+      }
 
       // Update product stock
       for (const item of cart) {
         const product = products.find(p => p.id === item.productId);
         if (product) {
           const newStock = product.stock - item.quantity;
-          await updateDoc(doc(db, `shops/${currentUser.shopId}/products`, item.productId), {
+          await updateDoc(doc(db, getShopCollectionName('products'), item.productId), {
             stock: newStock,
             updatedAt: new Date()
           });
@@ -413,7 +536,7 @@ const POSSystem: React.FC = () => {
       // Add notification for new order
       await addNotification({
         title: 'New Order Completed',
-        message: `Order ${receiptData.orderId} has been completed for KSH ${total.toFixed(2)}`,
+        message: `Order ${receiptData.orderId} has been completed for KSH ${total.toLocaleString()}`,
         type: 'success'
       });
 
@@ -477,43 +600,41 @@ const POSSystem: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Products Section */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Category Filter */}
-          <Card className="p-4">
-            <div className="flex space-x-2">
-              {categories.map(category => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                    selectedCategory === category
-                      ? 'bg-gradient-primary text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </Card>
+          {/* Category Dropdown and Search Bar */}
+          <Card className="p-4 relative z-50">
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Category Dropdown */}
+              <div className="w-full sm:w-48 flex-shrink-0 relative z-50">
+                <Dropdown
+                  value={selectedCategory}
+                  onChange={(value) => setSelectedCategory(value)}
+                  options={[
+                    { value: 'All', label: 'All Categories' },
+                    ...categories.map(cat => ({ value: cat.name, label: cat.name }))
+                  ]}
+                  placeholder="All Categories"
+                  className="w-full"
+                />
+              </div>
 
-          {/* Search Bar */}
-          <Card className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
-              />
+              {/* Search Bar */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
+                />
+              </div>
             </div>
           </Card>
 
           {/* Products Grid */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              {[...Array(10)].map((_, i) => (
                 <Card key={i} className="p-4">
                   <div className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse mb-4"></div>
                   <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
@@ -522,7 +643,7 @@ const POSSystem: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {filteredProducts.map(product => {
                 const isOutOfStock = product.stock <= 0;
                 return (
@@ -551,7 +672,7 @@ const POSSystem: React.FC = () => {
                       </div>
                       <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{product.name}</h3>
                       <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-[#4A90A4]">KSH {product.price}</span>
+                        <span className="text-lg font-bold text-[#4A90A4]">KSH {product.price.toLocaleString()}</span>
                         <span className={`text-sm ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
                           {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
                         </span>
@@ -578,7 +699,7 @@ const POSSystem: React.FC = () => {
                     <div key={item.productId} className="flex items-center justify-between">
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900 dark:text-white">{item.product.name}</h4>
-                        <p className="text-sm text-gray-500">KSH {item.price} each</p>
+                        <p className="text-sm text-gray-500">KSH {item.price.toLocaleString()} each</p>
                       </div>
                       
                       <div className="flex items-center space-x-2">
@@ -613,15 +734,15 @@ const POSSystem: React.FC = () => {
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>KSH {getTotal().toFixed(2)}</span>
+                    <span>KSH {getTotal().toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Tax (10%):</span>
-                    <span>KSH {getTax().toFixed(2)}</span>
+                    <span>KSH {getTax().toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg border-t border-gray-200 dark:border-gray-700 pt-2">
                     <span>Total:</span>
-                    <span>KSH {getFinalTotal().toFixed(2)}</span>
+                    <span>KSH {getFinalTotal().toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -640,7 +761,7 @@ const POSSystem: React.FC = () => {
                     className="w-full flex items-center justify-center"
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    Checkout - KSH {getFinalTotal().toFixed(2)}
+                    Checkout - KSH {getFinalTotal().toLocaleString()}
                   </Button>
                   <Button 
                     onClick={() => setIsClearCartModalOpen(true)} 

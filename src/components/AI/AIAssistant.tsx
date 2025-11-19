@@ -197,7 +197,7 @@ const AIAssistant: React.FC = () => {
       const updatedMessages = [...messages, message];
       
       // Analyze topic when first user message is added
-      let updateData: any = {
+      const updateData: any = {
         messages: updatedMessages,
         messageCount: updatedMessages.length,
         updatedAt: serverTimestamp()

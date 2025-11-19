@@ -1,3 +1,6 @@
+import { collection, query, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
+import { getShopCollectionName } from '../config/shopConfig';
 
         .map(([name, data]) => ({ name, ...data }))
   async getCustomerData(): Promise<CustomerData> {
@@ -272,7 +275,7 @@ export class DataService {
   // Get employee data
   async getEmployeeData(): Promise<EmployeeData> {
     try {
-      const q = query(collection(db, `shops/${this.shopId}/employees`));
+      const q = query(collection(db, getShopCollectionName('employees')));
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {

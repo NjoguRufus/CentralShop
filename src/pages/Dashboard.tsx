@@ -3,6 +3,7 @@ import { DollarSign, ShoppingCart, Users, Package, TrendingUp, AlertTriangle, Re
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 import StatsCard from '../components/Dashboard/StatsCard';
 import SalesChart from '../components/Dashboard/SalesChart';
 import Card from '../components/UI/Card';
@@ -57,6 +58,7 @@ const Dashboard: React.FC = () => {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [salesPeriod, setSalesPeriod] = useState<'today' | 'week' | 'month'>('week');
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState<boolean>(false);
   const [revenueRange, setRevenueRange] = useState<'yesterday' | 'week' | 'month' | 'year' | 'custom-day'>('yesterday');
   const [revenueSelectedDate, setRevenueSelectedDate] = useState<string>('');
@@ -182,32 +184,16 @@ const Dashboard: React.FC = () => {
       // Get date range based on filter
       const { start, end } = dateRange;
 
-      // Determine collection paths based on user type
-      let ordersPath = 'orders';
-      let customersPath = 'customers';
-      let productsPath = 'products';
+      const ordersPath = getShopCollectionName('orders');
+      const customersPath = getShopCollectionName('customers');
+      const productsPath = getShopCollectionName('products');
 
-      if (currentUser?.shopId && currentUser.role !== 'astraronix') {
-        ordersPath = `shops/${currentUser.shopId}/orders`;
-        customersPath = `shops/${currentUser.shopId}/customers`;
-        productsPath = `shops/${currentUser.shopId}/products`;
-      }
-
-      // Fetch orders for the selected period
-      const ordersQuery = query(
-        collection(db, ordersPath),
-        where('createdAt', '>=', start),
-        where('createdAt', '<', end)
-      );
-      const ordersSnapshot = await getDocs(ordersQuery);
-      
-      // Fetch customers (total count)
-      const customersQuery = query(collection(db, customersPath));
-      const customersSnapshot = await getDocs(customersQuery);
-      
-      // Fetch products (total count)
-      const productsQuery = query(collection(db, productsPath));
-      const productsSnapshot = await getDocs(productsQuery);
+      // Fetch all data in parallel
+      const [ordersSnapshot, customersSnapshot, productsSnapshot] = await Promise.all([
+        getDocs(query(collection(db, ordersPath), where('createdAt', '>=', start), where('createdAt', '<', end))),
+        getDocs(query(collection(db, customersPath))),
+        getDocs(query(collection(db, productsPath)))
+      ]);
 
       // Calculate stats for the selected period
       let totalRevenue = 0;
@@ -249,12 +235,9 @@ const Dashboard: React.FC = () => {
         comparisonEnd = new Date(start);
       }
       
-      const comparisonOrdersQuery = query(
-        collection(db, ordersPath),
-        where('createdAt', '>=', comparisonStart),
-        where('createdAt', '<', comparisonEnd)
+      const comparisonOrdersSnapshot = await getDocs(
+        query(collection(db, ordersPath), where('createdAt', '>=', comparisonStart), where('createdAt', '<', comparisonEnd))
       );
-      const comparisonOrdersSnapshot = await getDocs(comparisonOrdersQuery);
       
       let comparisonRevenue = 0;
       let comparisonOrders = 0;
@@ -284,36 +267,25 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  }, [dateRange, currentUser?.shopId]);
+  }, [dateRange, dateFilter, currentUser?.shopId]);
 
   const fetchTopProducts = useCallback(async (): Promise<void> => {
     try {
-      // Determine collection paths based on user type
-      let ordersPath = 'orders';
-      let productsPath = 'products';
-
-      if (currentUser?.shopId && currentUser.role !== 'astraronix') {
-        ordersPath = `shops/${currentUser.shopId}/orders`;
-        productsPath = `shops/${currentUser.shopId}/products`;
-      }
+      const ordersPath = getShopCollectionName('orders');
+      const productsPath = getShopCollectionName('products');
 
       // Get date range based on filter
       const { start, end } = dateRange;
 
-      // Get products for names
-      const productsQuery = query(collection(db, productsPath));
-      const productsSnapshot = await getDocs(productsQuery);
+      // Fetch products and orders in parallel
+      const [productsSnapshot, ordersSnapshot] = await Promise.all([
+        getDocs(query(collection(db, productsPath))),
+        getDocs(query(collection(db, ordersPath), where('createdAt', '>=', start), where('createdAt', '<', end)))
+      ]);
       
       const productStats: { [key: string]: { sales: number; revenue: number } } = {};
       
-      // Get orders for the selected period to calculate product sales
-      const ordersQuery = query(
-        collection(db, ordersPath),
-        where('createdAt', '>=', start),
-        where('createdAt', '<', end)
-      );
-      const ordersSnapshot = await getDocs(ordersQuery);
-      
+      // Process orders
       ordersSnapshot.forEach((doc) => {
         const order = doc.data();
         if (order.items) {
@@ -354,12 +326,8 @@ const Dashboard: React.FC = () => {
 
   const fetchLowStockItems = async (): Promise<void> => {
     try {
-      // Determine collection paths based on user type
-      let productsPath = 'products';
-
-      if (currentUser?.shopId && currentUser.role !== 'astraronix') {
-        productsPath = `shops/${currentUser.shopId}/products`;
-      }
+      // Use shop-prefixed collection name
+      const productsPath = getShopCollectionName('products');
 
       const productsQuery = query(collection(db, productsPath));
       const productsSnapshot = await getDocs(productsQuery);
@@ -386,53 +354,123 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const fetchSalesData = async (): Promise<void> => {
+  const fetchSalesData = async (period: 'today' | 'week' | 'month' = salesPeriod): Promise<void> => {
     try {
-      // Determine collection paths based on user type
-      let ordersPath = 'orders';
-
-      if (currentUser?.shopId && currentUser.role !== 'astraronix') {
-        ordersPath = `shops/${currentUser.shopId}/orders`;
-      }
-
-      // Get last 7 days of data including today
-      const salesDataList: SalesData[] = [];
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const ordersPath = getShopCollectionName('orders');
+      const now = new Date();
+      let startDate = new Date();
+      const endDate = new Date();
+      endDate.setHours(23, 59, 59, 999);
       
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        date.setHours(0, 0, 0, 0);
-        
-        const nextDate = new Date(date);
-        nextDate.setDate(nextDate.getDate() + 1);
-        
-        // Query orders for this day
+      let salesDataList: SalesData[] = [];
+      
+      if (period === 'today') {
+        startDate.setHours(0, 0, 0, 0);
         const ordersQuery = query(
           collection(db, ordersPath),
-          where('createdAt', '>=', date),
-          where('createdAt', '<', nextDate)
+          where('createdAt', '>=', startDate),
+          where('createdAt', '<=', endDate)
         );
         const ordersSnapshot = await getDocs(ordersQuery);
         
-        let daySales = 0;
-        let dayOrders = 0;
+        // Group by hour
+        const hourData: { [key: number]: { sales: number; orders: number } } = {};
+        for (let i = 0; i < 24; i++) {
+          hourData[i] = { sales: 0, orders: 0 };
+        }
         
         ordersSnapshot.forEach((doc) => {
           const order = doc.data();
-          daySales += order.total || 0;
-          dayOrders += 1;
+          const orderDate = order.createdAt?.toDate?.() || new Date(order.createdAt);
+          const hour = orderDate.getHours();
+          hourData[hour].sales += order.total || 0;
+          hourData[hour].orders += 1;
         });
         
-        // Mark today's data
-        const isToday = i === 0;
-        const dayName = isToday ? 'Today' : days[6 - i];
+        salesDataList = Object.keys(hourData).map(hour => ({
+          name: `${hour}:00`,
+          sales: hourData[parseInt(hour)].sales,
+          orders: hourData[parseInt(hour)].orders
+        }));
+      } else if (period === 'week') {
+        startDate.setDate(startDate.getDate() - 6);
+        startDate.setHours(0, 0, 0, 0);
         
-        salesDataList.push({
-          name: dayName,
-          sales: daySales,
-          orders: dayOrders
+        const ordersQuery = query(
+          collection(db, ordersPath),
+          where('createdAt', '>=', startDate),
+          where('createdAt', '<=', endDate)
+        );
+        const ordersSnapshot = await getDocs(ordersQuery);
+        
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const dayData: { [key: string]: { sales: number; orders: number } } = {};
+        
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          const dayKey = date.toISOString().split('T')[0];
+          dayData[dayKey] = { sales: 0, orders: 0 };
+        }
+        
+        ordersSnapshot.forEach((doc) => {
+          const order = doc.data();
+          const orderDate = order.createdAt?.toDate?.() || new Date(order.createdAt);
+          const dayKey = orderDate.toISOString().split('T')[0];
+          if (dayData[dayKey]) {
+            dayData[dayKey].sales += order.total || 0;
+            dayData[dayKey].orders += 1;
+          }
         });
+        
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          const dayKey = date.toISOString().split('T')[0];
+          const isToday = i === 0;
+          const dayName = isToday ? 'Today' : days[6 - i];
+          
+          salesDataList.push({
+            name: dayName,
+            sales: dayData[dayKey]?.sales || 0,
+            orders: dayData[dayKey]?.orders || 0
+          });
+        }
+      } else if (period === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
+        
+        const ordersQuery = query(
+          collection(db, ordersPath),
+          where('createdAt', '>=', startDate),
+          where('createdAt', '<=', endDate)
+        );
+        const ordersSnapshot = await getDocs(ordersQuery);
+        
+        const weekData: { [key: number]: { sales: number; orders: number } } = {};
+        const weeksInMonth = Math.ceil((now.getDate() + new Date(now.getFullYear(), now.getMonth(), 0).getDay()) / 7);
+        
+        for (let i = 0; i < weeksInMonth; i++) {
+          weekData[i] = { sales: 0, orders: 0 };
+        }
+        
+        ordersSnapshot.forEach((doc) => {
+          const order = doc.data();
+          const orderDate = order.createdAt?.toDate?.() || new Date(order.createdAt);
+          const weekOfMonth = Math.floor((orderDate.getDate() - 1) / 7);
+          if (weekData[weekOfMonth]) {
+            weekData[weekOfMonth].sales += order.total || 0;
+            weekData[weekOfMonth].orders += 1;
+          }
+        });
+        
+        salesDataList = Object.keys(weekData).map(week => ({
+          name: `Week ${parseInt(week) + 1}`,
+          sales: weekData[parseInt(week)].sales,
+          orders: weekData[parseInt(week)].orders
+        }));
       }
       
       setSalesData(salesDataList);
@@ -491,11 +529,7 @@ const Dashboard: React.FC = () => {
       setRevenueLoading(true);
       setRevenueResult(null);
 
-      // Determine collection path
-      let ordersPath = 'orders';
-      if (currentUser?.shopId && currentUser.role !== 'astraronix') {
-        ordersPath = `shops/${currentUser.shopId}/orders`;
-      }
+      const ordersPath = getShopCollectionName('orders');
 
       const { start, end } = computeDateRange(revenueRange, revenueSelectedDate);
       const qRef = query(
@@ -545,13 +579,12 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const computePeriodData = async () => {
       try {
+        // Use shop-specific expenses path (expenses are stored in shops/{shopId}/expenses)
         let expensesPath = 'expenses';
-        let ordersPath = 'orders';
-        
         if (currentUser?.shopId && currentUser.role !== 'astraronix') {
           expensesPath = `shops/${currentUser.shopId}/expenses`;
-          ordersPath = `shops/${currentUser.shopId}/orders`;
         }
+        const ordersPath = getShopCollectionName('orders');
         
         const { start, end } = getDateRange(dateFilter, customDate);
         
@@ -620,28 +653,28 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <Card className="p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by:</span>
+      <Card className="p-2 md:p-4">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
+          <div className="flex items-center space-x-1 md:space-x-2">
+            <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</span>
             {isFiltering && (
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 border-2 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-2 h-2 md:w-3 md:h-3 border-2 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-xs text-[#4A90A4]">Updating...</span>
               </div>
             )}
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-1 md:gap-2">
               {[
                 { value: 'today', label: 'Today' },
                 { value: 'yesterday', label: 'Yesterday' },
-                { value: 'week', label: 'Last 7 Days' },
-                { value: 'month', label: 'Last Month' },
-                { value: 'custom', label: 'Custom Date' }
+                { value: 'week', label: '7 Days' },
+                { value: 'month', label: 'Month' },
+                { value: 'custom', label: 'Custom' }
               ].map((option) => (
                 <button
                   key={option.value}
                   onClick={() => setDateFilter(option.value as any)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  className={`px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm rounded-lg transition-colors whitespace-nowrap ${
                     dateFilter === option.value
                       ? 'bg-[#4A90A4] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -654,14 +687,14 @@ const Dashboard: React.FC = () => {
           </div>
           
           {dateFilter === 'custom' && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 w-full md:w-auto">
               <DateInput 
                 value={customDate} 
                 onChange={setCustomDate}
                 placeholder="Select date"
               />
               {customDate && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-gray-500 dark:text-gray-400 hidden md:inline">
                   {formatSelectedDayInfo(customDate)}
                 </span>
               )}
@@ -672,88 +705,95 @@ const Dashboard: React.FC = () => {
 
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <Card className="p-6 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{`KSH ${stats.totalRevenue.toLocaleString()}`}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {dateFilter === 'today' ? 'Today' : 
-                 dateFilter === 'yesterday' ? 'Yesterday' :
-                 dateFilter === 'week' ? 'Last 7 days' :
-                 dateFilter === 'month' ? 'Last month' :
-                 'Custom period'}
-              </p>
+      <div className="space-y-4 md:space-y-6">
+        {/* First Row: Revenue, Expenses, Profit */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          <Card className="p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${stats.totalRevenue.toLocaleString()}`}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {dateFilter === 'today' ? 'Today' : 
+                   dateFilter === 'yesterday' ? 'Yesterday' :
+                   dateFilter === 'week' ? 'Last 7 days' :
+                   dateFilter === 'month' ? 'Last month' :
+                   'Custom period'}
+                </p>
+              </div>
+              <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-gradient-primary shrink-0">
+                <DollarSign className="w-5 h-5 md:w-8 md:h-8 text-white" />
+              </div>
             </div>
-            <div className="p-4 rounded-2xl bg-gradient-primary">
-              <DollarSign className="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Expenses Card */}
-        <Card className="p-6 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Expenses</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{`KSH ${expensesToday.toLocaleString()}`}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {dateFilter === 'today' ? 'Today' : 
-                 dateFilter === 'yesterday' ? 'Yesterday' :
-                 dateFilter === 'week' ? 'Last 7 days' :
-                 dateFilter === 'month' ? 'Last month' :
-                 'Custom period'}
-              </p>
+          {/* Expenses Card */}
+          <Card className="p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Expenses</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${expensesToday.toLocaleString()}`}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {dateFilter === 'today' ? 'Today' : 
+                   dateFilter === 'yesterday' ? 'Yesterday' :
+                   dateFilter === 'week' ? 'Last 7 days' :
+                   dateFilter === 'month' ? 'Last month' :
+                   'Custom period'}
+                </p>
+              </div>
+              <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-gradient-primary shrink-0">
+                <TrendingUp className="w-5 h-5 md:w-8 md:h-8 text-white" />
+              </div>
             </div>
-            <div className="p-4 rounded-2xl bg-gradient-primary">
-              <TrendingUp className="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Profit Card */}
-        <Card className="p-6 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Profit</p>
-              <p className={`text-3xl font-bold mt-2 ${profitToday >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {`KSH ${profitToday.toLocaleString()}`}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Revenue - Expenses
-              </p>
+          {/* Profit Card */}
+          <Card className="p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Profit</p>
+                <p className={`text-2xl md:text-3xl font-bold mt-1 md:mt-2 ${profitToday >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {`KSH ${profitToday.toLocaleString()}`}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Revenue - Expenses
+                </p>
+              </div>
+              <div className={`p-3 md:p-4 rounded-xl md:rounded-2xl shrink-0 ${profitToday >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                <DollarSign className="w-5 h-5 md:w-8 md:h-8 text-white" />
+              </div>
             </div>
-            <div className={`p-4 rounded-2xl ${profitToday >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
-              <DollarSign className="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </Card>
-        <StatsCard
-          title={dateFilter === 'today' ? 'Orders Today' : 
-                 dateFilter === 'yesterday' ? 'Orders Yesterday' :
-                 dateFilter === 'week' ? 'Orders (7 days)' :
-                 dateFilter === 'month' ? 'Orders (30 days)' :
-                 'Orders (Custom)'}
-          value={stats.ordersToday.toString()}
-          icon={ShoppingCart}
-          change={{ value: Math.abs(stats.ordersChange), trend: stats.ordersChange >= 0 ? 'up' : 'down' }}
-          color="green"
-        />
-        <StatsCard
-          title="Active Customers"
-          value={stats.activeCustomers.toLocaleString()}
-          icon={Users}
-          change={{ value: Math.abs(stats.customersChange), trend: stats.customersChange >= 0 ? 'up' : 'down' }}
-          color="purple"
-        />
-        <StatsCard
-          title="Products"
-          value={stats.totalProducts.toString()}
-          icon={Package}
-          change={{ value: Math.abs(stats.productsChange), trend: stats.productsChange >= 0 ? 'up' : 'down' }}
-          color="orange"
-        />
+          </Card>
+        </div>
+
+        {/* Second Row: Orders, Customers, Products - 3 columns on mobile */}
+        <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          <StatsCard
+            title={dateFilter === 'today' ? 'Orders Today' : 
+                   dateFilter === 'yesterday' ? 'Orders Yesterday' :
+                   dateFilter === 'week' ? 'Orders (7 days)' :
+                   dateFilter === 'month' ? 'Orders (30 days)' :
+                   'Orders (Custom)'}
+            value={stats.ordersToday.toString()}
+            icon={ShoppingCart}
+            change={{ value: Math.abs(stats.ordersChange), trend: stats.ordersChange >= 0 ? 'up' : 'down' }}
+            color="green"
+          />
+          <StatsCard
+            title="Active Customers"
+            value={stats.activeCustomers.toLocaleString()}
+            icon={Users}
+            change={{ value: Math.abs(stats.customersChange), trend: stats.customersChange >= 0 ? 'up' : 'down' }}
+            color="purple"
+          />
+          <StatsCard
+            title="Products"
+            value={stats.totalProducts.toString()}
+            icon={Package}
+            change={{ value: Math.abs(stats.productsChange), trend: stats.productsChange >= 0 ? 'up' : 'down' }}
+            color="orange"
+          />
+        </div>
       </div>
 
       {/* Revenue Modal */}
@@ -849,7 +889,10 @@ const Dashboard: React.FC = () => {
 
       {/* Charts and Tables Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SalesChart data={salesData} />
+        <SalesChart data={salesData} period={salesPeriod} onPeriodChange={(period) => {
+          setSalesPeriod(period);
+          fetchSalesData(period);
+        }} />
         
         {/* Top Products */}
         <Card className="p-6">

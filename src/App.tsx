@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -7,41 +7,79 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 // Removed AI assistants
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import Login from './pages/Login';
-import Setup from './pages/Setup';
-import DeveloperDashboard from './pages/DeveloperDashboard';
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleBasedRedirect from './components/RoleBasedRedirect';
-import Dashboard from './pages/Dashboard';
-import Inventory from './pages/Inventory';
-import POSSystem from './pages/POSSystem';
-import Customers from './pages/Customers';
-import Orders from './pages/Orders';
-import Invoicing from './pages/Invoicing';
-import Suppliers from './pages/Suppliers';
-import Expenses from './pages/Expenses';
-import StockReports from './pages/StockReports';
-import Employees from './pages/Employees';
-import Settings from './pages/Settings';
+import AppUpdatePrompt from './components/AppUpdatePrompt';
+import OfflineNotifier from './components/OfflineNotifier';
+import Updater from './components/Updater';
+import BarcodeListener from './components/BarcodeListener';
+import { initializeOfflineSync } from './offline';
+import { useOfflineSync } from './offline/useSync';
+import { registerPushNotifications } from './services/pushNotifications';
+
+// Lazy load heavy pages for better performance
+const Login = lazy(() => import('./pages/Login'));
+const Setup = lazy(() => import('./pages/Setup'));
+const DeveloperDashboard = lazy(() => import('./pages/DeveloperDashboard'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const POSSystem = lazy(() => import('./pages/POSSystem'));
+const Customers = lazy(() => import('./pages/Customers'));
+const Orders = lazy(() => import('./pages/Orders'));
+const Invoicing = lazy(() => import('./pages/Invoicing'));
+const Suppliers = lazy(() => import('./pages/Suppliers'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const StockReports = lazy(() => import('./pages/StockReports'));
+const Employees = lazy(() => import('./pages/Employees'));
+const Settings = lazy(() => import('./pages/Settings'));
+const ViewInvoice = lazy(() => import('./pages/ViewInvoice'));
+
+// Skeleton loader component
+const PageSkeleton: React.FC = () => (
+  <div className="min-h-screen bg-gray-100 dark:bg-black flex items-center justify-center">
+    <div className="w-16 h-16 border-4 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
 
 const AppContent: React.FC = () => {
   const { user, currentUser, loading } = useAuth();
   const { theme } = useTheme();
+  
+  // Initialize offline sync hook
+  useOfflineSync(5); // Sync every 5 minutes when online
+
+  useEffect(() => {
+    // Initialize offline sync
+    initializeOfflineSync().catch(console.error);
+    
+    // Register push notifications
+    if ('Notification' in window) {
+      registerPushNotifications().catch(console.error);
+    }
+  }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 dark:bg-black flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className={theme}>
+      <BarcodeListener 
+        onBarcode={(code) => {
+          // Handle barcode - can be integrated with POS system
+          console.log('Barcode scanned:', code);
+        }}
+        enabled={true}
+      />
+      <OfflineNotifier />
+      <AppUpdatePrompt />
+      <Updater />
       <Router>
         <Routes>
           <Route path="/setup" element={<Setup />} />
+          {/* Public invoice view route - format: /{customerName}/invoice */}
+          <Route path="/:customerName/invoice" element={<ViewInvoice />} />
           {!user ? (
             <Route path="*" element={<Login />} />
           ) : (
@@ -49,7 +87,9 @@ const AppContent: React.FC = () => {
               {/* Developer Dashboard - Only for astraronix role */}
               <Route path="/developer" element={
                 <ProtectedRoute requiredRole="astraronix">
+                  <Suspense fallback={<PageSkeleton />}>
                   <DeveloperDashboard />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               
@@ -58,57 +98,79 @@ const AppContent: React.FC = () => {
                 <Route index element={<RoleBasedRedirect />} />
                 <Route path="dashboard" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Dashboard />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="inventory" element={
                   <ProtectedRoute requiredRole="Stock Manager">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Inventory />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="pos" element={
                   <ProtectedRoute requiredRole="Cashier">
+                    <Suspense fallback={<PageSkeleton />}>
                     <POSSystem />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="customers" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Customers />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="orders" element={
                   <ProtectedRoute requiredRole="Cashier">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Orders />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="invoicing" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Invoicing />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="suppliers" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Suppliers />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="expenses" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Expenses />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="stock-reports" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <StockReports />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="employees" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Employees />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
                 <Route path="settings" element={
                   <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
                     <Settings />
+                    </Suspense>
                   </ProtectedRoute>
                 } />
               </Route>

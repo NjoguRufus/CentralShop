@@ -6,6 +6,7 @@ import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 import { useNotifications } from '../contexts/NotificationContext';
 import Card from '../components/UI/Card';
 import FormInput from '../components/UI/FormInput';
@@ -43,6 +44,10 @@ interface Order {
   mpesaCode?: string;
   category?: string;
   createdAt?: any;
+  employeeId?: string;
+  employeeName?: string;
+  debtIssuedBy?: string;
+  debtIssuedById?: string;
 }
 
 interface Customer {
@@ -56,13 +61,13 @@ const Orders: React.FC = () => {
   const { addNotification } = useNotifications();
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
@@ -78,6 +83,7 @@ const Orders: React.FC = () => {
   useEffect(() => {
     fetchOrders();
     fetchCustomers();
+    fetchProducts();
     fetchCategories();
   }, []);
 
@@ -91,11 +97,26 @@ const Orders: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, `shops/${currentUser.shopId}/orders`), orderBy('createdAt', 'desc'));
+      const ordersCollectionName = getShopCollectionName('orders');
+      const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
       const ordersData: Order[] = [];
-      querySnapshot.forEach((doc) => {
-        ordersData.push({ id: doc.id, ...doc.data() } as Order);
+      
+      querySnapshot.forEach((orderDoc) => {
+        const orderData = { id: orderDoc.id, ...orderDoc.data() } as Order;
+        
+        // Auto-determine category if not set
+        if (!orderData.category) {
+          const autoCategory = determineOrderCategory(orderData);
+          orderData.category = autoCategory;
+          
+          // Update order in database with auto-determined category
+          updateDoc(doc(db, ordersCollectionName, orderDoc.id), { category: autoCategory }).catch(err => {
+            console.error('Error updating order category:', err);
+          });
+        }
+        
+        ordersData.push(orderData);
       });
       setOrders(ordersData);
     } catch (error) {
@@ -113,7 +134,7 @@ const Orders: React.FC = () => {
         return;
       }
 
-      const querySnapshot = await getDocs(collection(db, `shops/${currentUser.shopId}/customers`));
+      const querySnapshot = await getDocs(collection(db, getShopCollectionName('customers')));
       const customersData: Customer[] = [];
       querySnapshot.forEach((doc) => {
         customersData.push({ id: doc.id, ...doc.data() } as Customer);
@@ -124,40 +145,60 @@ const Orders: React.FC = () => {
     }
   };
 
+  const fetchProducts = async (): Promise<void> => {
+    try {
+      if (!currentUser?.shopId) return;
+      const productsQuery = query(collection(db, getShopCollectionName('products')));
+      const productsSnapshot = await getDocs(productsQuery);
+      const productsData = productsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setProducts(productsData);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
   const fetchCategories = async (): Promise<void> => {
     try {
       if (!currentUser?.shopId) return;
-      const snap = await getDocs(collection(db, `shops/${currentUser.shopId}/orderCategories`));
+      // Fetch product categories
+      const snap = await getDocs(query(collection(db, getShopCollectionName('productCategories')), orderBy('name')));
       const list: string[] = [];
       snap.forEach(d => list.push((d.data() as any).name));
       setCategories(list);
     } catch (error) {
-      console.error('Error fetching order categories:', error);
+      console.error('Error fetching product categories:', error);
     }
   };
 
-  const addCategory = async (): Promise<void> => {
-    try {
-      if (!currentUser?.shopId || !newCategoryName.trim()) return;
-      await addDoc(collection(db, `shops/${currentUser.shopId}/orderCategories`), { name: newCategoryName.trim() });
-      setNewCategoryName('');
-      fetchCategories();
-      toast.success('Category added');
-    } catch (error) {
-      console.error('Error adding category:', error);
-      toast.error('Failed to add category');
+  // Auto-determine order category based on products
+  const determineOrderCategory = (order: Order): string => {
+    if (!order.items || order.items.length === 0) {
+      return 'multiple';
     }
-  };
 
-  const handleOrderCategoryUpdate = async (orderId: string, category: string): Promise<void> => {
-    try {
-      if (!currentUser?.shopId) return;
-      await updateDoc(doc(db, `shops/${currentUser.shopId}/orders`, orderId), { category });
-      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, category } : o)));
-    } catch (error) {
-      console.error('Error updating order category:', error);
-      toast.error('Failed to update category');
+    const productCategories: string[] = [];
+    
+    order.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      if (product && product.category) {
+        productCategories.push(product.category);
     }
+    });
+
+    if (productCategories.length === 0) {
+      return 'multiple';
+    }
+
+    // Check if all products have the same category
+    const uniqueCategories = [...new Set(productCategories)];
+    if (uniqueCategories.length === 1) {
+      return uniqueCategories[0];
+    }
+
+    return 'multiple';
   };
 
   const getCustomerName = (customerId: string): string => {
@@ -176,7 +217,9 @@ const Orders: React.FC = () => {
         return;
       }
       
-      await updateDoc(doc(db, `shops/${currentUser.shopId}/orders`, orderId), { status: newStatus });
+      // Use getShopCollectionName directly to ensure correct collection name
+      const ordersCollectionName = getShopCollectionName('orders');
+      await updateDoc(doc(db, ordersCollectionName, orderId), { status: newStatus });
       toast.success('Order status updated successfully');
       fetchOrders();
     } catch (error) {
@@ -192,7 +235,8 @@ const Orders: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     
     const matchesDate = !dateFilter || order.date === dateFilter;
-    const matchesCategory = categoryFilter === 'all' || (order.category || '').toLowerCase() === categoryFilter.toLowerCase();
+    const orderCategory = order.category || determineOrderCategory(order);
+    const matchesCategory = categoryFilter === 'all' || orderCategory.toLowerCase() === categoryFilter.toLowerCase();
     
     return matchesSearch && matchesStatus && matchesDate && matchesCategory;
   });
@@ -263,7 +307,9 @@ const Orders: React.FC = () => {
       setIsDeleting(true);
       
       // Delete the order
-      await deleteDoc(doc(db, `shops/${currentUser!.shopId}/orders`, orderToDelete.id!));
+      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
+      const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser!.shopId!);
+      await deleteDoc(doc(db, ordersCollectionName, orderToDelete.id!));
       
       // Add notification for order deletion
       await addNotification({
@@ -287,9 +333,15 @@ const Orders: React.FC = () => {
     }
   };
 
-  const downloadReceipt = (order: Order): void => {
-    const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
-    const formatDate = (date: string) => new Date(date).toLocaleString('en-US', {
+  const downloadReceipt = async (order: Order): Promise<void> => {
+    const formatCurrency = (amount: number) => `KSH ${amount.toLocaleString()}`;
+    
+    // Get order date
+    const orderDate = order.createdAt?.toDate 
+      ? order.createdAt.toDate() 
+      : (order.date ? new Date(order.date) : new Date());
+    
+    const formatDate = (date: Date) => date.toLocaleString('en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -307,16 +359,23 @@ const Orders: React.FC = () => {
           price: item.price
         }));
       } else if (order.items && order.items.length > 0) {
-        return order.items.map(item => ({
-          name: item.name || `Product ${item.productId}`,
+        return order.items.map(item => {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            name: product?.name || item.name || `Product ${item.productId}`,
           quantity: item.quantity,
           price: item.price
-        }));
+          };
+        });
       }
       return [];
     };
 
     const orderItems = getOrderItems();
+    
+    // Calculate subtotal and tax
+    const subtotal = order.subtotal || (order.total / 1.1);
+    const tax = order.tax || (order.total - subtotal);
 
     const receiptHTML = `
       <!DOCTYPE html>
@@ -404,10 +463,13 @@ const Orders: React.FC = () => {
       </head>
       <body>
         <div class="header">
-          <div class="shop-name">${currentUser?.shopName || 'Shop'}</div>
+          <div style="margin-bottom: 10px; text-align: center;">
+            <img src="/icons/central.png" alt="CENTRAL SHOP Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto;" />
+          </div>
+          <div class="shop-name">CENTRAL SHOP</div>
           <div class="order-info">
-            Order: ${order.id}<br>
-            Date: ${formatDate(order.date)}<br>
+            Order: ${order.id || 'N/A'}<br>
+            Date: ${formatDate(orderDate)}<br>
             Status: ${order.status.toUpperCase()}
           </div>
         </div>
@@ -425,11 +487,11 @@ const Orders: React.FC = () => {
         <div class="totals">
           <div class="total-line">
             <span>Subtotal:</span>
-            <span>${formatCurrency(order.total / 1.1)}</span>
+            <span>${formatCurrency(subtotal)}</span>
           </div>
           <div class="total-line">
-            <span>Tax (10%):</span>
-            <span>${formatCurrency(order.total - (order.total / 1.1))}</span>
+            <span>Tax (${order.tax ? ((order.tax / subtotal) * 100).toFixed(0) : '10'}%):</span>
+            <span>${formatCurrency(tax)}</span>
           </div>
           <div class="total-line total-final">
             <span>TOTAL:</span>
@@ -460,13 +522,93 @@ const Orders: React.FC = () => {
       </html>
     `;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(receiptHTML);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
+    // Convert HTML to PDF and download
+    try {
+      toast.info('Generating PDF...');
+      const { default: html2pdf } = await import('html2pdf.js');
+      
+      // Create iframe for proper rendering (hidden but with proper dimensions)
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '80mm'; // Receipt width
+      iframe.style.height = '400mm'; // Enough height for receipt
+      iframe.style.border = 'none';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error('Could not access iframe document');
+      }
+
+      iframeDoc.open();
+      iframeDoc.write(receiptHTML);
+      iframeDoc.close();
+
+      // Wait for images to load
+      await new Promise<void>((resolve) => {
+        const images = iframeDoc.getElementsByTagName('img');
+        let loadedCount = 0;
+        const totalImages = images.length;
+
+        if (totalImages === 0) {
+          resolve();
+          return;
+        }
+
+        const checkComplete = () => {
+          loadedCount++;
+          if (loadedCount === totalImages) {
+            setTimeout(resolve, 500);
+          }
+        };
+
+        Array.from(images).forEach((img) => {
+          if (img.complete) {
+            checkComplete();
+          } else {
+            img.onload = checkComplete;
+            img.onerror = checkComplete;
+          }
+        });
+      });
+
+      const element = iframeDoc.body;
+
+      const opt = {
+        margin: [5, 5, 5, 5],
+        filename: `Receipt-${order.id || 'Order'}-${new Date().getTime()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true,
+          logging: false,
+          windowWidth: element.scrollWidth,
+          windowHeight: element.scrollHeight
+        },
+        jsPDF: { unit: 'mm', format: [80, 200], orientation: 'portrait' } // Receipt format
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      document.body.removeChild(iframe);
+      toast.success('Receipt downloaded as PDF');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      // Fallback to HTML download
+      const blob = new Blob([receiptHTML], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Receipt-${order.id || 'Order'}-${new Date().getTime()}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Receipt downloaded successfully');
     }
   };
 
@@ -513,26 +655,16 @@ const Orders: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
             <DateInput value={dateFilter} onChange={setDateFilter} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
             <Select
               value={categoryFilter}
               onChange={setCategoryFilter}
-              options={[{ value: 'all', label: 'All Categories' }, ...categories.map(c => ({ value: c, label: c }))]}
-            />
-            <div className="flex">
-              <input
-                type="text"
-                placeholder="Add category"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                className="flex-1 rounded-l-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-3"
-              />
-              <button
-                onClick={addCategory}
-                className="px-3 rounded-r-lg bg-[#4A90A4] text-white"
-              >Add</button>
-            </div>
-          </div>
+            options={[
+              { value: 'all', label: 'All Categories' }, 
+              ...categories.map(c => ({ value: c, label: c })),
+              { value: 'multiple', label: 'Multiple' }
+            ]}
+            placeholder="Filter by category"
+          />
         </div>
 
         {loading ? (
@@ -555,18 +687,26 @@ const Orders: React.FC = () => {
                   return d ? d.toLocaleDateString() : (row.date || '-');
                 }
               },
-              { header: 'Total', accessor: 'total', render: (row: Order) => `KSH ${row.total.toFixed(2)}` },
-              { header: 'Category', accessor: 'category', render: (row: Order) => (
-                  canEditOrders ? (
-                    <Select
-                      value={row.category || ''}
-                      onChange={(v) => handleOrderCategoryUpdate(row.id!, v)}
-                      options={[{ value: '', label: 'None' }, ...categories.map(c => ({ value: c, label: c }))]}
-                    />
-                  ) : (
-                    <span>{row.category || '-'}</span>
-                  )
-                )
+              { header: 'Total', accessor: 'total', render: (row: Order) => `KSH ${row.total.toLocaleString()}` },
+              { header: 'Category', accessor: 'category', render: (row: Order) => {
+                  const category = row.category || determineOrderCategory(row);
+                  return <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{category}</span>;
+                }
+              },
+              { 
+                header: 'Sold By', 
+                accessor: 'employeeName',
+                render: (row: Order) => row.employeeName || 'N/A'
+              },
+              { 
+                header: 'Debt Issued By', 
+                accessor: 'debtIssuedBy',
+                render: (row: Order) => {
+                  if (row.paymentMethod === 'debt' || row.paymentMethod === 'partial') {
+                    return row.debtIssuedBy || row.employeeName || 'N/A';
+                  }
+                  return '-';
+                }
               },
               { 
                 header: 'Status', 
@@ -659,6 +799,16 @@ const Orders: React.FC = () => {
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">Payment Method</h3>
                 <p className="text-gray-900 dark:text-white">{selectedOrder.paymentMethod || 'Credit Card'}</p>
               </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Sold By</h3>
+                <p className="text-gray-900 dark:text-white">{selectedOrder.employeeName || 'N/A'}</p>
+              </div>
+              {(selectedOrder.paymentMethod === 'debt' || selectedOrder.paymentMethod === 'partial') && (
+                <div>
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300">Debt Issued By</h3>
+                  <p className="text-gray-900 dark:text-white">{selectedOrder.debtIssuedBy || selectedOrder.employeeName || 'N/A'}</p>
+                </div>
+              )}
             </div>
             
             <div>
@@ -668,6 +818,7 @@ const Orders: React.FC = () => {
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Product</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Category</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Quantity</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Price</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Total</th>
@@ -675,7 +826,7 @@ const Orders: React.FC = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                     {(() => {
-                      const getOrderItems = (): Array<{name: string, quantity: number, price: number}> => {
+                      const getOrderItems = (): Array<{name: string, quantity: number, price: number, category?: string}> => {
                         if (selectedOrder.products && selectedOrder.products.length > 0) {
                           return selectedOrder.products.map(item => ({
                             name: item.name,
@@ -683,11 +834,15 @@ const Orders: React.FC = () => {
                             price: item.price
                           }));
                         } else if (selectedOrder.items && selectedOrder.items.length > 0) {
-                          return selectedOrder.items.map(item => ({
-                            name: item.name || `Product ${item.productId}`,
+                          return selectedOrder.items.map(item => {
+                            const product = products.find(p => p.id === item.productId);
+                            return {
+                              name: product?.name || item.name || `Product ${item.productId}`,
                             quantity: item.quantity,
-                            price: item.price
-                          }));
+                              price: item.price,
+                              category: product?.category
+                            };
+                          });
                         }
                         return [];
                       };
@@ -696,22 +851,31 @@ const Orders: React.FC = () => {
                       
                       return orderItems.length > 0 ? orderItems.map((product, index) => (
                         <tr key={index}>
-                          <td className="px-4 py-2 text-gray-900 dark:text-white">{product.name}</td>
+                          <td className="px-4 py-2 text-gray-900 dark:text-white font-medium">{product.name}</td>
+                          <td className="px-4 py-2">
+                            {product.category ? (
+                              <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                {product.category}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
                           <td className="px-4 py-2 text-gray-900 dark:text-white">{product.quantity}</td>
-                          <td className="px-4 py-2 text-gray-900 dark:text-white">KSH {product.price.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-gray-900 dark:text-white">KSH {(product.quantity * product.price).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-gray-900 dark:text-white">KSH {product.price.toLocaleString()}</td>
+                          <td className="px-4 py-2 text-gray-900 dark:text-white font-semibold">KSH {(product.quantity * product.price).toLocaleString()}</td>
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={4} className="px-4 py-2 text-center text-gray-500 dark:text-gray-400">No items found</td>
+                          <td colSpan={5} className="px-4 py-2 text-center text-gray-500 dark:text-gray-400">No items found</td>
                         </tr>
                       );
                     })()}
                   </tbody>
                   <tfoot className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <td colSpan={3} className="px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total:</td>
-                      <td className="px-4 py-2 font-semibold text-gray-900 dark:text-white">KSH {selectedOrder.total.toFixed(2)}</td>
+                      <td colSpan={4} className="px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total:</td>
+                      <td className="px-4 py-2 font-semibold text-gray-900 dark:text-white">KSH {selectedOrder.total.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>

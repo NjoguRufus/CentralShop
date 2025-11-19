@@ -147,7 +147,9 @@ const Expenses: React.FC = () => {
   const fetchRevenueTotal = async () => {
     if (!currentUser?.shopId) return;
     try {
-      const q = query(collection(db, `shops/${currentUser.shopId}/orders`));
+      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
+      const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser.shopId);
+      const q = query(collection(db, ordersCollectionName));
       const snapshot = await getDocs(q);
       let sum = 0;
       snapshot.forEach(doc => {
@@ -372,7 +374,8 @@ const Expenses: React.FC = () => {
       setNetLoading(true);
       setNetResult(null);
 
-      const ordersPath = `shops/${currentUser.shopId}/orders`;
+      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
+      const ordersPath = await getShopOrdersCollectionNameCached(currentUser.shopId);
       const expensesPath = `shops/${currentUser.shopId}/expenses`;
       const { start, end } = computeDateRange(netRange, netSelectedDate);
 
@@ -459,19 +462,19 @@ const Expenses: React.FC = () => {
               <Card>
                 <div className="p-4">
                   <h4 className="text-sm text-gray-600">Revenue</h4>
-                  <p className="text-2xl font-semibold">KSH {netResult.revenue.toFixed(2)}</p>
+                  <p className="text-2xl font-semibold">KSH {netResult.revenue.toLocaleString()}</p>
                 </div>
               </Card>
               <Card>
                 <div className="p-4">
                   <h4 className="text-sm text-gray-600">Expenses</h4>
-                  <p className="text-2xl font-semibold">KSH {netResult.expenses.toFixed(2)}</p>
+                  <p className="text-2xl font-semibold">KSH {netResult.expenses.toLocaleString()}</p>
                 </div>
               </Card>
               <Card>
                 <div className="p-4">
                   <h4 className="text-sm text-gray-600">Net</h4>
-                  <p className="text-2xl font-bold">KSH {netResult.net.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">KSH {netResult.net.toLocaleString()}</p>
                 </div>
               </Card>
             </div>
@@ -495,25 +498,25 @@ const Expenses: React.FC = () => {
         <Card>
           <div className="p-6">
             <h3 className="text-lg font-medium text-gray-900">Total Expenses</h3>
-            <p className="text-3xl font-bold text-primary">KSH {totalExpenses.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-primary">KSH {totalExpenses.toLocaleString()}</p>
           </div>
         </Card>
         <Card>
           <div className="p-6">
             <h3 className="text-lg font-medium text-gray-900">Pending Approval</h3>
-            <p className="text-3xl font-bold text-yellow-600">KSH {pendingExpenses.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-yellow-600">KSH {pendingExpenses.toLocaleString()}</p>
           </div>
         </Card>
         <Card>
           <div className="p-6">
             <h3 className="text-lg font-medium text-gray-900">Approved</h3>
-            <p className="text-3xl font-bold text-green-600">KSH {approvedExpenses.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-green-600">KSH {approvedExpenses.toLocaleString()}</p>
           </div>
         </Card>
         <Card>
           <div className="p-6">
             <h3 className="text-lg font-medium text-gray-900">Revenue - Expenses</h3>
-            <p className="text-3xl font-bold text-gray-900">KSH {(totalRevenue - totalExpenses).toFixed(2)}</p>
+            <p className="text-3xl font-bold text-gray-900">KSH {(totalRevenue - totalExpenses).toLocaleString()}</p>
           </div>
         </Card>
       </div>
@@ -530,7 +533,7 @@ const Expenses: React.FC = () => {
               ></div>
               {expense.category.name}
             </span>,
-            `KSH ${expense.amount.toFixed(2)}`,
+            `KSH ${expense.amount.toLocaleString()}`,
             expense.date.toLocaleDateString(),
             <span className={`px-2 py-1 rounded-full text-xs ${getPaymentMethodColor(expense.paymentMethod)} badge-text-dark`}>
               {expense.paymentMethod.replace('_', ' ').toUpperCase()}

@@ -176,7 +176,10 @@ export class ReceiptService {
       <body>
         <div class="receipt">
           <div class="header">
-            <div class="business-name">${receiptData.businessName}</div>
+            <div style="margin-bottom: 10px; text-align: center;">
+              <img src="/icons/central.png" alt="Central Shop Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto; display: block;" onerror="this.style.display='none'" />
+            </div>
+            <div class="business-name">CENTRAL SHOP</div>
             <div class="business-info">
               ${receiptData.businessAddress}<br>
               ${receiptData.businessPhone}
@@ -254,7 +257,7 @@ export class ReceiptService {
       // Add business info to receipt data
       const fullReceiptData = {
         ...receiptData,
-        businessName: businessInfo.name,
+        businessName: 'CENTRAL SHOP', // Always use CENTRAL SHOP
         businessAddress: businessInfo.address,
         businessPhone: businessInfo.phone
       };
@@ -448,7 +451,7 @@ export class ReceiptService {
     try {
       const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
       
-      let txtContent = `${receiptData.businessName}\n`;
+      let txtContent = `CENTRAL SHOP\n`;
       txtContent += `${receiptData.businessAddress}\n`;
       txtContent += `${receiptData.businessPhone}\n`;
       txtContent += `${'='.repeat(30)}\n\n`;

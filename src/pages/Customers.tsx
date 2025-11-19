@@ -1,31 +1,57 @@
 // src/pages/Customers.tsx
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 import Card from '../components/UI/Card';
 import Table from '../components/UI/Table';
 import Modal from '../components/Modal';
 import FormInput from '../components/UI/FormInput';
 import Button from '../components/UI/Button';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
+import { ShoppingBag, DollarSign, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface Customer {
   id?: string;
   name: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   loyaltyPoints: number;
   avatar?: string;
+  totalPurchases?: number;
+  totalSpent?: number;
+  orderCount?: number;
+}
+
+interface Order {
+  id: string;
+  customerId?: string;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    price: number;
+    name?: string;
+  }>;
+  total: number;
+  subtotal: number;
+  tax: number;
+  status: string;
+  createdAt: any;
+  paymentMethod?: string;
 }
 
 const Customers: React.FC = () => {
   const { currentUser } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [showPurchaseHistoryModal, setShowPurchaseHistoryModal] = useState<boolean>(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
@@ -39,7 +65,26 @@ const Customers: React.FC = () => {
 
   useEffect(() => {
     fetchCustomers();
+    fetchOrders();
   }, []);
+
+  const fetchOrders = async (): Promise<void> => {
+    try {
+      if (!currentUser?.shopId) return;
+
+      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
+      const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser.shopId);
+      const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const ordersData: Order[] = [];
+      querySnapshot.forEach((doc) => {
+        ordersData.push({ id: doc.id, ...doc.data() } as Order);
+      });
+      setOrders(ordersData);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    }
+  };
 
   const fetchCustomers = async (): Promise<void> => {
     try {
@@ -51,13 +96,28 @@ const Customers: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, `shops/${currentUser.shopId}/customers`), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('customers')), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const customersData: Customer[] = [];
       querySnapshot.forEach((doc) => {
         customersData.push({ id: doc.id, ...doc.data() } as Customer);
       });
-      setCustomers(customersData);
+
+      // Calculate purchase statistics for each customer
+      const customersWithStats = customersData.map(customer => {
+        const customerOrdersList = orders.filter(order => order.customerId === customer.id);
+        const totalSpent = customerOrdersList.reduce((sum, order) => sum + (order.total || 0), 0);
+        const orderCount = customerOrdersList.length;
+        
+        return {
+          ...customer,
+          totalPurchases: orderCount,
+          totalSpent,
+          orderCount
+        };
+      });
+
+      setCustomers(customersWithStats);
     } catch (error) {
       toast.error('Failed to fetch customers');
       console.error('Error fetching customers:', error);
@@ -66,13 +126,20 @@ const Customers: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (orders.length > 0) {
+      fetchCustomers();
+    }
+  }, [orders.length]);
+
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value);
   };
 
   const filteredCustomers = customers.filter(customer => 
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+    customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -85,10 +152,10 @@ const Customers: React.FC = () => {
     
     try {
       if (editingCustomer && editingCustomer.id) {
-        await updateDoc(doc(db, `shops/${currentUser.shopId}/customers`, editingCustomer.id), formData);
+        await updateDoc(doc(db, getShopCollectionName('customers'), editingCustomer.id), formData);
         toast.success('Customer updated successfully');
       } else {
-        await addDoc(collection(db, `shops/${currentUser.shopId}/customers`), formData);
+        await addDoc(collection(db, getShopCollectionName('customers')), formData);
         toast.success('Customer added successfully');
       }
       setIsModalOpen(false);
@@ -113,7 +180,7 @@ const Customers: React.FC = () => {
     }
 
     try {
-      await deleteDoc(doc(db, `shops/${currentUser.shopId}/customers`, customerToDelete));
+      await deleteDoc(doc(db, getShopCollectionName('customers'), customerToDelete));
       toast.success('Customer deleted successfully');
       fetchCustomers();
       setShowDeleteModal(false);
@@ -128,12 +195,19 @@ const Customers: React.FC = () => {
     setEditingCustomer(customer);
     setFormData({
       name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
+      email: customer.email || '',
+      phone: customer.phone || '',
       loyaltyPoints: customer.loyaltyPoints,
       avatar: customer.avatar || ''
     });
     setIsModalOpen(true);
+  };
+
+  const handleViewPurchaseHistory = (customer: Customer): void => {
+    setSelectedCustomer(customer);
+    const customerOrdersList = orders.filter(order => order.customerId === customer.id);
+    setCustomerOrders(customerOrdersList);
+    setShowPurchaseHistoryModal(true);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -170,11 +244,34 @@ const Customers: React.FC = () => {
     }));
   };
 
+  const totalCustomers = customers.length;
+  const totalRevenue = customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
+  const totalOrders = customers.reduce((sum, c) => sum + (c.orderCount || 0), 0);
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Customers</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
+          <p className="text-gray-600 dark:text-gray-300">Manage customers and view their purchase history</p>
+        </div>
         <Button onClick={() => setIsModalOpen(true)}>Add Customer</Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="p-6">
+          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</h3>
+          <p className="text-3xl font-bold text-[#4A90A4] mt-2">{totalCustomers}</p>
+        </Card>
+        <Card className="p-6">
+          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</h3>
+          <p className="text-3xl font-bold text-green-600 mt-2">KSH {totalRevenue.toLocaleString()}</p>
+        </Card>
+        <Card className="p-6">
+          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Orders</h3>
+          <p className="text-3xl font-bold text-blue-600 mt-2">{totalOrders}</p>
+        </Card>
       </div>
 
       <Card className="p-6">
@@ -201,12 +298,39 @@ const Customers: React.FC = () => {
               { header: 'Name', accessor: 'name' },
               { header: 'Email', accessor: 'email' },
               { header: 'Phone', accessor: 'phone' },
+              { 
+                header: 'Orders', 
+                accessor: 'totalPurchases',
+                render: (row: Customer) => (
+                  <div className="flex items-center space-x-2">
+                    <ShoppingBag className="w-4 h-4 text-gray-500" />
+                    <span>{row.totalPurchases || 0}</span>
+                  </div>
+                )
+              },
+              { 
+                header: 'Total Spent', 
+                accessor: 'totalSpent',
+                render: (row: Customer) => (
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="w-4 h-4 text-green-600" />
+                    <span className="font-semibold text-green-600">KSH {(row.totalSpent || 0).toLocaleString()}</span>
+                  </div>
+                )
+              },
               { header: 'Loyalty Points', accessor: 'loyaltyPoints' },
               {
                 header: 'Actions',
                 accessor: 'actions',
                 render: (row: Customer) => (
                   <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleViewPurchaseHistory(row)}
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      title="View Purchase History"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleEdit(row)}
                       className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
@@ -227,6 +351,74 @@ const Customers: React.FC = () => {
           />
         )}
       </Card>
+
+      {/* Purchase History Modal */}
+      <Modal open={showPurchaseHistoryModal} onClose={() => setShowPurchaseHistoryModal(false)} title={`Purchase History - ${selectedCustomer?.name}`} size="lg">
+        <div className="p-6">
+          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Orders</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{customerOrders.length}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Spent</p>
+                <p className="text-2xl font-bold text-green-600">
+                  KSH {customerOrders.reduce((sum, order) => sum + (order.total || 0), 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {customerOrders.length > 0 ? (
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {customerOrders.map((order) => (
+                <Card key={order.id} className="p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">Order #{order.id?.substring(0, 8)}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {order.createdAt?.toDate ? new Date(order.createdAt.toDate()).toLocaleString() : 'Date not available'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">KSH {order.total?.toLocaleString() || '0'}</p>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        order.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Items:</p>
+                    <div className="space-y-1">
+                      {order.items?.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                          <span>{item.name || `Product ${item.productId}`} x {item.quantity}</span>
+                          <span>KSH {(item.quantity * item.price).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {order.paymentMethod && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Payment: {order.paymentMethod}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <ShoppingBag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">No purchase history found for this customer</p>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         open={isModalOpen}
@@ -263,7 +455,6 @@ const Customers: React.FC = () => {
             type="email"
             value={formData.email}
             onChange={handleInputChange}
-            required
           />
           <FormInput
             label="Phone"
@@ -271,7 +462,6 @@ const Customers: React.FC = () => {
             type="tel"
             value={formData.phone}
             onChange={handleInputChange}
-            required
           />
           <FormInput
             label="Loyalty Points"

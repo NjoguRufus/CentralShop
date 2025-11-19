@@ -7,34 +7,50 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
     "preview": "vite preview",
-    "server": "node server/index.js"
+    "server": "node server/index.js",
+    "electron:dev": "concurrently \"npm:dev\" \"wait-on http://localhost:5173 && electron electron/main.js\"",
+    "electron": "electron electron/main.js",
+    "electron:build": "npm run build && electron-builder --win --x64",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.57.4",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
+    "dexie": "^4.2.1",
     "dotenv": "^17.2.2",
+    "escpos-usb": "^3.0.0-alpha.4",
     "express": "^4.19.2",
     "firebase": "^12.2.1",
     "framer-motion": "^12.23.12",
+    "html2pdf.js": "^0.12.1",
     "lucide-react": "^0.344.0",
     "node-fetch": "^3.3.2",
+    "node-thermal-printer": "^4.5.0",
     "openai": "^5.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.9.0",
     "react-toastify": "^11.0.5",
-    "recharts": "^3.2.0"
+    "recharts": "^3.2.0",
+    "workbox-window": "^7.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@types/electron": "^1.4.38",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.2",
+    "electron-builder": "^26.0.12",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.6.2",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
@@ -43,6 +59,38 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "vite-plugin-pwa": "^1.1.0",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.centralshop.pos",
+    "productName": "Central Shop POS",
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "electron/**/*"
+    ],
+    "directories": {
+      "buildResources": "electron/icons"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "electron/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "<GITHUB_OWNER_PLACEHOLDER>",
+        "repo": "<GITHUB_REPO_PLACEHOLDER>"
+      }
+    ]
   }
 }

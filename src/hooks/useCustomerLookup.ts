@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 
 interface Customer {
   id: string;
@@ -35,7 +36,7 @@ export const useCustomerLookup = () => {
       
       // Query customers by phone number
       const q = query(
-        collection(db, `shops/${currentUser.shopId}/customers`),
+        collection(db, getShopCollectionName('customers')),
         where('phone', '==', cleanPhone)
       );
       

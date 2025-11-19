@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 
 interface ChatMessage {
   id: string;
@@ -206,7 +207,7 @@ export const AIAssistantProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Sales query executor
   const executeSalesQuery = async (message: string): Promise<QueryResult> => {
-    const ordersRef = collection(db, `shops/${currentUser.shopId}/orders`);
+    const ordersRef = collection(db, getShopCollectionName('orders'));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -299,7 +300,7 @@ export const AIAssistantProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Inventory query executor
   const executeInventoryQuery = async (message: string): Promise<QueryResult> => {
-    const productsRef = collection(db, `shops/${currentUser.shopId}/products`);
+    const productsRef = collection(db, getShopCollectionName('products'));
     const productsSnapshot = await getDocs(productsRef);
     const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
@@ -307,7 +308,7 @@ export const AIAssistantProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const lowStockItems = products.filter(p => p.stock < 10);
     
     // Get top selling products (this would need order data)
-    const ordersRef = collection(db, `shops/${currentUser.shopId}/orders`);
+    const ordersRef = collection(db, getShopCollectionName('orders'));
     const ordersSnapshot = await getDocs(ordersRef);
     
     const productSales: { [key: string]: { quantity: number, revenue: number, name: string } } = {};
@@ -394,12 +395,12 @@ export const AIAssistantProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Customers query executor
   const executeCustomersQuery = async (message: string): Promise<QueryResult> => {
-    const customersRef = collection(db, `shops/${currentUser.shopId}/customers`);
+    const customersRef = collection(db, getShopCollectionName('customers'));
     const customersSnapshot = await getDocs(customersRef);
     const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     // Get orders to calculate customer visits
-    const ordersRef = collection(db, `shops/${currentUser.shopId}/orders`);
+    const ordersRef = collection(db, getShopCollectionName('orders'));
     const ordersSnapshot = await getDocs(ordersRef);
     
     const customerVisits: { [key: string]: { count: number, total: number, name: string } } = {};
@@ -495,12 +496,12 @@ export const AIAssistantProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Employees query executor
   const executeEmployeesQuery = async (message: string): Promise<QueryResult> => {
-    const employeesRef = collection(db, `shops/${currentUser.shopId}/employees`);
+    const employeesRef = collection(db, getShopCollectionName('employees'));
     const employeesSnapshot = await getDocs(employeesRef);
     const employees = employeesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     // Get orders for performance data
-    const ordersRef = collection(db, `shops/${currentUser.shopId}/orders`);
+    const ordersRef = collection(db, getShopCollectionName('orders'));
     const ordersSnapshot = await getDocs(ordersRef);
     
     const employeePerformance: { [key: string]: { sales: number, orders: number, name: string } } = {};

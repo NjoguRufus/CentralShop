@@ -1,15 +1,16 @@
 import { collection, doc, getDoc, getDocs, query, where, orderBy, limit as qLimit, Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { getShopCollectionName } from '../config/shopConfig';
 
 // Types kept minimal to avoid coupling; consumers can refine as needed
 
 export async function getLowStockProducts(shopId: string, threshold: number) {
-  const snap = await getDocs(query(collection(db, `shops/${shopId}/products`), where('stock', '<=', threshold)));
+  const snap = await getDocs(query(collection(db, getShopCollectionName('products')), where('stock', '<=', threshold)));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export async function getProductDetails(shopId: string, productId: string) {
-  const ref = doc(db, `shops/${shopId}/products/${productId}`);
+  const ref = doc(db, getShopCollectionName('products'), productId);
   const d = await getDoc(ref);
   return d.exists() ? { id: d.id, ...d.data() } : null;
 }
@@ -20,7 +21,7 @@ export async function getSalesByDate(shopId: string, date: Date) {
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
   const snap = await getDocs(query(
-    collection(db, `shops/${shopId}/orders`),
+    collection(db, getShopCollectionName('orders')),
     where('createdAt', '>=', start),
     where('createdAt', '<', end)
   ));
@@ -36,13 +37,13 @@ export async function getSalesByCashier(shopId: string, cashierId: string, date?
     end.setDate(end.getDate() + 1);
     constraints.push(where('createdAt', '>=', start), where('createdAt', '<', end));
   }
-  const snap = await getDocs(query(collection(db, `shops/${shopId}/orders`), ...constraints));
+  const snap = await getDocs(query(collection(db, getShopCollectionName('orders')), ...constraints));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export async function getTopSellingProducts(shopId: string, topN: number) {
   // Simple approach: fetch recent orders and aggregate client-side
-  const snap = await getDocs(query(collection(db, `shops/${shopId}/orders`), orderBy('createdAt', 'desc'), qLimit(500)));
+  const snap = await getDocs(query(collection(db, getShopCollectionName('orders')), orderBy('createdAt', 'desc'), qLimit(500)));
   const counts: Record<string, { name?: string; qty: number }> = {};
   snap.docs.forEach(d => {
     const data: any = d.data();
@@ -59,7 +60,7 @@ export async function getTopSellingProducts(shopId: string, topN: number) {
 }
 
 export async function getProductsByShop(shopId: string) {
-  const snap = await getDocs(query(collection(db, `shops/${shopId}/products`)));
+  const snap = await getDocs(query(collection(db, getShopCollectionName('products'))));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
@@ -72,7 +73,7 @@ export async function getProductsSummary(shopId: string) {
 }
 
 export async function getOrdersCount(shopId: string, range?: 'day'|'week'|'month'|'year') {
-  const col = collection(db, `shops/${shopId}/orders`);
+  const col = collection(db, getShopCollectionName('orders'));
   if (!range) {
     const snap = await getDocs(col);
     return snap.docs.length;
@@ -91,7 +92,7 @@ export async function getOrdersCount(shopId: string, range?: 'day'|'week'|'month
 }
 
 export async function getCustomer(shopId: string, customerId: string) {
-  const ref = doc(db, `shops/${shopId}/customers/${customerId}`);
+  const ref = doc(db, getShopCollectionName('customers'), customerId);
   const d = await getDoc(ref);
   return d.exists() ? { id: d.id, ...d.data() } : null;
 }
@@ -103,7 +104,7 @@ export async function getCustomerLoyalty(shopId: string, customerId: string) {
 }
 
 export async function getCustomersByShop(shopId: string) {
-  const snap = await getDocs(query(collection(db, `shops/${shopId}/customers`)));
+  const snap = await getDocs(query(collection(db, getShopCollectionName('customers'))));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
@@ -137,7 +138,7 @@ export async function getNetRevenue(shopId: string, range: 'day'|'week'|'month'|
     case 'month': start = new Date(now.getFullYear(), now.getMonth(), 1); end = new Date(now.getFullYear(), now.getMonth()+1, 1); break;
     case 'year': start = new Date(now.getFullYear(), 0, 1); end = new Date(now.getFullYear()+1, 0, 1); break;
   }
-  const sales = await getDocs(query(collection(db, `shops/${shopId}/orders`), where('createdAt', '>=', start), where('createdAt', '<', end)));
+  const sales = await getDocs(query(collection(db, getShopCollectionName('orders')), where('createdAt', '>=', start), where('createdAt', '<', end)));
   let revenue = 0; sales.forEach(d => { const v: any = d.data(); revenue += v.total || 0; });
   const expenseTotal = expenses.reduce((s: number, e: any) => s + (e.amount || 0), 0);
   return { revenue, expenses: expenseTotal, net: revenue - expenseTotal };
@@ -186,13 +187,13 @@ export async function getStockReportsCount(shopId: string) {
 }
 
 export async function getSettingsDoc(shopId: string) {
-  const snap = await getDocs(collection(db, `shops/${shopId}/settings`));
+  const snap = await getDocs(collection(db, getShopCollectionName('settings')));
   const d = snap.docs[0];
   return d ? { id: d.id, ...d.data() } : null;
 }
 
 export async function getInvoicesCount(shopId: string) {
-  const snap = await getDocs(query(collection(db, `shops/${shopId}/invoices`)));
+  const snap = await getDocs(query(collection(db, getShopCollectionName('invoices'))));
   return snap.docs.length;
 }
 

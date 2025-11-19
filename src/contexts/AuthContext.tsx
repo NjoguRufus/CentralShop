@@ -11,6 +11,7 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { auth, db } from '../firebase';
 import { toast } from 'react-toastify';
 import { EmployeeActivityService } from '../services/EmployeeActivityService';
+import { getShopCollectionName } from '../config/shopConfig';
 
 interface User {
   id: string;
@@ -59,16 +60,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        // Fetch user data from users collection by UID field
+        // Fetch user data from users collection or employees collection by UID field
         try {
           console.log('Fetching user data for UID:', firebaseUser.uid);
+          
+          // First try users collection (for backward compatibility)
           const usersQuery = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
           const usersSnapshot = await getDocs(usersQuery);
-          console.log('User documents found:', usersSnapshot.size);
+          console.log('User documents found in users collection:', usersSnapshot.size);
+          
+          let userDoc = null;
+          let userData: User | null = null;
           
           if (!usersSnapshot.empty) {
-            const userDoc = usersSnapshot.docs[0];
-            const userData = userDoc.data() as User;
+            userDoc = usersSnapshot.docs[0];
+            userData = userDoc.data() as User;
+          } else {
+            // If not found in users, try employees collection
+            const employeesCollectionName = getShopCollectionName('employees');
+            const employeesQuery = query(collection(db, employeesCollectionName), where('uid', '==', firebaseUser.uid));
+            const employeesSnapshot = await getDocs(employeesQuery);
+            console.log('User documents found in employees collection:', employeesSnapshot.size);
+            
+            if (!employeesSnapshot.empty) {
+              userDoc = employeesSnapshot.docs[0];
+              userData = userDoc.data() as User;
+            }
+          }
+          
+          if (userData && userDoc) {
             console.log('User data found:', userData);
             const user = { 
               ...userData, 

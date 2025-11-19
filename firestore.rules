@@ -62,12 +62,56 @@ service cloud.firestore {
       allow write: if isAstraronix();
     }
 
+    // Shop Prefixed Collections (Dynamic - works for any shop prefix)
+    // Pattern: {ShopName}Settings/{docId}, {ShopName}Products/{productId}, etc.
+    // Examples: CentralShopSettings, AnotherShopSettings, MyShopSettings
+    
+    // Settings: {ShopName}Settings/{docId}
+    match /{shopSettings}/{docId} {
+      allow read: if isSignedIn() && shopSettings.matches('.*Settings$');
+      allow write: if isSignedIn() && shopSettings.matches('.*Settings$');
+      allow update: if isSignedIn() 
+        && shopSettings.matches('.*Settings$')
+        && request.resource.data.keys().hasOnly(['businessInfo', 'themeSettings', 'paymentSettings', 'adminPassword', 'adminPasswordHint', 'aiAssistant'])
+        && (!('themeSettings' in request.resource.data) || (
+          request.resource.data.themeSettings.mode in ['light', 'dark']
+          && request.resource.data.themeSettings.primaryColor is string
+        ));
+    }
+
+    // Products: {ShopName}Products/{productId}
+    match /{shopProducts}/{productId} {
+      allow read: if isSignedIn() && shopProducts.matches('.*Products$');
+      allow create, update: if isSignedIn() 
+        && shopProducts.matches('.*Products$')
+        && request.resource.data.price is number && request.resource.data.price >= 0
+        && request.resource.data.stock is number && request.resource.data.stock >= 0;
+      allow delete: if isSignedIn() && shopProducts.matches('.*Products$');
+    }
+
+    // Customers: {ShopName}Customers/{customerId}
+    match /{shopCustomers}/{customerId} {
+      allow read: if true && shopCustomers.matches('.*Customers$'); // Public read for invoice view
+      allow create, update, delete: if isSignedIn() && shopCustomers.matches('.*Customers$');
+    }
+
+    // Employees: {ShopName}Employees/{employeeId}
+    match /{shopEmployees}/{employeeId} {
+      allow read: if isSignedIn() && shopEmployees.matches('.*Employees$');
+      allow create, update, delete: if isSignedIn() && shopEmployees.matches('.*Employees$');
+    }
+
+    // Product Categories: {ShopName}ProductCategories/{categoryId}
+    match /{shopProductCategories}/{categoryId} {
+      allow read: if isSignedIn() && shopProductCategories.matches('.*ProductCategories$');
+      allow create, update, delete: if isSignedIn() && shopProductCategories.matches('.*ProductCategories$');
+    }
+
+    // Legacy nested collections (for backward compatibility)
     // Settings: shops/{shopId}/settings/{docId}
     match /shops/{shopId}/settings/{docId} {
       allow read: if isSignedIn();
-      // Relaxed for testing: allow any signed-in user to write settings
       allow write: if isSignedIn();
-
       allow update: if isSignedIn()
         && request.resource.data.keys().hasOnly(['businessInfo', 'themeSettings', 'paymentSettings', 'adminPassword', 'adminPasswordHint', 'aiAssistant'])
         && (!('themeSettings' in request.resource.data) || (
@@ -76,58 +120,109 @@ service cloud.firestore {
         ));
     }
 
-    // Products: shops/{shopId}/products/{productId}
+    // Products: shops/{shopId}/products/{productId} (legacy)
     match /shops/{shopId}/products/{productId} {
       allow read: if isSignedIn();
-      // Relaxed for testing: permit signed-in writes with basic validation
       allow create, update: if isSignedIn()
         && request.resource.data.price is number && request.resource.data.price >= 0
         && request.resource.data.stock is number && request.resource.data.stock >= 0;
       allow delete: if isSignedIn();
     }
 
-    // Orders: shops/{shopId}/orders/{orderId}
+    // Orders: shops/{shopId}/orders/{orderId} (legacy - kept for backward compatibility)
     match /shops/{shopId}/orders/{orderId} {
       allow read: if isSignedIn();
 
       // Relaxed for testing: allow signed-in create with core validation
-      allow create: if isSignedIn()
+        allow create: if isSignedIn()
+          && request.resource.data.keys().hasAll(['items', 'subtotal', 'tax', 'total', 'status', 'paymentMethod', 'createdAt', 'employeeId'])
+          && request.resource.data.total == request.resource.data.subtotal + request.resource.data.tax
+          && request.resource.data.subtotal >= 0
+          && request.resource.data.tax >= 0
+          && request.resource.data.total >= 0
+          && request.resource.data.status in ['completed', 'pending', 'cancelled', 'partial']
+          && request.resource.data.items.size() > 0;
+
+      // Allow only status changes client-side
+      allow update: if isSignedIn()
+        && resource.data.diff(request.resource.data).changedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['completed','pending','cancelled','partial'];
+
+      allow delete: if isSignedIn();
+    }
+
+    // Shop-specific Orders Collections: {ShopName}Orders/{orderId}
+    // Matches collections like "CentralShopOrders", "AnotherShopOrders", etc.
+    match /{shopOrdersCollection=**}/orders/{orderId} {
+      // Only match collections ending with "Orders"
+      allow read, write: if isSignedIn() 
+        && shopOrdersCollection.matches('.*Orders$');
+    }
+    
+    // Orders: {ShopName}Orders/{orderId}
+    match /{shopOrders}/{orderId} {
+      allow read: if isSignedIn() && shopOrders.matches('.*Orders$');
+      allow create: if isSignedIn() 
+        && shopOrders.matches('.*Orders$')
         && request.resource.data.keys().hasAll(['items', 'subtotal', 'tax', 'total', 'status', 'paymentMethod', 'createdAt', 'employeeId'])
         && request.resource.data.total == request.resource.data.subtotal + request.resource.data.tax
         && request.resource.data.subtotal >= 0
         && request.resource.data.tax >= 0
         && request.resource.data.total >= 0
-        && request.resource.data.status in ['completed', 'pending', 'cancelled']
+        && request.resource.data.status in ['completed', 'pending', 'cancelled', 'partial']
         && request.resource.data.items.size() > 0;
-
-      // Allow only status changes client-side
-      allow update: if isSignedIn()
-        && resource.data.diff(request.resource.data).changedKeys().hasOnly(['status'])
-        && request.resource.data.status in ['completed','pending','cancelled'];
-
-      allow delete: if isSignedIn();
+      allow update: if isSignedIn() 
+        && shopOrders.matches('.*Orders$')
+        && resource.data.diff(request.resource.data).changedKeys().hasOnly(['status', 'category'])
+        && request.resource.data.status in ['completed','pending','cancelled','partial'];
+      allow delete: if isSignedIn() && shopOrders.matches('.*Orders$');
     }
 
+    // Invoices: {ShopName}Invoices/{invoiceId}
+    match /{shopInvoices}/{invoiceId} {
+      allow read: if true && shopInvoices.matches('.*Invoices$'); // Public read for shareable invoice links
+      allow create, update, delete: if isSignedIn() && shopInvoices.matches('.*Invoices$');
+    }
+
+    // Legacy nested collections (for backward compatibility)
     // Customers: shops/{shopId}/customers/{customerId}
     match /shops/{shopId}/customers/{customerId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if isSignedIn();
     }
 
-    // Employees: shops/{shopId}/employees/{employeeId}
+    // Employees: shops/{shopId}/employees/{employeeId} (legacy)
     match /shops/{shopId}/employees/{employeeId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn();
     }
 
-    // Invoices
+    // Invoices: shops/{shopId}/invoices/{invoiceId} (legacy)
     match /shops/{shopId}/invoices/{invoiceId} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Suppliers: {ShopName}Suppliers/{supplierId}
+    match /{shopSuppliers}/{supplierId} {
+      allow read: if isSignedIn() && shopSuppliers.matches('.*Suppliers$');
+      allow create, update, delete: if isSignedIn() && shopSuppliers.matches('.*Suppliers$');
+    }
+
+    // Supplier supplies: {ShopName}Suppliers/{supplierId}/supplies/{supplyId}
+    match /{shopSuppliers}/{supplierId}/supplies/{supplyId} {
+      allow read: if isSignedIn() && shopSuppliers.matches('.*Suppliers$');
+      allow create, update, delete: if isSignedIn() && shopSuppliers.matches('.*Suppliers$');
+    }
+
+    // Legacy Suppliers (for backward compatibility)
+    match /shops/{shopId}/suppliers/{supplierId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn();
     }
 
-    // Suppliers
-    match /shops/{shopId}/suppliers/{supplierId} {
+    // Legacy Supplier supplies (for backward compatibility)
+    match /shops/{shopId}/suppliers/{supplierId}/supplies/{supplyId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn();
     }
@@ -149,6 +244,18 @@ service cloud.firestore {
 
     // Order categories
     match /shops/{shopId}/orderCategories/{categoryId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Product categories: productCategories/{categoryId}
+    match /productCategories/{categoryId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Legacy: Product categories: shops/{shopId}/productCategories/{categoryId}
+    match /shops/{shopId}/productCategories/{categoryId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn();
     }
@@ -207,5 +314,6 @@ service cloud.firestore {
     }
   }
 }
+
 
 

@@ -3,6 +3,7 @@ import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/Modal';
@@ -12,21 +13,29 @@ import Dropdown from '../components/UI/Dropdown';
 import { Product } from '../types';
 import { toast } from 'react-toastify';
 
+interface ProductCategory {
+  id: string;
+  name: string;
+}
+
 const Inventory: React.FC = () => {
   const { currentUser } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [showAddCategoryInline, setShowAddCategoryInline] = useState<boolean>(false);
+  const [newCategoryName, setNewCategoryName] = useState<string>('');
 
   const [formData, setFormData] = useState({
     name: '',
     price: '',
     stock: '',
-    category: 'Beverages',
+    category: '',
     barcode: '',
     image: ''
   });
@@ -34,6 +43,7 @@ const Inventory: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   const fetchProducts = async (): Promise<void> => {
@@ -46,7 +56,7 @@ const Inventory: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, `shops/${currentUser.shopId}/products`), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('products')), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const productsData: Product[] = [];
       querySnapshot.forEach((doc) => {
@@ -67,6 +77,66 @@ const Inventory: React.FC = () => {
     }
   };
 
+  const fetchCategories = async (): Promise<void> => {
+    try {
+      if (!currentUser?.shopId) return;
+
+      const q = query(collection(db, getShopCollectionName('productCategories')), orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      const categoriesData: ProductCategory[] = [];
+      querySnapshot.forEach((doc) => {
+        categoriesData.push({
+          id: doc.id,
+          name: doc.data().name
+        });
+      });
+      setCategories(categoriesData);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+      // Don't show error toast for permission errors - rules need to be deployed
+      if (error.code !== 'permission-denied') {
+        toast.error('Failed to load categories');
+      }
+    }
+  };
+
+  const addCategoryInline = async (): Promise<void> => {
+    if (!currentUser?.shopId || !newCategoryName.trim()) {
+      toast.error('Please enter a category name');
+      return;
+    }
+
+    try {
+      // Check if category already exists
+      const existingCategory = categories.find(c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase());
+      if (existingCategory) {
+        toast.error('Category already exists');
+        setFormData(prev => ({ ...prev, category: existingCategory.name }));
+        setShowAddCategoryInline(false);
+        setNewCategoryName('');
+        return;
+      }
+
+      const categoryRef = await addDoc(collection(db, getShopCollectionName('productCategories')), {
+        name: newCategoryName.trim()
+      });
+
+      const newCategory: ProductCategory = {
+        id: categoryRef.id,
+        name: newCategoryName.trim()
+      };
+
+      setCategories(prev => [...prev, newCategory]);
+      setFormData(prev => ({ ...prev, category: newCategory.name }));
+      setShowAddCategoryInline(false);
+      setNewCategoryName('');
+      toast.success('Category added successfully');
+    } catch (error) {
+      console.error('Error adding category:', error);
+      toast.error('Failed to add category');
+    }
+  };
+
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
@@ -79,23 +149,28 @@ const Inventory: React.FC = () => {
       toast.error('No shop assigned to your account');
       return;
     }
+
+    if (!formData.category.trim()) {
+      toast.error('Please select or add a category');
+      return;
+    }
     
     try {
       const productData = {
         name: formData.name,
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
-        category: formData.category,
+        category: formData.category.trim(),
         barcode: formData.barcode || '',
         image: formData.image || '',
         updatedAt: new Date()
       };
 
       if (editingProduct) {
-        await updateDoc(doc(db, `shops/${currentUser.shopId}/products`, editingProduct.id), productData);
+        await updateDoc(doc(db, getShopCollectionName('products'), editingProduct.id), productData);
         toast.success('Product updated successfully');
       } else {
-        await addDoc(collection(db, `shops/${currentUser.shopId}/products`), {
+        await addDoc(collection(db, getShopCollectionName('products')), {
           ...productData,
           createdAt: new Date()
         });
@@ -115,12 +190,14 @@ const Inventory: React.FC = () => {
       name: '',
       price: '',
       stock: '',
-      category: 'Beverages',
+      category: '',
       barcode: '',
       image: ''
     });
     setShowAddModal(false);
     setEditingProduct(null);
+    setShowAddCategoryInline(false);
+    setNewCategoryName('');
   };
 
   const handleEdit = (product: Product) => {
@@ -148,7 +225,7 @@ const Inventory: React.FC = () => {
     }
 
     try {
-      await deleteDoc(doc(db, `shops/${currentUser.shopId}/products`, productToDelete.id!));
+      await deleteDoc(doc(db, getShopCollectionName('products'), productToDelete.id!));
       toast.success('Product deleted successfully');
       fetchProducts();
       setIsDeleteModalOpen(false);
@@ -226,20 +303,14 @@ const Inventory: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
-          <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
-        </div>
-        <Button onClick={() => setShowAddModal(true)} className="flex items-center">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Product
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
+        <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
       </div>
 
-      {/* Search and Filters */}
+      {/* Search and Add Product */}
       <Card className="p-6">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -250,13 +321,20 @@ const Inventory: React.FC = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
             />
           </div>
+          <Button 
+            onClick={() => setShowAddModal(true)} 
+            className="flex items-center whitespace-nowrap shrink-0"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Product
+          </Button>
         </div>
       </Card>
 
       {/* Products Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+          {[...Array(10)].map((_, i) => (
             <Card key={i} className="p-6">
               <div className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse mb-4"></div>
               <div className="space-y-3">
@@ -268,7 +346,7 @@ const Inventory: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
           {filteredProducts.map(product => {
           const stockStatus = getStockStatus(product.stock);
           return (
@@ -294,7 +372,7 @@ const Inventory: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-[#4A90A4]">KSH {product.price}</span>
+                  <span className="text-lg font-bold text-[#4A90A4]">KSH {product.price.toLocaleString()}</span>
                   <span className={`px-2 py-1 rounded-lg text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
                     {stockStatus.text}
                   </span>
@@ -369,19 +447,60 @@ const Inventory: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Category
+              Category <span className="text-red-500">*</span>
             </label>
-            <Dropdown
-              value={formData.category}
-              onChange={(value) => setFormData({ ...formData, category: value })}
-              options={[
-                { value: 'Beverages', label: 'Beverages' },
-                { value: 'Food', label: 'Food' },
-                { value: 'Snacks', label: 'Snacks' },
-                { value: 'Other', label: 'Other' }
-              ]}
-              placeholder="Select category"
-            />
+            {!showAddCategoryInline ? (
+              <Dropdown
+                value={formData.category}
+                onChange={(value) => {
+                  if (value === '__add_new__') {
+                    setShowAddCategoryInline(true);
+                  } else {
+                    setFormData({ ...formData, category: value });
+                  }
+                }}
+                options={categories.map(cat => ({
+                  value: cat.name,
+                  label: cat.name
+                }))}
+                placeholder="Select category"
+                addNewLabel="Add new category"
+                onAddNew={() => setShowAddCategoryInline(true)}
+              />
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="New category name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCategoryInline();
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
+                />
+                <Button
+                  type="button"
+                  onClick={addCategoryInline}
+                  variant="primary"
+                >
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCategoryInline(false);
+                    setNewCategoryName('');
+                  }}
+                  variant="secondary"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </div>
           
           <FormInput

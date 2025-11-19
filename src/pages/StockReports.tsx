@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
 import { Product, Order, StockReport, StockReportData } from '../types';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
@@ -34,7 +35,7 @@ const StockReports: React.FC = () => {
     
     try {
       // Fetch products
-      const productsQuery = query(collection(db, `shops/${currentUser.shopId}/products`));
+      const productsQuery = query(collection(db, getShopCollectionName('products')));
       const productsSnapshot = await getDocs(productsQuery);
       const productsData = productsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -45,7 +46,7 @@ const StockReports: React.FC = () => {
 
       // Fetch orders
       const ordersQuery = query(
-        collection(db, `shops/${currentUser.shopId}/orders`),
+        collection(db, getShopCollectionName('orders')),
         orderBy('createdAt', 'desc')
       );
       const ordersSnapshot = await getDocs(ordersQuery);
@@ -327,14 +328,14 @@ Report Type: ${generatedReport.reportType.replace('_', ' ').toUpperCase()}
 
 SUMMARY:
 - Total Items: ${reportData.totalItems}
-- Total Value: KSH ${reportData.totalValue.toFixed(2)}
+- Total Value: KSH ${reportData.totalValue.toLocaleString()}
 - Low Stock Items: ${reportData.lowStockItems}
 - Out of Stock Items: ${reportData.outOfStockItems}
 
 ${reportData.topMovingItems.length > 0 ? `
 TOP MOVING ITEMS:
 ${reportData.topMovingItems.map((item, index) => 
-  `${index + 1}. ${item.name} - ${item.quantitySold} units (KSH ${item.revenue.toFixed(2)})`
+  `${index + 1}. ${item.name} - ${item.quantitySold} units (KSH ${item.revenue.toLocaleString()})`
 ).join('\n')}
 ` : ''}
 
@@ -348,7 +349,7 @@ ${reportData.slowMovingItems.map((item, index) =>
 ${reportData.categoryBreakdown.length > 0 ? `
 CATEGORY BREAKDOWN:
 ${reportData.categoryBreakdown.map(cat => 
-  `- ${cat.category}: ${cat.itemCount} items (KSH ${cat.totalValue.toFixed(2)})`
+  `- ${cat.category}: ${cat.itemCount} items (KSH ${cat.totalValue.toLocaleString()})`
 ).join('\n')}
 ` : ''}
     `;
@@ -454,7 +455,7 @@ ${reportData.categoryBreakdown.map(cat =>
             <Card>
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900">Total Value</h3>
-                <p className="text-3xl font-bold text-green-600">KSH {reportData.totalValue.toFixed(2)}</p>
+                <p className="text-3xl font-bold text-green-600">KSH {reportData.totalValue.toLocaleString()}</p>
               </div>
             </Card>
             <Card>
@@ -481,7 +482,7 @@ ${reportData.categoryBreakdown.map(cat =>
                   data={reportData.topMovingItems.map(item => [
                     item.name,
                     item.quantitySold.toString(),
-                    `KSH ${item.revenue.toFixed(2)}`
+                    `KSH ${item.revenue.toLocaleString()}`
                   ])}
                 />
               </div>
@@ -515,7 +516,7 @@ ${reportData.categoryBreakdown.map(cat =>
                   data={reportData.categoryBreakdown.map(cat => [
                     cat.category,
                     cat.itemCount.toString(),
-                    `KSH ${cat.totalValue.toFixed(2)}`
+                    `KSH ${cat.totalValue.toLocaleString()}`
                   ])}
                 />
               </div>

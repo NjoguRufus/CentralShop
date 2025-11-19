@@ -18,6 +18,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, onNotifica
 
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95">
+      {/* Welcome Message - Top on Mobile */}
+      <div className="px-6 py-3 lg:hidden border-b border-gray-200 dark:border-gray-700">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Welcome back, {currentUser?.name || user?.displayName || 'User'}
+        </h1>
+      </div>
+
+      {/* Main Header Content */}
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center space-x-4">
           <button
@@ -27,7 +35,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, onNotifica
             <Menu className="w-6 h-6" />
           </button>
           
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+          {/* Welcome message - Hidden on mobile, shown on desktop */}
+          <h1 className="hidden lg:block text-xl font-semibold text-gray-900 dark:text-white">
             Welcome back, {currentUser?.name || user?.displayName || 'User'}
           </h1>
         </div>
@@ -60,7 +69,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, onNotifica
             <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
               <User className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-300">
               {currentUser?.role || 'User'}
             </span>
           </button>

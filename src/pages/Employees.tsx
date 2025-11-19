@@ -1,12 +1,13 @@
 // src/pages/Employees.tsx
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { getShopCollectionName } from '../config/shopConfig';
+import Modal from '../components/Modal';
 import Card from '../components/UI/Card';
 import Table from '../components/UI/Table';
-import Modal from '../components/Modal';
 import FormInput from '../components/UI/FormInput';
 import Button from '../components/UI/Button';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
@@ -71,6 +72,7 @@ const Employees: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'chats' | 'activity'>('overview');
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [showChatViewer, setShowChatViewer] = useState(false);
+  const [adminPasswordForReauth, setAdminPasswordForReauth] = useState<string | null>(null);
   const [formData, setFormData] = useState<Omit<Employee, 'id'>>({
     name: '',
     email: '',
@@ -95,8 +97,10 @@ const Employees: React.FC = () => {
       if (!currentUser?.shopId) return;
 
       // Fetch orders for this employee
+      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
+      const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser.shopId);
       const ordersQuery = query(
-        collection(db, `shops/${currentUser.shopId}/orders`)
+        collection(db, ordersCollectionName)
       );
       const ordersSnapshot = await getDocs(ordersQuery);
       const orders = ordersSnapshot.docs
@@ -237,14 +241,15 @@ const Employees: React.FC = () => {
         return;
       }
 
-      // Only fetch from users collection and filter out astraronix
-      const q = query(collection(db, 'users'), orderBy('name'));
+      // Fetch from shop-prefixed employees collection
+      const employeesCollectionName = getShopCollectionName('employees');
+      const q = query(collection(db, employeesCollectionName), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const employeesData: Employee[] = [];
       querySnapshot.forEach((doc) => {
         const userData = doc.data() as Employee;
-        // Filter out astraronix users and only show employees from current shop
-        if (userData.role !== 'astraronix' && userData.shopId === currentUser.shopId) {
+        // Filter out astraronix users
+        if (userData.role !== 'astraronix') {
           employeesData.push({ 
             id: doc.id, 
             ...userData,
@@ -277,8 +282,10 @@ const Employees: React.FC = () => {
       if (editingEmployee && editingEmployee.id) {
         // Update existing employee (don't create new auth user)
         const { password, ...updateData } = formData;
-        await updateDoc(doc(db, 'users', editingEmployee.id), {
-          ...updateData,
+        // Store password if provided for admin visibility
+        const updateDataWithPassword = password ? { ...updateData, password } : updateData;
+        await updateDoc(doc(db, getShopCollectionName('employees'), editingEmployee.id), {
+          ...updateDataWithPassword,
           updatedAt: new Date()
         });
         toast.success('Employee updated successfully');
@@ -289,10 +296,40 @@ const Employees: React.FC = () => {
           return;
         }
 
-        // Create Firebase Auth user
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const trimmedEmail = formData.email?.trim();
+        
+        if (!trimmedEmail) {
+          toast.error('Email is required');
+          return;
+        }
+        
+        if (!emailRegex.test(trimmedEmail)) {
+          toast.error('Please enter a valid email address');
+          return;
+        }
+
+        // Validate password length
+        if (formData.password.length < 6) {
+          toast.error('Password must be at least 6 characters');
+          return;
+        }
+
+        // Validate admin password is provided
+        if (!adminPasswordForReauth) {
+          toast.error('Please enter your admin password to remain logged in');
+          return;
+        }
+
+        // Store current admin info before creating employee
+        const currentAdminEmail = currentUser?.email;
+        const currentAdminUid = currentUser?.uid;
+        
+        // Create Firebase Auth user (this will automatically sign in the new user)
         const userCredential = await createUserWithEmailAndPassword(
           auth, 
-          formData.email, 
+          trimmedEmail, 
           formData.password
         );
         
@@ -301,18 +338,41 @@ const Employees: React.FC = () => {
           displayName: formData.name
         });
 
-        // Save employee data to users collection with UID and shop info
-        const { password, ...employeeData } = formData;
-        await addDoc(collection(db, 'users'), {
-          ...employeeData,
+        // Save employee data to shop-prefixed employees collection with UID, password, and shop info
+        const employeeData = {
+          ...formData,
+          email: trimmedEmail, // Use trimmed email
           uid: userCredential.user.uid,
           shopId: currentUser?.shopId,
           shopName: currentUser?.shopName,
           createdAt: new Date(),
           updatedAt: new Date()
-        });
-        
+        };
+        await addDoc(collection(db, getShopCollectionName('employees')), employeeData);
+
+        // Check if the newly signed-in user is different from the admin
+        // If so, sign out and sign the admin back in
+        if (auth.currentUser && auth.currentUser.uid !== currentAdminUid) {
+          await signOut(auth);
+          
+          // Sign the admin back in using stored password
+          if (currentAdminEmail && adminPasswordForReauth) {
+            try {
+              await signInWithEmailAndPassword(auth, currentAdminEmail, adminPasswordForReauth);
+              // Clear the stored password immediately after use
+              setAdminPasswordForReauth(null);
+              toast.success('Employee created successfully');
+            } catch (reauthError: any) {
+              console.error('Error signing admin back in:', reauthError);
+              toast.warning('Employee created successfully. Please sign back in manually.');
+              setAdminPasswordForReauth(null);
+            }
+          } else {
+            toast.warning('Employee created successfully. Please sign back in.');
+          }
+        } else {
         toast.success('Employee created successfully with login credentials');
+        }
       }
       setIsModalOpen(false);
       setEditingEmployee(null);
@@ -336,8 +396,12 @@ const Employees: React.FC = () => {
         toast.error('Email is already in use');
       } else if (error.code === 'auth/weak-password') {
         toast.error('Password should be at least 6 characters');
+      } else if (error.code === 'auth/invalid-email') {
+        toast.error('Invalid email address. Please check the email format.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        toast.error('Email/password accounts are not enabled. Please contact support.');
       } else {
-        toast.error('Failed to save employee');
+        toast.error(`Failed to save employee: ${error.message || 'Unknown error'}`);
       }
     }
   };
@@ -351,7 +415,7 @@ const Employees: React.FC = () => {
     if (!employeeToDelete) return;
 
     try {
-      await deleteDoc(doc(db, 'users', employeeToDelete));
+      await deleteDoc(doc(db, getShopCollectionName('employees'), employeeToDelete));
       toast.success('Employee deleted successfully');
       fetchEmployees();
       setShowDeleteModal(false);
@@ -446,6 +510,15 @@ const Employees: React.FC = () => {
               { header: 'Name', accessor: 'name' },
               { header: 'Email', accessor: 'email' },
               { header: 'Role', accessor: 'role' },
+              {
+                header: 'Password',
+                accessor: 'password',
+                render: (row: Employee) => (
+                  <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
+                    {row.password || 'N/A'}
+                  </span>
+                )
+              },
               { 
                 header: 'Status', 
                 accessor: 'status',
@@ -503,6 +576,7 @@ const Employees: React.FC = () => {
           workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
         }
       });
+          setAdminPasswordForReauth(null);
         }}
         title={editingEmployee ? 'Edit Employee' : 'Add Employee'}
       >
@@ -535,6 +609,7 @@ const Employees: React.FC = () => {
             required
           />
           {!editingEmployee && (
+            <>
             <FormInput
               label="Password"
               name="password"
@@ -544,6 +619,16 @@ const Employees: React.FC = () => {
               required
               placeholder="Minimum 6 characters"
             />
+              <FormInput
+                label="Your Admin Password (to remain logged in)"
+                name="adminPassword"
+                type="password"
+                value={adminPasswordForReauth || ''}
+                onChange={(e) => setAdminPasswordForReauth(e.target.value)}
+                required
+                placeholder="Enter your password to stay logged in"
+              />
+            </>
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
@@ -654,6 +739,7 @@ const Employees: React.FC = () => {
           workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
         }
       });
+          setAdminPasswordForReauth(null);
               }}
             >
               Cancel
@@ -807,11 +893,11 @@ const Employees: React.FC = () => {
                         </div>
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                           <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Sales</h4>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-white">KSH {employeeStats.totalSales.toFixed(2)}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">KSH {employeeStats.totalSales.toLocaleString()}</p>
                         </div>
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                           <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Order Value</h4>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-white">KSH {employeeStats.averageOrderValue.toFixed(2)}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">KSH {employeeStats.averageOrderValue.toLocaleString()}</p>
                         </div>
                       </div>
                     )}
@@ -895,7 +981,7 @@ const Employees: React.FC = () => {
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="font-semibold text-gray-900 dark:text-white">KSH {order.total?.toFixed(2)}</p>
+                                <p className="font-semibold text-gray-900 dark:text-white">KSH {order.total?.toLocaleString() || '0'}</p>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{order.status}</p>
                               </div>
                             </div>

@@ -84,9 +84,8 @@ export const usePaymentSettings = () => {
     if (paymentSettings.enableDebtPayments) {
       methods.push({ value: 'debt', label: 'Debt', icon: 'Receipt' });
     }
-    if (paymentSettings.enablePartialPayments) {
-      methods.push({ value: 'partial', label: 'Partial', icon: 'Clock' });
-    }
+    // Partial payments are now accessed through debt payment type switching
+    // No separate partial payment method button
 
     // Return empty array if no methods are enabled
     return methods;

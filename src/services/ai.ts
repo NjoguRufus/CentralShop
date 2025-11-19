@@ -210,7 +210,7 @@ export async function askAIPOS(userQuery: string, role: UserRole, userId: string
 
   // Map some intents to Firestore helpers
   const used: string[] = [];
-  let contextData: any = {};
+  const contextData: any = {};
 
   // Build role-appropriate snapshot
   try {

@@ -2,8 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { X, CreditCard, Banknote, Smartphone, ShoppingCart, Search, User, Receipt, Clock } from 'lucide-react';
 import Button from './UI/Button';
 import FormInput from './UI/FormInput';
+import Select from './UI/Select';
 import { useCustomerLookup } from '../hooks/useCustomerLookup';
 import { usePaymentSettings } from '../hooks/usePaymentSettings';
+import { useAuth } from '../contexts/AuthContext';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
+import { getShopCollectionName } from '../config/shopConfig';
 
 interface Product {
   id: string;
@@ -25,6 +30,7 @@ interface PaymentData {
   paymentMethod: 'cash' | 'card' | 'mobile' | 'debt' | 'partial';
   amountReceived?: number;
   change?: number;
+  customerId?: string;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -35,6 +41,13 @@ interface PaymentData {
   dueDate?: string;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+}
+
 const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
   onClose,
@@ -43,10 +56,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   total,
   isLoading = false
 }) => {
+  const { currentUser } = useAuth();
   const { lookupCustomer, isLoading: isLookingUpCustomer } = useCustomerLookup();
   const { getAvailablePaymentMethods, loading: settingsLoading } = usePaymentSettings();
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mobile' | 'debt' | 'partial'>('cash');
+  const [debtPaymentType, setDebtPaymentType] = useState<'debt' | 'partial'>('debt'); // Sub-modal type for debt/partial
   const [amountReceived, setAmountReceived] = useState<string>('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
@@ -58,6 +75,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const availablePaymentMethods = getAvailablePaymentMethods();
 
+  // Fetch customers when modal opens
+  useEffect(() => {
+    if (isOpen && currentUser?.shopId) {
+      fetchCustomers();
+    }
+  }, [isOpen, currentUser?.shopId]);
+
   // Set default payment method when modal opens
   useEffect(() => {
     if (isOpen && availablePaymentMethods.length > 0) {
@@ -66,11 +90,41 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [isOpen]); // Only depend on isOpen, not on availablePaymentMethods
 
+  // Auto-fill customer details when customer is selected
+  useEffect(() => {
+    if (selectedCustomerId) {
+      const customer = customers.find(c => c.id === selectedCustomerId);
+      if (customer) {
+        setCustomerName(customer.name);
+        setCustomerPhone(customer.phone);
+        setCustomerEmail(customer.email || '');
+        setCustomerFound(true);
+      }
+    } else {
+      setCustomerFound(false);
+    }
+  }, [selectedCustomerId, customers]);
+
+  const fetchCustomers = async () => {
+    try {
+      if (!currentUser?.shopId) return;
+      const q = query(collection(db, getShopCollectionName('customers')), orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      const customersData: Customer[] = [];
+      querySnapshot.forEach((doc) => {
+        customersData.push({ id: doc.id, ...doc.data() } as Customer);
+      });
+      setCustomers(customersData);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
   const change = paymentMethod === 'cash' && amountReceived 
-    ? parseFloat(amountReceived) - total 
+    ? Math.max(0, parseFloat(amountReceived) - total) 
     : 0;
 
-  const remainingAmount = paymentMethod === 'partial' && partialAmount 
+  const remainingAmount = (paymentMethod === 'debt' && debtPaymentType === 'partial' && partialAmount) 
     ? total - parseFloat(partialAmount)
     : 0;
 
@@ -90,27 +144,45 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return true; // Card payments are always valid (no additional input required)
     }
     if (paymentMethod === 'debt') {
-      return customerName.trim().length > 0 && dueDate.trim().length > 0;
+      const hasCustomer = selectedCustomerId || (customerName.trim().length > 0 && customerPhone.trim().length > 0);
+      return hasCustomer && dueDate.trim().length > 0;
     }
-    if (paymentMethod === 'partial') {
-      return partialAmount && parseFloat(partialAmount) > 0 && parseFloat(partialAmount) < total;
+    if (paymentMethod === 'debt' && debtPaymentType === 'partial') {
+      const hasCustomer = selectedCustomerId || (customerName.trim().length > 0 && customerPhone.trim().length > 0);
+      return partialAmount && parseFloat(partialAmount) > 0 && parseFloat(partialAmount) < total 
+        && hasCustomer && dueDate.trim().length > 0;
     }
     return true;
   };
 
   const handleConfirm = () => {
+    // Get customer data - use selected customer data if available, otherwise use entered data
+    let finalCustomerName = customerName;
+    let finalCustomerPhone = customerPhone;
+    let finalCustomerEmail = customerEmail;
+    
+    if (selectedCustomerId) {
+      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+      if (selectedCustomer) {
+        finalCustomerName = selectedCustomer.name;
+        finalCustomerPhone = selectedCustomer.phone;
+        finalCustomerEmail = selectedCustomer.email || '';
+      }
+    }
+    
     const paymentData: PaymentData = {
       paymentMethod,
       amountReceived: paymentMethod === 'cash' ? parseFloat(amountReceived) : undefined,
       change: paymentMethod === 'cash' ? change : undefined,
-      customerName: customerName || undefined,
-      customerEmail: customerEmail || undefined,
-      customerPhone: customerPhone || undefined,
+      customerId: selectedCustomerId || undefined,
+      customerName: finalCustomerName || undefined,
+      customerEmail: finalCustomerEmail || undefined,
+      customerPhone: finalCustomerPhone || undefined,
       mpesaCode: paymentMethod === 'mobile' ? mpesaCode : undefined,
       debtAmount: paymentMethod === 'debt' ? total : undefined,
-      partialAmount: paymentMethod === 'partial' ? parseFloat(partialAmount) : undefined,
-      remainingAmount: paymentMethod === 'partial' ? remainingAmount : undefined,
-      dueDate: (paymentMethod === 'debt' || paymentMethod === 'partial') ? dueDate : undefined,
+      partialAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? parseFloat(partialAmount) : undefined,
+      remainingAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? remainingAmount : undefined,
+      dueDate: paymentMethod === 'debt' ? dueDate : undefined,
     };
     onConfirm(paymentData);
   };
@@ -142,7 +214,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const handleClose = () => {
     // Reset form
     setPaymentMethod('cash');
+    setDebtPaymentType('debt');
     setAmountReceived('');
+    setSelectedCustomerId('');
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
@@ -158,7 +232,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setPaymentMethod('cash');
+      setDebtPaymentType('debt');
       setAmountReceived('');
+      setSelectedCustomerId('');
       setCustomerName('');
       setCustomerEmail('');
       setCustomerPhone('');
@@ -403,14 +479,36 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     step="0.01"
                     min="0"
                   />
-                  {amountReceived && (
-                          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Change:</span>
-                              <span className={`text-lg font-bold ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          KSH {change.toFixed(2)}
+                  {amountReceived && parseFloat(amountReceived) > 0 && (
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Due:</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          KSH {total.toFixed(2)}
                         </span>
                       </div>
+                            <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Amount Received:</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          KSH {parseFloat(amountReceived).toFixed(2)}
+                        </span>
+                      </div>
+                      {change > 0 && (
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-300 dark:border-gray-600">
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Change:</span>
+                          <span className="text-lg font-bold text-green-600">
+                            KSH {change.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {change < 0 && (
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-300 dark:border-gray-600">
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Amount Short:</span>
+                          <span className="text-lg font-bold text-red-600">
+                            KSH {Math.abs(change).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                       </div>
@@ -444,63 +542,83 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-                  {/* Debt Payment Fields */}
+                  {/* Debt/Partial Payment Fields */}
                   {paymentMethod === 'debt' && (
-                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6 border border-orange-200 dark:border-orange-800">
-                      <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                          <Receipt className="w-4 h-4 text-orange-600" />
+                    <div className={`rounded-xl p-6 border ${
+                      debtPaymentType === 'partial' 
+                        ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800'
+                        : 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800'
+                    }`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            debtPaymentType === 'partial'
+                              ? 'bg-blue-100 dark:bg-blue-900/30'
+                              : 'bg-orange-100 dark:bg-orange-900/30'
+                          }`}>
+                            <Receipt className={`w-4 h-4 ${
+                              debtPaymentType === 'partial' ? 'text-blue-600' : 'text-orange-600'
+                            }`} />
+                          </div>
+                          <h4 className={`text-lg font-semibold ${
+                            debtPaymentType === 'partial'
+                              ? 'text-blue-800 dark:text-blue-200'
+                              : 'text-orange-800 dark:text-orange-200'
+                          }`}>
+                            {debtPaymentType === 'debt' ? 'Debt Payment' : 'Partial Payment'}
+                          </h4>
                         </div>
-                        <h4 className="text-lg font-semibold text-orange-800 dark:text-orange-200">Debt Payment</h4>
+                        {/* Switch buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDebtPaymentType('debt');
+                              setPartialAmount('');
+                            }}
+                            className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                              debtPaymentType === 'debt'
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-white dark:bg-gray-800 text-orange-600 hover:bg-orange-50 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            Debt Payment
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDebtPaymentType('partial');
+                            }}
+                            className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                              debtPaymentType === 'partial'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white dark:bg-gray-800 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            Partial Payment
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-4">
                         <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Amount:</span>
-                            <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                            <span className={`text-lg font-bold ${
+                              debtPaymentType === 'partial'
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-orange-600 dark:text-orange-400'
+                            }`}>
                               KSH {total.toFixed(2)}
                             </span>
                           </div>
                         </div>
-                    <FormInput
-                          name="dueDate"
-                          type="date"
-                          label="Due Date"
-                          value={dueDate}
-                          onChange={(e) => setDueDate(e.target.value)}
-                          required
-                        />
-                        <div className="bg-orange-50 dark:bg-orange-900/30 rounded-lg p-3">
-                          <p className="text-sm text-orange-700 dark:text-orange-300">
-                            Customer will be charged the full amount on the due date
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Partial Payment Fields */}
-                  {paymentMethod === 'partial' && (
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                          <Clock className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <h4 className="text-lg font-semibold text-blue-800 dark:text-blue-200">Partial Payment</h4>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Amount:</span>
-                            <span className="text-lg font-bold text-gray-900 dark:text-white">
-                              KSH {total.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
+                        {/* Partial Payment Amount Input - Only show for partial */}
+                        {debtPaymentType === 'partial' && (
+                          <>
                         <FormInput
                           name="partialAmount"
                           type="number"
-                          label="Amount to Pay Now"
+                              label="Amount to Pay Now *"
                           value={partialAmount}
                           onChange={(e) => setPartialAmount(e.target.value)}
                           placeholder="0.00"
@@ -525,14 +643,94 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             </div>
                           </div>
                         )}
+                          </>
+                        )}
+                        
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-4">
+                          <p className={`text-sm font-semibold mb-2 ${
+                            debtPaymentType === 'partial'
+                              ? 'text-blue-700 dark:text-blue-300'
+                              : 'text-orange-700 dark:text-orange-300'
+                          }`}>
+                            Customer Information Required:
+                          </p>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Select Customer (or fill details below)
+                            </label>
+                            <Select
+                              value={selectedCustomerId}
+                              onChange={(value) => {
+                                setSelectedCustomerId(value);
+                                if (!value) {
+                                  setCustomerName('');
+                                  setCustomerPhone('');
+                                  setCustomerEmail('');
+                                  setCustomerFound(false);
+                                }
+                              }}
+                              options={[
+                                { value: '', label: 'New Customer' },
+                                ...customers.map(c => ({ value: c.id, label: `${c.name} - ${c.phone}` }))
+                              ]}
+                            />
+                          </div>
+                          {/* Hide customer fields when customer is selected */}
+                          {!selectedCustomerId && (
+                            <>
+                              <FormInput
+                                name="customerName"
+                                type="text"
+                                label="Customer Name *"
+                                value={customerName}
+                                onChange={(e) => {
+                                  setCustomerName(e.target.value);
+                                  setCustomerFound(false);
+                                }}
+                                placeholder="Enter customer name"
+                                required
+                              />
+                              <FormInput
+                                name="customerPhone"
+                                type="tel"
+                                label="Phone Number *"
+                                value={customerPhone}
+                                onChange={handleCustomerPhoneChange}
+                                placeholder="Enter phone number"
+                                required
+                              />
+                              <FormInput
+                                name="customerEmail"
+                                type="email"
+                                label="Email (Optional)"
+                                value={customerEmail}
+                                onChange={(e) => setCustomerEmail(e.target.value)}
+                                placeholder="Enter customer email"
+                              />
+                            </>
+                          )}
+                        </div>
                         <FormInput
                           name="dueDate"
                           type="date"
-                          label="Due Date for Remaining Amount"
+                          label={debtPaymentType === 'partial' ? 'Due Date for Remaining Amount *' : 'Due Date *'}
                           value={dueDate}
                           onChange={(e) => setDueDate(e.target.value)}
                           required
                         />
+                        <div className={`rounded-lg p-3 ${
+                          debtPaymentType === 'partial'
+                            ? 'bg-blue-50 dark:bg-blue-900/30'
+                            : 'bg-orange-50 dark:bg-orange-900/30'
+                        }`}>
+                          <p className={`text-sm ${
+                            debtPaymentType === 'partial'
+                              ? 'text-blue-700 dark:text-blue-300'
+                              : 'text-orange-700 dark:text-orange-300'
+                          }`}>
+                            An invoice will be automatically created and the customer will be saved to your customer list.
+                          </p>
+                        </div>
                     </div>
                   </div>
                   )}
