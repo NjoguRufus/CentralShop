@@ -615,13 +615,13 @@ const Dashboard: React.FC = () => {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           <p className="text-gray-600 dark:text-gray-300">Overview of your business performance</p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} className="p-6">
+            <Card key={i} className="p-3 md:p-4">
               <div className="animate-pulse">
                 <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
                 <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
@@ -639,7 +639,7 @@ const Dashboard: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           <p className="text-gray-600 dark:text-gray-300">Overview of your business performance</p>
         </div>
         <button
@@ -707,12 +707,12 @@ const Dashboard: React.FC = () => {
       {/* Stats Cards */}
       <div className="space-y-4 md:space-y-6">
         {/* First Row: Revenue, Expenses, Profit */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          <Card className="p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+          <Card className="p-3 md:p-4 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
-                <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${stats.totalRevenue.toLocaleString()}`}</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${stats.totalRevenue.toLocaleString()}`}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {dateFilter === 'today' ? 'Today' : 
                    dateFilter === 'yesterday' ? 'Yesterday' :
@@ -728,11 +728,11 @@ const Dashboard: React.FC = () => {
           </Card>
 
           {/* Expenses Card */}
-          <Card className="p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+          <Card className="p-3 md:p-4 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Expenses</p>
-                <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${expensesToday.toLocaleString()}`}</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${expensesToday.toLocaleString()}`}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {dateFilter === 'today' ? 'Today' : 
                    dateFilter === 'yesterday' ? 'Yesterday' :
@@ -748,11 +748,11 @@ const Dashboard: React.FC = () => {
           </Card>
 
           {/* Profit Card */}
-          <Card className="p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+          <Card className="p-3 md:p-4 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Profit</p>
-                <p className={`text-2xl md:text-3xl font-bold mt-1 md:mt-2 ${profitToday >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                <p className={`text-xl md:text-2xl font-bold mt-1 md:mt-2 ${profitToday >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {`KSH ${profitToday.toLocaleString()}`}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -888,14 +888,14 @@ const Dashboard: React.FC = () => {
       </Modal>
 
       {/* Charts and Tables Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
         <SalesChart data={salesData} period={salesPeriod} onPeriodChange={(period) => {
           setSalesPeriod(period);
           fetchSalesData(period);
         }} />
         
         {/* Top Products */}
-        <Card className="p-6">
+        <Card className="p-3 md:p-4">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Products</h3>

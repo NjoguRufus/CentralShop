@@ -252,7 +252,7 @@ const Customers: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage customers and view their purchase history</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>Add Customer</Button>

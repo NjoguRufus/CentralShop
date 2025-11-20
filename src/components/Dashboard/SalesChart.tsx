@@ -30,10 +30,10 @@ const SalesChart: React.FC<SalesChartProps> = ({ data, period, onPeriodChange })
   const totalOrders = data.reduce((sum, d) => sum + d.orders, 0);
 
   return (
-    <Card className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <Card className="p-3 md:p-4">
+      <div className="mb-3 md:mb-4 flex items-center justify-between">
         <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Sales Overview</h3>
+        <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">Sales Overview</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">{periodLabels[period]} performance</p>
         </div>
         <div className="flex items-center gap-2">

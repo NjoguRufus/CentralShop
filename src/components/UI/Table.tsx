@@ -26,7 +26,7 @@ const Table: React.FC<TableProps> = ({ columns, headers, data, className = '' })
             {tableHeaders.map((header, index) => (
               <th
                 key={index}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                className="px-3 md:px-4 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
               >
                 {header}
               </th>
@@ -41,7 +41,7 @@ const Table: React.FC<TableProps> = ({ columns, headers, data, className = '' })
                 row.map((cell, colIndex) => (
                   <td
                     key={colIndex}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white"
+                    className="px-3 md:px-4 py-2 md:py-3 whitespace-nowrap text-xs md:text-sm text-gray-900 dark:text-white"
                   >
                     {cell}
                   </td>
@@ -51,7 +51,7 @@ const Table: React.FC<TableProps> = ({ columns, headers, data, className = '' })
                 columns?.map((column, colIndex) => (
                   <td
                     key={colIndex}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white"
+                    className="px-3 md:px-4 py-2 md:py-3 whitespace-nowrap text-xs md:text-sm text-gray-900 dark:text-white"
                   >
                     {column.render ? column.render(row) : row[column.accessor]}
                   </td>

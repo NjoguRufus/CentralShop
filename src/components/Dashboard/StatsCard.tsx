@@ -28,23 +28,22 @@ const StatsCard: React.FC<StatsCardProps> = ({
   };
 
   return (
-    <Card className="p-3 md:p-6 hover:shadow-xl transition-all duration-300">
+    <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
       <div className="flex items-center justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">{title}</p>
-          <p className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{value}</p>
+          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">{title}</p>
+          <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</p>
           {change && (
             <div className={`flex items-center mt-1 md:mt-2 text-xs md:text-sm ${
               change.trend === 'up' ? 'text-green-600' : 'text-red-600'
             }`}>
               <span>{change.trend === 'up' ? '+' : '-'}{Math.abs(change.value)}%</span>
-              <span className="text-gray-500 ml-1 md:ml-2 hidden md:inline">vs last month</span>
             </div>
           )}
         </div>
         
-        <div className={`p-2 md:p-4 rounded-xl md:rounded-2xl bg-gradient-to-br ${colorClasses[color]} shrink-0 ml-2`}>
-          <Icon className="w-4 h-4 md:w-8 md:h-8 text-white" />
+        <div className={`p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br ${colorClasses[color]} shrink-0 ml-2`}>
+          <Icon className="w-4 h-4 md:w-6 md:h-6 text-white" />
         </div>
       </div>
     </Card>

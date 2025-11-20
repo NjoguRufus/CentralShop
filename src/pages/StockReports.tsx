@@ -376,7 +376,7 @@ ${reportData.categoryBreakdown.map(cat =>
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Stock Reports</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Stock Reports</h1>
         {generatedReport && (
           <Button onClick={exportReport}>
             Export Report

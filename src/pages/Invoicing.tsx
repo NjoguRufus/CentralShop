@@ -880,11 +880,11 @@ const Invoicing: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-4">
       <div className="flex justify-between items-center">
         <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoicing</h1>
-          <p className="text-gray-600 dark:text-gray-300">Create and manage invoices</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Invoicing</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Create and manage invoices</p>
         </div>
         <Button onClick={() => {
           resetInvoiceForm();
@@ -897,30 +897,30 @@ const Invoicing: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Invoices</h3>
-          <p className="text-3xl font-bold text-[#4A90A4] mt-2">{totalInvoices}</p>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6">
+        <Card className="p-3 md:p-6">
+          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Invoices</h3>
+          <p className="text-xl md:text-3xl font-bold text-[#4A90A4] mt-1 md:mt-2">{totalInvoices}</p>
         </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Draft</h3>
-          <p className="text-3xl font-bold text-gray-600 mt-2">{draftInvoices}</p>
+        <Card className="p-3 md:p-6">
+          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Draft</h3>
+          <p className="text-xl md:text-3xl font-bold text-gray-600 mt-1 md:mt-2">{draftInvoices}</p>
         </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Paid</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">{paidInvoices}</p>
+        <Card className="p-3 md:p-6">
+          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Paid</h3>
+          <p className="text-xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{paidInvoices}</p>
         </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Overdue</h3>
-          <p className="text-3xl font-bold text-red-600 mt-2">{overdueInvoices}</p>
+        <Card className="p-3 md:p-6">
+          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Overdue</h3>
+          <p className="text-xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{overdueInvoices}</p>
         </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Value</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">KSH {totalValue.toLocaleString()}</p>
+        <Card className="p-3 md:p-6 col-span-2 md:col-span-1">
+          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Value</h3>
+          <p className="text-xl md:text-3xl font-bold text-blue-600 mt-1 md:mt-2">KSH {totalValue.toLocaleString()}</p>
         </Card>
       </div>
 
-      <Card className="p-6">
+      <Card className="p-3 md:p-4">
         <Table
           headers={['Invoice #', 'Customer', 'Amount', 'Status', 'Due Date', 'Actions']}
           data={invoices.map(invoice => [

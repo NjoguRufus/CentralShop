@@ -1,10 +1,12 @@
 /**
  * Install PWA Button Component
- * Handles PWA installation prompt
+ * Handles PWA installation prompt for mobile and desktop
  */
 import React, { useState, useEffect } from 'react';
 import Button from './UI/Button';
-import { Download, Check } from 'lucide-react';
+import Modal from './Modal';
+import { Download, Check, Monitor, Smartphone, X } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -14,15 +16,32 @@ interface BeforeInstallPromptEvent extends Event {
 const InstallPWAButton: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    // Detect if running on desktop
+    const checkDesktop = () => {
+      const isDesktopOS = /Windows|MacOS|Linux/.test(navigator.platform) || 
+                         (navigator.userAgent.includes('Windows') || 
+                          navigator.userAgent.includes('Mac') || 
+                          navigator.userAgent.includes('Linux'));
+      setIsDesktop(isDesktopOS);
+      
+      // Detect mobile
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+    };
+    checkDesktop();
+
     // Check if app is already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
       return;
     }
 
-    // Listen for beforeinstallprompt event
+    // Listen for beforeinstallprompt event (mobile PWA)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -34,6 +53,7 @@ const InstallPWAButton: React.FC = () => {
     window.addEventListener('appinstalled', () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      toast.success('App installed successfully!');
     });
 
     return () => {
@@ -41,23 +61,71 @@ const InstallPWAButton: React.FC = () => {
     };
   }, []);
 
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-
-    // Show the install prompt
-    deferredPrompt.prompt();
-
-    // Wait for user response
-    const { outcome } = await deferredPrompt.userChoice;
-
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-      setIsInstalled(true);
-    } else {
-      console.log('User dismissed the install prompt');
+  const handleInstallClick = () => {
+    // Check if Electron is available (desktop app)
+    if ((window as any).electron) {
+      toast.info('You are already using the desktop app!');
+      return;
     }
+    
+    // Show modal with install options
+    setShowInstallModal(true);
+  };
 
-    setDeferredPrompt(null);
+  const handleMobileInstall = async () => {
+    setShowInstallModal(false);
+    
+    // Use PWA install prompt if available
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+          setIsInstalled(true);
+          toast.success('Installing app...');
+        }
+        setDeferredPrompt(null);
+      } catch (error) {
+        console.error('Install error:', error);
+        toast.error('Failed to install app');
+      }
+    } else {
+      // Fallback: Download APK (if available)
+      // For now, show instructions
+      toast.info('Please use your browser\'s install option or download the APK from the releases page.', { autoClose: 5000 });
+    }
+  };
+
+  const handleDesktopInstall = () => {
+    setShowInstallModal(false);
+    
+    // Try multiple possible locations for the EXE
+    const possiblePaths = [
+      '/downloads/Central Shop POS Setup 0.0.0.exe',
+      '/Central Shop POS Setup 0.0.0.exe',
+      'https://github.com/NjoguRufus/CentralShop/releases/latest/download/CentralShop-Setup.exe'
+    ];
+    
+    // Try to download the EXE
+    const tryDownload = (url: string) => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'Central Shop POS Setup.exe';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+    
+    // Try first path (local)
+    tryDownload(possiblePaths[0]);
+    
+    // Show instructions if needed
+    toast.info(
+      'Downloading Windows installer... If it doesn\'t start, the EXE will be in the dist folder after building with "npm run electron:build"',
+      { autoClose: 6000 }
+    );
   };
 
   if (isInstalled) {
@@ -69,15 +137,65 @@ const InstallPWAButton: React.FC = () => {
     );
   }
 
-  if (!deferredPrompt) {
-    return null; // Don't show button if prompt is not available
-  }
-
+  // Always show install button (unless already installed)
   return (
-    <Button onClick={handleInstallClick}>
-      <Download className="w-4 h-4 mr-2" />
-      Install App
-    </Button>
+    <>
+      <Button onClick={handleInstallClick}>
+        <Download className="w-4 h-4 mr-2" />
+        Install App
+      </Button>
+
+      <Modal
+        open={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+        title="Install Central Shop POS"
+      >
+        <div className="space-y-3 p-3 md:p-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Choose your platform to install the app:
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Mobile/APK Option */}
+            <button
+              onClick={handleMobileInstall}
+              className="flex flex-col items-center justify-center p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-[#4A90A4] hover:bg-[#4A90A4]/5 dark:hover:bg-[#4A90A4]/10 transition-all"
+            >
+              <Smartphone className="w-8 h-8 md:w-10 md:h-10 text-[#4A90A4] mb-2" />
+              <h3 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white mb-1">
+                Mobile App (APK)
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                Install on Android devices
+              </p>
+            </button>
+
+            {/* Desktop/EXE Option */}
+            <button
+              onClick={handleDesktopInstall}
+              className="flex flex-col items-center justify-center p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-[#4A90A4] hover:bg-[#4A90A4]/5 dark:hover:bg-[#4A90A4]/10 transition-all"
+            >
+              <Monitor className="w-8 h-8 md:w-10 md:h-10 text-[#4A90A4] mb-2" />
+              <h3 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white mb-1">
+                Windows App (EXE)
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                Download for Windows
+              </p>
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              {isMobile 
+                ? 'Tap "Mobile App" to install via PWA or download APK'
+                : 'Click "Windows App" to download the EXE installer'
+              }
+            </p>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 };
 

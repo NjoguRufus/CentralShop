@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Camera } from 'lucide-react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,8 @@ import Modal from '../components/Modal';
 import FormInput from '../components/UI/FormInput';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
 import Dropdown from '../components/UI/Dropdown';
+import BarcodeScanner from '../components/BarcodeScanner';
+import ImageCamera from '../components/ImageCamera';
 import { Product } from '../types';
 import { toast } from 'react-toastify';
 
@@ -30,6 +32,7 @@ const Inventory: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showAddCategoryInline, setShowAddCategoryInline] = useState<boolean>(false);
   const [newCategoryName, setNewCategoryName] = useState<string>('');
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -37,8 +40,9 @@ const Inventory: React.FC = () => {
     stock: '',
     category: '',
     barcode: '',
-    image: ''
+    images: [] as string[] // Changed to array for multiple images (max 3)
   });
+  const [showImageCamera, setShowImageCamera] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
@@ -162,7 +166,7 @@ const Inventory: React.FC = () => {
         stock: parseInt(formData.stock),
         category: formData.category.trim(),
         barcode: formData.barcode || '',
-        image: formData.image || '',
+        image: formData.images[0] || '', // Use first image as primary
         updatedAt: new Date()
       };
 
@@ -192,7 +196,7 @@ const Inventory: React.FC = () => {
       stock: '',
       category: '',
       barcode: '',
-      image: ''
+      images: []
     });
     setShowAddModal(false);
     setEditingProduct(null);
@@ -207,7 +211,7 @@ const Inventory: React.FC = () => {
       stock: product.stock.toString(),
       category: product.category,
       barcode: product.barcode || '',
-      image: product.image || ''
+      images: product.image ? [product.image] : []
     });
     setEditingProduct(product);
     setShowAddModal(true);
@@ -249,12 +253,18 @@ const Inventory: React.FC = () => {
       return;
     }
 
+    // Check if we already have 3 images
+    if (formData.images.length >= 3) {
+      toast.error('Maximum 3 images allowed');
+      return;
+    }
+
     try {
       // First, create a local preview
       const reader = new FileReader();
       reader.onload = (event) => {
         const result = event.target?.result as string;
-        setFormData(prev => ({ ...prev, image: result }));
+        setFormData(prev => ({ ...prev, images: [...prev.images, result] }));
       };
       reader.readAsDataURL(file);
 
@@ -267,10 +277,25 @@ const Inventory: React.FC = () => {
     }
   };
 
+  const handleCameraCapture = (imageDataUrl: string) => {
+    if (formData.images.length >= 3) {
+      toast.error('Maximum 3 images allowed');
+      return;
+    }
+    setFormData(prev => ({ ...prev, images: [...prev.images, imageDataUrl] }));
+    setShowImageCamera(false);
+    toast.success('Image captured successfully');
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processImageFile(file);
+    const files = e.target.files;
+    if (files) {
+      const remainingSlots = 3 - formData.images.length;
+      const filesToProcess = Array.from(files).slice(0, remainingSlots);
+      filesToProcess.forEach(file => processImageFile(file));
+      if (files.length > remainingSlots) {
+        toast.warning(`Only ${remainingSlots} image(s) added. Maximum 3 images allowed.`);
+      }
     }
   };
 
@@ -304,12 +329,12 @@ const Inventory: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
         <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
       </div>
 
       {/* Search and Add Product */}
-      <Card className="p-6">
+      <Card className="p-3 md:p-4">
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -333,9 +358,9 @@ const Inventory: React.FC = () => {
 
       {/* Products Grid */}
       {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
           {[...Array(10)].map((_, i) => (
-            <Card key={i} className="p-6">
+            <Card key={i} className="p-3 md:p-4">
               <div className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse mb-4"></div>
               <div className="space-y-3">
                 <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
@@ -346,11 +371,11 @@ const Inventory: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
           {filteredProducts.map(product => {
           const stockStatus = getStockStatus(product.stock);
           return (
-            <Card key={product.id} className="p-6">
+            <Card key={product.id} className="p-3 md:p-4">
               <div className="aspect-square rounded-xl overflow-hidden mb-4">
                 {product.image ? (
                   <img 
@@ -503,68 +528,115 @@ const Inventory: React.FC = () => {
             )}
           </div>
           
-          <FormInput
-            label="Barcode (Optional)"
-            name="barcode"
-            type="text"
-            value={formData.barcode}
-            onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-          />
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Product Image
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Barcode (Optional)
             </label>
-            <div className="space-y-3">
-              <div 
-                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                  isDragOver 
-                    ? 'border-[#4A90A4] bg-blue-50 dark:bg-blue-900/20' 
-                    : 'border-gray-300 dark:border-gray-600 hover:border-[#4A90A4]'
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <input 
-                  type="file" 
-                  onChange={handleImageUpload} 
-                  accept="image/*"
-                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-100" 
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {isDragOver ? 'Drop image here' : 'Click to upload or drag and drop (Max 5MB)'}
-                </p>
-              </div>
-              {formData.image && (
-                <div className="mt-2 flex items-center space-x-3">
-                  <img 
-                    src={formData.image} 
-                    alt="Product preview" 
-                    className="w-20 h-20 rounded-lg object-cover border border-gray-200 dark:border-gray-600" 
-                  />
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="sm"
-                    onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
-                  >
-                    Remove Image
-                  </Button>
-                </div>
-              )}
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                Or enter image URL manually:
-              </div>
-              <FormInput
-                name="image"
-                type="url"
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                placeholder="https://example.com/image.jpg"
+            <div className="relative">
+              <input
+                type="text"
+                name="barcode"
+                value={formData.barcode}
+                onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                className="w-full px-3 py-2 pr-10 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
+                placeholder="Enter barcode or scan"
               />
+              <button
+                type="button"
+                onClick={() => setShowBarcodeScanner(true)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-[#4A90A4] dark:text-gray-400 dark:hover:text-[#4A90A4] transition-colors"
+                title="Scan barcode with camera"
+              >
+                <Camera className="w-5 h-5" />
+              </button>
             </div>
           </div>
+          
+          {showBarcodeScanner && (
+            <BarcodeScanner
+              onScan={(barcode) => {
+                setFormData({ ...formData, barcode });
+                setShowBarcodeScanner(false);
+                toast.success(`Barcode scanned: ${barcode}`);
+              }}
+              onClose={() => setShowBarcodeScanner(false)}
+            />
+          )}
+          
+          <div>
+            <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+              Product Images (Max 3)
+            </label>
+            <div className="space-y-2 md:space-y-3">
+              <div className="flex gap-2">
+                <div 
+                  className={`flex-1 border-2 border-dashed rounded-lg p-2 md:p-4 text-center transition-colors ${
+                    isDragOver 
+                      ? 'border-[#4A90A4] bg-blue-50 dark:bg-blue-900/20' 
+                      : 'border-gray-300 dark:border-gray-600 hover:border-[#4A90A4]'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <input 
+                    type="file" 
+                    onChange={handleImageUpload} 
+                    accept="image/*"
+                    multiple
+                    disabled={formData.images.length >= 3}
+                    className="w-full text-xs md:text-sm text-gray-500 file:mr-2 file:py-1 file:px-2 md:file:py-2 md:file:px-4 file:rounded-full file:border-0 file:text-xs md:file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-100 disabled:opacity-50" 
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {isDragOver ? 'Drop images here' : `Upload (${formData.images.length}/3)`}
+                  </p>
+                </div>
+                {formData.images.length < 3 && (
+                  <Button
+                    type="button"
+                    onClick={() => setShowImageCamera(true)}
+                    variant="primary"
+                    className="flex items-center gap-1 md:gap-2 px-2 md:px-4"
+                  >
+                    <Camera className="w-3 h-3 md:w-4 md:h-4" />
+                    <span className="text-xs md:text-sm">Camera</span>
+                  </Button>
+                )}
+              </div>
+              
+              {formData.images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {formData.images.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <img 
+                        src={image} 
+                        alt={`Product preview ${index + 1}`} 
+                        className="w-full h-20 md:h-24 rounded-lg object-cover border border-gray-200 dark:border-gray-600" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          images: prev.images.filter((_, i) => i !== index) 
+                        }))}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove image"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {showImageCamera && (
+            <ImageCamera
+              onCapture={handleCameraCapture}
+              onClose={() => setShowImageCamera(false)}
+            />
+          )}
           
           <div className="flex space-x-3 pt-4">
             <Button type="submit" variant="primary" className="flex-1">

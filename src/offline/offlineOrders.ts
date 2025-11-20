@@ -63,7 +63,9 @@ export async function syncOrdersToFirestore(): Promise<void> {
       return;
     }
     
-    const unsyncedOrders = await db.orders.where('synced').equals(false).toArray();
+    // Get all orders and filter for unsynced ones (handles undefined/null synced values)
+    const allOrders = await db.orders.toArray();
+    const unsyncedOrders = allOrders.filter(order => order.synced !== true);
     const ordersCollection = getShopCollectionName('orders');
     
     for (const order of unsyncedOrders) {
@@ -116,7 +118,9 @@ export async function syncOrdersToFirestore(): Promise<void> {
  */
 export async function getPendingOrdersCount(): Promise<number> {
   try {
-    return await db.orders.where('synced').equals(false).count();
+    // Get all orders and filter for unsynced ones (handles undefined/null synced values)
+    const allOrders = await db.orders.toArray();
+    return allOrders.filter(order => order.synced !== true).length;
   } catch (error) {
     console.error('Error getting pending orders count:', error);
     return 0;

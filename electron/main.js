@@ -20,7 +20,16 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // In production, dist folder is at the root of app.asar
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    mainWindow.loadFile(indexPath).catch(err => {
+      console.error('Failed to load index.html:', err);
+      // Try alternative path if first fails
+      const altPath = app.isPackaged 
+        ? path.join(process.resourcesPath, 'app', 'dist', 'index.html')
+        : path.join(__dirname, '../dist/index.html');
+      mainWindow.loadFile(altPath);
+    });
   }
 }
 

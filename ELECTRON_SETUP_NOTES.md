@@ -271,4 +271,3 @@ For issues or questions:
 - Offline functionality uses IndexedDB (Dexie) for local storage
 - All native features gracefully fallback if dependencies fail
 - Printer service supports multiple methods with automatic fallback
-

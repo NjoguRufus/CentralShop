@@ -18,13 +18,23 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         icons: [
-          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: [
+          '**/win-unpacked/**',
+          '**/win-unpacked/**/*',
+          '**/*.exe',
+          '**/*.exe.blockmap',
+          '**/LICENSES.chromium.html',
+          '**/builder-*.yml',
+          '**/latest.yml'
+        ],
+        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024, // 20 MB
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === "navigate",
@@ -80,7 +90,7 @@ export default defineConfig({
             }
           }
         ],
-        navigateFallback: '/offline.html',
+        navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
@@ -101,11 +111,18 @@ export default defineConfig({
       output: {
         manualChunks: undefined,
       },
+      external: [
+        'electron',
+        'electron-updater'
+      ]
     },
     commonjsOptions: {
       include: [/html2pdf\.js/, /node_modules/],
     },
+    // Exclude Electron build artifacts from Vite build
+    emptyOutDir: false,
   },
+  publicDir: 'public',
   server: {
     proxy: {
       '/api': {

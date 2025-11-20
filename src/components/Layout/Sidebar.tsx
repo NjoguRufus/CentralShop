@@ -60,17 +60,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-center h-16 px-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-2">
-              <img src="/icons/central.png" alt="Central POS" className="w-8 h-8" />
-              <span className="text-xl font-bold bg-gradient-primary-text">
+          <div className="flex items-center justify-center h-12 md:h-14 px-3 md:px-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-1 md:space-x-2">
+              <img src="/icons/central.png" alt="Central POS" className="w-6 h-6 md:w-7 md:h-7" />
+              <span className="text-base md:text-lg font-bold bg-gradient-primary-text">
                 Central POS
               </span>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-2 md:px-3 py-3 md:py-4 space-y-1 md:space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -84,14 +84,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   to={item.path}
                   onClick={() => window.innerWidth < 1024 && onClose()}
                   className={`
-                    flex items-center px-4 py-3 rounded-xl transition-all duration-200
+                    flex items-center px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all duration-200 text-sm
                     ${isActive 
                       ? 'bg-gradient-primary text-white shadow-lg shadow-primary' 
                       : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary'
                     }
                   `}
                 >
-                  <Icon className="w-5 h-5 mr-3" />
+                  <Icon className="w-4 h-4 md:w-5 md:h-5 mr-2" />
                   <span className="font-medium">{item.label}</span>
                 </Link>
               );

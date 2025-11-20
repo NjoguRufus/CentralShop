@@ -67,8 +67,8 @@ const AppContent: React.FC = () => {
     <div className={theme}>
       <BarcodeListener 
         onBarcode={(code) => {
-          // Handle barcode - can be integrated with POS system
-          console.log('Barcode scanned:', code);
+          // Handle barcode - dispatch event for pages to listen to
+          window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { barcode: code } }));
         }}
         enabled={true}
       />

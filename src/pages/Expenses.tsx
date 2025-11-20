@@ -482,7 +482,7 @@ const Expenses: React.FC = () => {
         </div>
       </Card>
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
         <div className="flex space-x-2">
           <Button variant="outline" onClick={() => setShowCategoryModal(true)}>
             Manage Categories

@@ -57,8 +57,11 @@ interface Customer {
 }
 
 const Orders: React.FC = () => {
+  // Ensure hooks are called at the top level
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+  
+  // State hooks
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -622,7 +625,7 @@ const Orders: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Orders</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">Orders</h1>
         {!canEditOrders && (
           <div className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
             View Only
@@ -630,7 +633,7 @@ const Orders: React.FC = () => {
         )}
       </div>
 
-      <Card className="p-6">
+      <Card className="p-3 md:p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <FormInput
             name="search"

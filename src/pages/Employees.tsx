@@ -474,7 +474,7 @@ const Employees: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Employees</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">Employees</h1>
         <div className="flex space-x-3">
           <Button 
             variant="secondary" 

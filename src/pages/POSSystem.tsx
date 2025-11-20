@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Minus, Trash2, CreditCard, DollarSign, Search, ShoppingCart } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -39,6 +39,55 @@ const POSSystem: React.FC = () => {
     fetchProducts();
     fetchCategories();
   }, []);
+
+  // Listen for barcode scanned events
+  useEffect(() => {
+    const handleBarcodeScanned = (event: CustomEvent) => {
+      const barcode = event.detail.barcode;
+      if (barcode && products.length > 0) {
+        // Find product by barcode
+        const product = products.find(p => p.barcode === barcode);
+        if (product) {
+          // Check if product is out of stock
+          if (product.stock <= 0) {
+            toast.error(`${product.name} is out of stock`);
+            return;
+          }
+          
+          setCart(prevCart => {
+            const existingItem = prevCart.find(item => item.productId === product.id);
+            if (existingItem) {
+              if (existingItem.quantity >= product.stock) {
+                toast.error(`Cannot add more ${product.name}. Only ${product.stock} items available`);
+                return prevCart;
+              }
+              return prevCart.map(item => 
+                item.productId === product.id 
+                  ? { ...item, quantity: item.quantity + 1 }
+                  : item
+              );
+            } else {
+              return [...prevCart, {
+                productId: product.id,
+                product,
+                quantity: 1,
+                price: product.price
+              }];
+            }
+          });
+          toast.success(`Added ${product.name} to cart`);
+        } else {
+          toast.error(`Product with barcode ${barcode} not found`);
+        }
+      }
+    };
+
+    window.addEventListener('barcode-scanned', handleBarcodeScanned as EventListener);
+
+    return () => {
+      window.removeEventListener('barcode-scanned', handleBarcodeScanned as EventListener);
+    };
+  }, [products]);
 
   const fetchCategories = async (): Promise<void> => {
     try {
@@ -590,18 +639,18 @@ const POSSystem: React.FC = () => {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
-        <p className="text-gray-600 dark:text-gray-300">Process customer orders and payments</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
+        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Process customer orders and payments</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
         {/* Products Section */}
         <div className="lg:col-span-2 space-y-6">
           {/* Category Dropdown and Search Bar */}
-          <Card className="p-4 relative z-50">
+          <Card className="p-3 md:p-4 relative z-50">
             <div className="flex flex-col sm:flex-row gap-3">
               {/* Category Dropdown */}
               <div className="w-full sm:w-48 flex-shrink-0 relative z-50">
@@ -633,9 +682,9 @@ const POSSystem: React.FC = () => {
 
           {/* Products Grid */}
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-3">
               {[...Array(10)].map((_, i) => (
-                <Card key={i} className="p-4">
+                <Card key={i} className="p-2 md:p-3">
                   <div className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse mb-4"></div>
                   <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
                   <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
@@ -643,13 +692,13 @@ const POSSystem: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-3">
               {filteredProducts.map(product => {
                 const isOutOfStock = product.stock <= 0;
                 return (
                   <Card 
                     key={product.id} 
-                    className={`p-4 transition-all duration-300 ${
+                    className={`p-2 md:p-3 transition-all duration-300 ${
                       isOutOfStock 
                         ? 'opacity-60 cursor-not-allowed' 
                         : 'hover:shadow-lg cursor-pointer'
@@ -686,8 +735,8 @@ const POSSystem: React.FC = () => {
         </div>
 
         {/* Cart Section */}
-        <div className="space-y-6">
-          <Card className="p-6">
+        <div className="space-y-3 md:space-y-4">
+          <Card className="p-3 md:p-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Current Order</h3>
             
             {cart.length === 0 ? (

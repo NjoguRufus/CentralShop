@@ -298,7 +298,7 @@ const Suppliers: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Suppliers</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Suppliers</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage suppliers and their supplies</p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>

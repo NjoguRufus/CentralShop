@@ -17,7 +17,9 @@ export async function syncOfflineOrdersToFirebase(): Promise<{ synced: number; e
   }
 
   try {
-    const unsyncedOrders = await db.orders.where('synced').equals(false).toArray();
+    // Get all orders and filter for unsynced ones (handles undefined/null synced values)
+    const allOrders = await db.orders.toArray();
+    const unsyncedOrders = allOrders.filter(order => order.synced !== true);
     const ordersCollection = getShopCollectionName('orders');
     
     let synced = 0;

@@ -17,7 +17,6 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
 }) => {
   const bufferRef = useRef<string>('');
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
@@ -25,20 +24,16 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
     }
 
     const handleKeyPress = (event: KeyboardEvent) => {
-      // Ignore if user is typing in an input field
       const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        return;
-      }
-
-      // Start scanning if not already
-      if (!isScanning) {
-        setIsScanning(true);
-        bufferRef.current = '';
+      const isInputField = target.tagName === 'INPUT' || 
+                          target.tagName === 'TEXTAREA' || 
+                          target.isContentEditable;
+      
+      // For input fields, only process if it looks like barcode scanner input
+      // (very fast typing - barcode scanners type much faster than humans)
+      if (isInputField) {
+        // Still allow barcode scanning in input fields
+        // The timeout will handle detecting end of barcode
       }
 
       // Handle Enter key (end of barcode)
@@ -47,7 +42,6 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
         if (bufferRef.current.length > 0) {
           onBarcode(bufferRef.current.trim());
           bufferRef.current = '';
-          setIsScanning(false);
         }
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
@@ -59,7 +53,6 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
       // Handle Escape key (cancel)
       if (event.key === 'Escape') {
         bufferRef.current = '';
-        setIsScanning(false);
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
@@ -82,7 +75,6 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
         if (bufferRef.current.length > 0) {
           onBarcode(bufferRef.current.trim());
           bufferRef.current = '';
-          setIsScanning(false);
         }
         timeoutRef.current = null;
       }, timeout);
@@ -96,18 +88,10 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [enabled, onBarcode, timeout, isScanning]);
+  }, [enabled, onBarcode, timeout]);
 
-  // Visual indicator (optional)
-  if (!isScanning) {
-    return null;
-  }
-
-  return (
-    <div className="fixed top-4 right-4 z-50 bg-blue-500 text-white px-3 py-1 rounded shadow-lg text-sm">
-      Scanning barcode...
-    </div>
-  );
+  // No visual indicator - runs silently in background
+  return null;
 };
 
 export default BarcodeListener;

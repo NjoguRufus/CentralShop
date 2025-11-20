@@ -294,7 +294,7 @@ const Settings: React.FC = () => {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">Settings</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white mb-3 md:mb-4">Settings</h1>
         <Card className="p-6">
           <div className="space-y-4">
             {[...Array(4)].map((_, i) => (
