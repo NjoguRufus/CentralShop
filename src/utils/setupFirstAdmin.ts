@@ -1,6 +1,7 @@
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { addDoc, collection } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { getUserCollectionName } from '../config/shopConfig';
 
 export const setupFirstAdmin = async (email: string, password: string, name: string, shopName?: string) => {
   try {
@@ -43,11 +44,14 @@ export const setupFirstAdmin = async (email: string, password: string, name: str
       shopNameForUser = shopName;
     }
 
-    // Save admin user data to users collection
-    const userDocRef = await addDoc(collection(db, 'users'), {
+    // Get the dynamic user collection name based on shop name
+    const userCollectionName = getUserCollectionName(shopId, shopName || undefined);
+    
+    // Save admin user data to dynamic users collection (e.g., CentralShopUsers)
+    const userDocRef = await addDoc(collection(db, userCollectionName), {
       name: name,
       email: email,
-      role: 'Admin',
+      role: 'mainAdmin', // First admin is mainAdmin
       status: 'Active',
       uid: userCredential.user.uid,
       shopId: shopId,

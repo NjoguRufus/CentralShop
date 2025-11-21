@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../contexts/ThemeContext';
 import Button from '../UI/Button';
 import toast from 'react-hot-toast';
 
@@ -13,6 +14,7 @@ const AuthForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const { signIn, signUp } = useAuth();
+  const { theme } = useTheme();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +42,11 @@ const AuthForm: React.FC = () => {
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-primary rounded-2xl mb-4">
-              <img src="/icons/central.png" alt="Central POS" className="w-12 h-12" />
+              <img 
+                src={theme === 'dark' ? '/icons/CentalDarkmode.png' : '/icons/CentalLightmode.png'} 
+                alt="Central POS" 
+                className="w-12 h-12 scale-[2]" 
+              />
             </div>
             <h1 className="text-3xl font-bold bg-gradient-primary-text">
               Central POS

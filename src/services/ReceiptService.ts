@@ -177,7 +177,7 @@ export class ReceiptService {
         <div class="receipt">
           <div class="header">
             <div style="margin-bottom: 10px; text-align: center;">
-              <img src="/icons/central.png" alt="Central Shop Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto; display: block;" onerror="this.style.display='none'" />
+              <img src="/icons/CentalLightmode.png" alt="Central Shop Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto; display: block;" onerror="this.style.display='none'" />
             </div>
             <div class="business-name">CENTRAL SHOP</div>
             <div class="business-info">

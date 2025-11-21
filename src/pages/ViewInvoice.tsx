@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Invoice, Customer } from '../types';
 import { Download } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 // html2pdf.js import - using dynamic import for better compatibility
 const getHtml2Pdf = async () => {
   if (typeof window === 'undefined') return null;
@@ -231,9 +232,9 @@ const ViewInvoice: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 md:mb-6">
               <div className="flex items-center gap-2 md:gap-3">
                 <img 
-                  src="/icons/central.png" 
+                  src={theme === 'dark' ? '/icons/CentalDarkmode.png' : '/icons/CentalLightmode.png'} 
                   alt="CENTRAL SHOP Logo" 
-                  className="w-10 h-10 md:w-12 md:h-12 object-contain"
+                  className="w-10 h-10 md:w-12 md:h-12 object-contain scale-[2]"
                 />
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">CENTRAL SHOP</h1>
               </div>
@@ -250,7 +251,7 @@ const ViewInvoice: React.FC = () => {
           {isCapturingPDF && (
             <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
               <img 
-                src="/icons/central.png" 
+                src="/icons/CentalLightmode.png" 
                 alt="CENTRAL SHOP Logo" 
                 className="w-10 h-10 md:w-12 md:h-12 object-contain"
               />

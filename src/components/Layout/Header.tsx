@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Menu, Sun, Moon, User, LogOut, Bell } from 'lucide-react';
+import { Sun, Moon, User, LogOut, Bell, Menu, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 
 interface HeaderProps {
-  onMenuClick: () => void;
   onProfileClick: () => void;
   onNotificationClick: () => void;
   notificationTriggerRef: React.RefObject<HTMLButtonElement>;
+  onSidebarToggle?: () => void;
+  sidebarOpen?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, onNotificationClick, notificationTriggerRef }) => {
+const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, notificationTriggerRef, onSidebarToggle, sidebarOpen = true }) => {
   const { user, currentUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
@@ -27,13 +28,26 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, onNotifica
 
       {/* Main Header Content */}
       <div className="flex items-center justify-between px-3 md:px-4 py-2 md:py-3">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onMenuClick}
-            className="p-1.5 md:p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden"
-          >
-            <Menu className="w-5 h-5 md:w-6 md:h-6" />
-          </button>
+        <div className="flex items-center space-x-3 md:space-x-4">
+          {/* Sidebar Toggle Button - Desktop only */}
+          {onSidebarToggle && (
+            <button
+              onClick={onSidebarToggle}
+              className="hidden lg:flex p-1.5 md:p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Toggle sidebar"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          )}
+          
+          {/* Logo - Always visible */}
+          <div className="flex items-center">
+            <img 
+              src={theme === 'dark' ? '/icons/CentalDarkmode.png' : '/icons/CentalLightmode.png'} 
+              alt="Central POS" 
+              className="w-6 h-6 md:w-8 md:h-8 scale-[2]" 
+            />
+          </div>
           
           {/* Welcome message - Hidden on mobile, shown on desktop */}
           <h1 className="hidden lg:block text-base md:text-lg font-semibold text-gray-900 dark:text-white">

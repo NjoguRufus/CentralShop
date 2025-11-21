@@ -7,6 +7,7 @@ service cloud.firestore {
     }
 
     // Assumes users/{uid} contains { shopId: string, role: string }
+    // Note: Dynamic user collections (e.g., CentralShopUsers) are checked in application code
     function getUser(uid) {
       return get(/databases/$(database)/documents/users/$(uid));
     }
@@ -56,10 +57,23 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn();
     }
 
-    // Shop root doc (metadata) - write restricted
+    // Dynamic User Collections: {ShopName}Users/{userId}
+    // Examples: CentralShopUsers, MyBusinessUsers, etc.
+    match /{shopUsers}/{userId} {
+      allow read: if isSignedIn() && shopUsers.matches('.*Users$');
+      // Allow create during setup (when user is authenticated but might not have shopId yet)
+      allow create: if isSignedIn() && shopUsers.matches('.*Users$');
+      // Allow update/delete for authenticated users (can be tightened later)
+      allow update, delete: if isSignedIn() && shopUsers.matches('.*Users$');
+    }
+
+    // Shop root doc (metadata) - allow creation during setup
     match /shops/{shopId} {
-      allow read: if isShopMember(shopId) || isAstraronix();
-      allow write: if isAstraronix();
+      allow read: if isShopMember(shopId) || isAstraronix() || isSignedIn();
+      // Allow create during setup (when user is authenticated)
+      allow create: if isSignedIn();
+      // Only astraronix can update/delete shops
+      allow update, delete: if isAstraronix();
     }
 
     // Shop Prefixed Collections (Dynamic - works for any shop prefix)
@@ -81,7 +95,8 @@ service cloud.firestore {
 
     // Products: {ShopName}Products/{productId}
     match /{shopProducts}/{productId} {
-      allow read: if isSignedIn() && shopProducts.matches('.*Products$');
+      // Allow read and list for any signed-in user (needed for offline sync)
+      allow read, list: if isSignedIn() && shopProducts.matches('.*Products$');
       allow create, update: if isSignedIn() 
         && shopProducts.matches('.*Products$')
         && request.resource.data.price is number && request.resource.data.price >= 0

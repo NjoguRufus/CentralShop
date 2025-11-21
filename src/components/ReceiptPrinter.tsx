@@ -135,7 +135,7 @@ const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ data, onPrintComplete }
       <body>
         <div class="header">
           <div style="margin-bottom: 10px; text-align: center;">
-            <img src="/icons/central.png" alt="Central Shop Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto;" onerror="this.style.display='none'" />
+            <img src="/icons/CentalLightmode.png" alt="Central Shop Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto;" onerror="this.style.display='none'" />
           </div>
           <div class="shop-name">CENTRAL SHOP</div>
           <div class="order-info">

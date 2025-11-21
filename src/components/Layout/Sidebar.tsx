@@ -15,6 +15,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const menuItems = [
   { path: '/developer', label: 'Developer Dashboard', icon: Building2, requiredRole: 'astraronix' },
@@ -39,37 +40,21 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { hasPermission } = useAuth();
+  const { theme } = useTheme();
 
   return (
     <>
-      {/* Mobile Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={onClose}
-        />
-      )}
-      
-      {/* Sidebar */}
+      {/* Sidebar - Hidden on mobile, visible on desktop, starts below header */}
       <div className={`
-        fixed left-0 top-0 z-50 h-full w-64 transform transition-transform duration-300 ease-in-out
-        lg:translate-x-0 lg:static lg:inset-0
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        hidden lg:block
+        fixed left-0 top-[73px] z-40 h-[calc(100vh-73px)] w-64
         bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
         backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95
+        transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-center h-12 md:h-14 px-3 md:px-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-1 md:space-x-2">
-              <img src="/icons/central.png" alt="Central POS" className="w-6 h-6 md:w-7 md:h-7" />
-              <span className="text-base md:text-lg font-bold bg-gradient-primary-text">
-                Central POS
-              </span>
-            </div>
-          </div>
-
-          {/* Navigation */}
+          {/* Navigation - Logo removed, now in header */}
           <nav className="flex-1 px-2 md:px-3 py-3 md:py-4 space-y-1 md:space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -82,7 +67,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={() => window.innerWidth < 1024 && onClose()}
                   className={`
                     flex items-center px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all duration-200 text-sm
                     ${isActive 

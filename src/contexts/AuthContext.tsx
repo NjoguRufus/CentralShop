@@ -11,7 +11,7 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { auth, db } from '../firebase';
 import { toast } from 'react-toastify';
 import { EmployeeActivityService } from '../services/EmployeeActivityService';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, getUserCollectionName } from '../config/shopConfig';
 
 interface User {
   id: string;
@@ -64,27 +64,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           console.log('Fetching user data for UID:', firebaseUser.uid);
           
-          // First try users collection (for backward compatibility)
-          const usersQuery = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
-          const usersSnapshot = await getDocs(usersQuery);
-          console.log('User documents found in users collection:', usersSnapshot.size);
-          
           let userDoc = null;
           let userData: User | null = null;
           
-          if (!usersSnapshot.empty) {
-            userDoc = usersSnapshot.docs[0];
+          // Try dynamic user collection first (e.g., CentralShopUsers)
+          const userCollectionName = getUserCollectionName();
+          const dynamicUsersQuery = query(collection(db, userCollectionName), where('uid', '==', firebaseUser.uid));
+          const dynamicUsersSnapshot = await getDocs(dynamicUsersQuery);
+          console.log(`User documents found in ${userCollectionName} collection:`, dynamicUsersSnapshot.size);
+          
+          if (!dynamicUsersSnapshot.empty) {
+            userDoc = dynamicUsersSnapshot.docs[0];
             userData = userDoc.data() as User;
           } else {
-            // If not found in users, try employees collection
-            const employeesCollectionName = getShopCollectionName('employees');
-            const employeesQuery = query(collection(db, employeesCollectionName), where('uid', '==', firebaseUser.uid));
-            const employeesSnapshot = await getDocs(employeesQuery);
-            console.log('User documents found in employees collection:', employeesSnapshot.size);
+            // Try old users collection (for backward compatibility)
+            const usersQuery = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
+            const usersSnapshot = await getDocs(usersQuery);
+            console.log('User documents found in users collection:', usersSnapshot.size);
             
-            if (!employeesSnapshot.empty) {
-              userDoc = employeesSnapshot.docs[0];
+            if (!usersSnapshot.empty) {
+              userDoc = usersSnapshot.docs[0];
               userData = userDoc.data() as User;
+            } else {
+              // If not found in users, try employees collection
+              const employeesCollectionName = getShopCollectionName('employees');
+              const employeesQuery = query(collection(db, employeesCollectionName), where('uid', '==', firebaseUser.uid));
+              const employeesSnapshot = await getDocs(employeesQuery);
+              console.log('User documents found in employees collection:', employeesSnapshot.size);
+              
+              if (!employeesSnapshot.empty) {
+                userDoc = employeesSnapshot.docs[0];
+                userData = userDoc.data() as User;
+              }
             }
           }
           

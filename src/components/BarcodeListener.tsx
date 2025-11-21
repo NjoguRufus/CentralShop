@@ -61,7 +61,7 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
       }
 
       // Add character to buffer
-      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.key && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
         bufferRef.current += event.key;
       }
 

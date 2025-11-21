@@ -4,7 +4,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy,
 import { createUserWithEmailAndPassword, updateProfile, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, getUserCollectionName } from '../config/shopConfig';
 import Modal from '../components/Modal';
 import Card from '../components/UI/Card';
 import Table from '../components/UI/Table';
@@ -338,7 +338,8 @@ const Employees: React.FC = () => {
           displayName: formData.name
         });
 
-        // Save employee data to shop-prefixed employees collection with UID, password, and shop info
+        // Save employee data to dynamic user collection (e.g., CentralShopUsers)
+        const userCollectionName = getUserCollectionName(currentUser?.shopId, currentUser?.shopName);
         const employeeData = {
           ...formData,
           email: trimmedEmail, // Use trimmed email
@@ -348,6 +349,11 @@ const Employees: React.FC = () => {
           createdAt: new Date(),
           updatedAt: new Date()
         };
+        
+        // Save to dynamic user collection
+        await addDoc(collection(db, userCollectionName), employeeData);
+        
+        // Also save to employees collection for employee-specific features (optional, for backward compatibility)
         await addDoc(collection(db, getShopCollectionName('employees')), employeeData);
 
         // Check if the newly signed-in user is different from the admin

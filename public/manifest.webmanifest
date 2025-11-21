@@ -1,36 +1,119 @@
 {
   "name": "Central Shop POS",
   "short_name": "Central POS",
-  "description": "Central Shop Point of Sale System",
+  "description": "Central Shop Point of Sale System - Full-featured POS with offline support",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#4A90A4",
+  "dir": "ltr",
+  "lang": "en",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/CentalDarkmode.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/CentalDarkmode.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-maskable-512.png",
+      "src": "/icons/CentalDarkmode.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
   ],
-  "categories": ["business", "productivity"],
+  "categories": ["business", "productivity", "finance"],
   "screenshots": [],
-  "shortcuts": []
+  "shortcuts": [
+    {
+      "name": "New Sale",
+      "short_name": "Sale",
+      "description": "Start a new POS transaction",
+      "url": "/pos",
+      "icons": [
+        {
+          "src": "/icons/CentalDarkmode.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "short_name": "Stock",
+      "description": "View and manage inventory",
+      "url": "/inventory",
+      "icons": [
+        {
+          "src": "/icons/CentalDarkmode.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "View business dashboard",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/icons/CentalDarkmode.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "short_name": "Orders",
+      "description": "View order history",
+      "url": "/orders",
+      "icons": [
+        {
+          "src": "/icons/CentalDarkmode.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["image/*", "application/pdf"]
+        }
+      ]
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "/handle-file",
+      "accept": {
+        "image/*": [".jpg", ".jpeg", ".png", ".webp"],
+        "application/pdf": [".pdf"],
+        "text/csv": [".csv"]
+      }
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "iarc_rating_id": "",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"]
 }
-
-

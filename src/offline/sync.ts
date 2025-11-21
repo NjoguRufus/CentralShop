@@ -1,18 +1,21 @@
 /**
  * Offline Sync Module
- * Handles syncing offline data to Firestore
+ * Handles syncing offline data to Firestore with Background Sync support
  */
 import { collection, doc, setDoc, Timestamp, getDocs, query, orderBy } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 import { getShopCollectionName } from '../config/shopConfig';
 import { db } from './db';
+import { registerBackgroundSync } from '../utils/backgroundSync';
 
 /**
  * Sync offline orders to Firestore
  */
 export async function syncOfflineOrdersToFirebase(): Promise<{ synced: number; errors: number }> {
   if (!navigator.onLine) {
-    console.log('Offline: Cannot sync orders');
+    console.log('Offline: Registering background sync for orders');
+    // Register background sync for when connection is restored
+    await registerBackgroundSync('sync-orders');
     return { synced: 0, errors: 0 };
   }
 

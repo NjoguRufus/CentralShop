@@ -62,12 +62,6 @@ const InstallPWAButton: React.FC = () => {
   }, []);
 
   const handleInstallClick = () => {
-    // Check if Electron is available (desktop app)
-    if ((window as any).electron) {
-      toast.info('You are already using the desktop app!');
-      return;
-    }
-    
     // Show modal with install options
     setShowInstallModal(true);
   };
@@ -97,35 +91,31 @@ const InstallPWAButton: React.FC = () => {
     }
   };
 
-  const handleDesktopInstall = () => {
+  const handleDesktopInstall = async () => {
     setShowInstallModal(false);
     
-    // Try multiple possible locations for the EXE
-    const possiblePaths = [
-      '/downloads/Central Shop POS Setup 0.0.0.exe',
-      '/Central Shop POS Setup 0.0.0.exe',
-      'https://github.com/NjoguRufus/CentralShop/releases/latest/download/CentralShop-Setup.exe'
-    ];
-    
-    // Try to download the EXE
-    const tryDownload = (url: string) => {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'Central Shop POS Setup.exe';
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    };
-    
-    // Try first path (local)
-    tryDownload(possiblePaths[0]);
-    
-    // Show instructions if needed
-    toast.info(
-      'Downloading Windows installer... If it doesn\'t start, the EXE will be in the dist folder after building with "npm run electron:build"',
-      { autoClose: 6000 }
-    );
+    // Use PWA install prompt for desktop
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+          setIsInstalled(true);
+          toast.success('Installing app...');
+        }
+        setDeferredPrompt(null);
+      } catch (error) {
+        console.error('Install error:', error);
+        toast.error('Failed to install app');
+      }
+    } else {
+      // Show instructions for manual install
+      toast.info(
+        'Please use your browser\'s install option. In Chrome/Edge, look for the install icon in the address bar.',
+        { autoClose: 6000 }
+      );
+    }
   };
 
   if (isInstalled) {
@@ -177,10 +167,10 @@ const InstallPWAButton: React.FC = () => {
             >
               <Monitor className="w-8 h-8 md:w-10 md:h-10 text-[#4A90A4] mb-2" />
               <h3 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white mb-1">
-                Windows App (EXE)
+                Desktop App
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                Download for Windows
+                Install on Windows, macOS, or Linux
               </p>
             </button>
           </div>
@@ -188,8 +178,8 @@ const InstallPWAButton: React.FC = () => {
           <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
               {isMobile 
-                ? 'Tap "Mobile App" to install via PWA or download APK'
-                : 'Click "Windows App" to download the EXE installer'
+                ? 'Tap "Mobile App" to install via PWA'
+                : 'Click "Desktop App" to install as a PWA on your computer'
               }
             </p>
           </div>

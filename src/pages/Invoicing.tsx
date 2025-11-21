@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { getShopCollectionName } from '../config/shopConfig';
 import { Invoice, InvoiceItem, Customer, Product } from '../types';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
@@ -29,6 +30,7 @@ const getHtml2Pdf = async () => {
 
 const Invoicing: React.FC = () => {
   const { currentUser } = useAuth();
+  const { theme } = useTheme();
   const invoiceModalRef = useRef<HTMLDivElement>(null);
   const [isCapturingPDF, setIsCapturingPDF] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -381,7 +383,7 @@ const Invoicing: React.FC = () => {
   const generateInvoiceHTML = (invoice: Invoice & { customerPhone?: string }): string => {
     const customer = invoice.customerId ? customers.find(c => c.id === invoice.customerId) : null;
     const businessName = "CENTRAL SHOP";
-    const logoUrl = "/icons/central.png";
+    const logoUrl = "/icons/CentalLightmode.png";
 
     // Format dates safely
     const invoiceDate = invoice.createdAt instanceof Date 
@@ -1179,9 +1181,9 @@ const Invoicing: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2 md:gap-3 mb-2">
                     <img 
-                      src="/icons/central.png" 
+                      src={theme === 'dark' ? '/icons/CentalDarkmode.png' : '/icons/CentalLightmode.png'} 
                       alt="CENTRAL SHOP Logo" 
-                      className="w-10 h-10 md:w-12 md:h-12 object-contain"
+                      className="w-10 h-10 md:w-12 md:h-12 object-contain scale-[2]"
                     />
                     <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">CENTRAL SHOP</h3>
                   </div>

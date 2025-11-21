@@ -467,7 +467,7 @@ const Orders: React.FC = () => {
       <body>
         <div class="header">
           <div style="margin-bottom: 10px; text-align: center;">
-            <img src="/icons/central.png" alt="CENTRAL SHOP Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto;" />
+            <img src="/icons/CentalLightmode.png" alt="CENTRAL SHOP Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto;" />
           </div>
           <div class="shop-name">CENTRAL SHOP</div>
           <div class="order-info">

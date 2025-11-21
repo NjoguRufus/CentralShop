@@ -285,8 +285,7 @@ const Settings: React.FC = () => {
   const tabs = [
     { id: 'business', label: 'Business Info' },
     { id: 'theme', label: 'Theme Settings' },
-    { id: 'payments', label: 'Payment Settings' },
-    { id: 'app', label: 'App Settings' }
+    { id: 'payments', label: 'Payment Settings' }
   ];
 
   const adminProtectedTabs: string[] = [];
@@ -307,33 +306,33 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">Settings</h1>
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 md:py-8">
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-6">Settings</h1>
 
-      <Card className="p-6">
+      <Card className="p-3 sm:p-4 md:p-6">
         <div className="border-b border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center mb-4">
-          <nav className="-mb-px flex space-x-8">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 text-sm font-medium whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+          <div className="mb-4 overflow-x-auto">
+            <nav className="-mb-px flex space-x-2 sm:space-x-4 md:space-x-8 min-w-max">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-2 sm:py-3 md:py-4 px-1 sm:px-2 text-xs sm:text-sm font-medium whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
 
         <div className="mt-6">
           {activeTab === 'business' && (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Business Logo</label>
                 <input 
@@ -370,14 +369,14 @@ const Settings: React.FC = () => {
           )}
 
           {activeTab === 'theme' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">Theme Settings</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-medium text-gray-800 dark:text-white">Theme Settings</h3>
               
               {/* Theme Mode */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Theme Mode</label>
-                  <div className="flex space-x-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">Theme Mode</label>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                     <button
                       onClick={toggleTheme}
                       className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 transition-all ${
@@ -405,8 +404,8 @@ const Settings: React.FC = () => {
 
                 {/* Color Schemes */}
               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Color Scheme</label>
-                  <div className="grid grid-cols-4 gap-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">Color Scheme</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                     {(['blue', 'green', 'purple', 'red', 'orange', 'pink', 'indigo', 'teal'] as const).map((scheme) => (
                       <button
                         key={scheme}
@@ -477,14 +476,14 @@ const Settings: React.FC = () => {
           )}
 
           {activeTab === 'payments' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">Payment Methods</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-medium text-gray-800 dark:text-white">Payment Methods</h3>
               
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Cash Payments</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow customers to pay with cash</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">Cash Payments</h4>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Allow customers to pay with cash</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -503,10 +502,10 @@ const Settings: React.FC = () => {
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Mobile Payments (M-Pesa)</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow customers to pay via mobile money</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">Mobile Payments (M-Pesa)</h4>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Allow customers to pay via mobile money</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -525,10 +524,10 @@ const Settings: React.FC = () => {
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Debt Payments</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow customers to pay later (debt/credit). Partial payments are accessed through debt payment.</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">Debt Payments</h4>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Allow customers to pay later (debt/credit). Partial payments are accessed through debt payment.</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -551,48 +550,14 @@ const Settings: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'app' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">App Settings</h3>
-              
-              <div className="space-y-4">
-                <Card className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">Install App</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Install Central Shop POS as a Progressive Web App for better performance and offline access
-                      </p>
-                    </div>
-                    <InstallPWAButton />
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Offline Mode</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      Central Shop POS works offline. Your data will sync automatically when you're back online.
-                    </p>
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className={`w-2 h-2 rounded-full ${navigator.onLine ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {navigator.onLine ? 'Online' : 'Offline'}
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            </div>
-          )}
 
         </div>
 
-        <div className="flex justify-end pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-end pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-200 dark:border-gray-700">
           <Button 
             onClick={saveSettings} 
             disabled={saving}
-            className="min-w-[120px]"
+            className="w-full sm:w-auto min-w-[120px]"
           >
             {saving ? 'Saving...' : 'Save Settings'}
           </Button>

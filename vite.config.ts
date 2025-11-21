@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
@@ -24,15 +24,18 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // In dev mode, files are served from memory, so glob patterns may not match
+        // This warning is harmless - precaching only matters in production
+        globPatterns: mode === 'production'
+          ? ['**/*.{js,css,html,ico,png,svg,woff2,webp}']
+          : ['index.html'], // Minimal pattern for dev mode to avoid warnings
         globIgnores: [
-          '**/win-unpacked/**',
-          '**/win-unpacked/**/*',
-          '**/*.exe',
-          '**/*.exe.blockmap',
-          '**/LICENSES.chromium.html',
-          '**/builder-*.yml',
-          '**/latest.yml'
+          '**/node_modules/**',
+          '**/.git/**',
+          '**/dist/**',
+          '**/dev-dist/**',
+          'sw.js',
+          'workbox-*.js'
         ],
         maximumFileSizeToCacheInBytes: 20 * 1024 * 1024, // 20 MB
         runtimeCaching: [
@@ -45,6 +48,9 @@ export default defineConfig({
               expiration: {
                 maxEntries: 50,
                 maxAgeSeconds: 24 * 60 * 60 // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           },
@@ -56,6 +62,9 @@ export default defineConfig({
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 7 * 24 * 60 * 60 // 7 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           },
@@ -67,6 +76,9 @@ export default defineConfig({
               expiration: {
                 maxEntries: 200,
                 maxAgeSeconds: 30 * 24 * 60 * 60 // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           },
@@ -78,6 +90,9 @@ export default defineConfig({
               expiration: {
                 maxEntries: 10,
                 maxAgeSeconds: 365 * 24 * 60 * 60 // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           },
@@ -86,12 +101,33 @@ export default defineConfig({
             handler: "NetworkFirst",
             options: {
               cacheName: "firestore-cache",
-              networkTimeoutSeconds: 3
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 5 * 60 // 5 minutes
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.cloudinary\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "cloudinary-cache",
+              expiration: {
+                maxEntries: 300,
+                maxAgeSeconds: 30 * 24 * 60 * 60 // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
             }
           }
         ],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
+        navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/, /^\/api/],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: false
@@ -109,18 +145,28 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: (id) => {
+          // Code splitting for better performance
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('firebase')) {
+              return 'vendor-firebase';
+            }
+            if (id.includes('@google/generative-ai')) {
+              return 'vendor-ai';
+            }
+            return 'vendor';
+          }
+        },
       },
-      external: [
-        'electron',
-        'electron-updater'
-      ]
     },
     commonjsOptions: {
       include: [/html2pdf\.js/, /node_modules/],
     },
-    // Exclude Electron build artifacts from Vite build
-    emptyOutDir: false,
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
   },
   publicDir: 'public',
   server: {
@@ -132,4 +178,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));

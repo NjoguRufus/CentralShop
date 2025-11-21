@@ -13,10 +13,12 @@ import RoleBasedRedirect from './components/RoleBasedRedirect';
 import AppUpdatePrompt from './components/AppUpdatePrompt';
 import OfflineNotifier from './components/OfflineNotifier';
 import Updater from './components/Updater';
+import SyncQueueManager from './components/SyncQueueManager';
 import BarcodeListener from './components/BarcodeListener';
 import { initializeOfflineSync } from './offline';
 import { useOfflineSync } from './offline/useSync';
 import { registerPushNotifications } from './services/pushNotifications';
+import { useAppKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 // Lazy load heavy pages for better performance
 const Login = lazy(() => import('./pages/Login'));
@@ -41,6 +43,13 @@ const PageSkeleton: React.FC = () => (
     <div className="w-16 h-16 border-4 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
   </div>
 );
+
+// Component to initialize keyboard shortcuts inside Router context
+const RouterContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Initialize keyboard shortcuts (now inside Router context)
+  useAppKeyboardShortcuts();
+  return <>{children}</>;
+};
 
 const AppContent: React.FC = () => {
   const { user, currentUser, loading } = useAuth();
@@ -75,26 +84,28 @@ const AppContent: React.FC = () => {
       <OfflineNotifier />
       <AppUpdatePrompt />
       <Updater />
+      <SyncQueueManager />
       <Router>
-        <Routes>
-          <Route path="/setup" element={<Setup />} />
-          {/* Public invoice view route - format: /{customerName}/invoice */}
-          <Route path="/:customerName/invoice" element={<ViewInvoice />} />
-          {!user ? (
-            <Route path="*" element={<Login />} />
-          ) : (
-            <>
-              {/* Developer Dashboard - Only for astraronix role */}
-              <Route path="/developer" element={
-                <ProtectedRoute requiredRole="astraronix">
-                  <Suspense fallback={<PageSkeleton />}>
-                  <DeveloperDashboard />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              
-              {/* Regular Shop Dashboard */}
-              <Route path="/" element={<Layout />}>
+        <RouterContent>
+          <Routes>
+            <Route path="/setup" element={<Setup />} />
+            {/* Public invoice view route - format: /{customerName}/invoice */}
+            <Route path="/:customerName/invoice" element={<ViewInvoice />} />
+            {!user ? (
+              <Route path="*" element={<Login />} />
+            ) : (
+              <>
+                {/* Developer Dashboard - Only for astraronix role */}
+                <Route path="/developer" element={
+                  <ProtectedRoute requiredRole="astraronix">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <DeveloperDashboard />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Regular Shop Dashboard */}
+                <Route path="/" element={<Layout />}>
                 <Route index element={<RoleBasedRedirect />} />
                 <Route path="dashboard" element={
                   <ProtectedRoute requiredRole="Admin">
@@ -173,10 +184,11 @@ const AppContent: React.FC = () => {
                     </Suspense>
                   </ProtectedRoute>
                 } />
-              </Route>
-            </>
-          )}
-        </Routes>
+                </Route>
+              </>
+            )}
+          </Routes>
+        </RouterContent>
         <Toaster 
           position="top-right"
           toastOptions={{

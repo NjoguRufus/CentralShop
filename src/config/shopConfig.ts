@@ -26,7 +26,8 @@ export const getShopCollectionName = (collectionName: string): string => {
     'invoices': `${SHOP_NAME}Invoices`,
     'settings': `${SHOP_NAME}Settings`,
     'employees': `${SHOP_NAME}Employees`,
-    'productCategories': `${SHOP_NAME}ProductCategories`
+    'productCategories': `${SHOP_NAME}ProductCategories`,
+    'users': `${SHOP_NAME}Users` // Dynamic user collection
   };
   
   if (specialCases[collectionName]) {
@@ -35,6 +36,29 @@ export const getShopCollectionName = (collectionName: string): string => {
   
   // Default: capitalize first letter and add shop prefix
   return `${SHOP_NAME}${collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}`;
+};
+
+/**
+ * Gets the user collection name for a specific shop
+ * If shopName is provided, it will use that shop's name
+ * Otherwise uses default SHOP_NAME from config
+ * 
+ * @param shopId - Optional shop ID (not currently used, but kept for future enhancement)
+ * @param shopName - Optional shop name (e.g., "CentralShop", "MyBusiness")
+ * @returns Collection name like "CentralShopUsers" or "MyBusinessUsers"
+ */
+export const getUserCollectionName = (shopId?: string, shopName?: string): string => {
+  // If shopName is provided, use it directly
+  if (shopName) {
+    // Remove spaces and ensure proper formatting
+    const formattedShopName = shopName.trim().replace(/\s+/g, '');
+    return `${formattedShopName}Users`;
+  }
+  
+  // If shopId is provided, we'd need to fetch the shop name from Firestore
+  // For now, use the default SHOP_NAME from config
+  // TODO: In the future, you might want to fetch the shop document to get the actual name
+  return `${SHOP_NAME}Users`;
 };
 
 /**
