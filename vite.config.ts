@@ -151,26 +151,17 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
+        // Simplified chunking - let Vite handle React automatically to avoid issues
         manualChunks: (id) => {
-          // Code splitting for better performance
-          // Keep all React-related packages together to avoid forwardRef issues
           if (id.includes('node_modules')) {
-            // Bundle all React ecosystem together
-            if (
-              id.includes('react') || 
-              id.includes('react-dom') || 
-              id.includes('react/jsx-runtime') ||
-              id.includes('react-router') ||
-              id.includes('scheduler')
-            ) {
-              return 'vendor-react';
-            }
+            // Only split large libraries, keep React ecosystem together
             if (id.includes('firebase')) {
               return 'vendor-firebase';
             }
             if (id.includes('@google/generative-ai')) {
               return 'vendor-ai';
             }
+            // Let Vite automatically handle React and other dependencies
             return 'vendor';
           }
         },
@@ -181,9 +172,9 @@ export default defineConfig(({ mode }) => ({
     },
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
-    // Ensure proper module resolution
     target: 'esnext',
     minify: 'esbuild',
+    sourcemap: false,
   },
   publicDir: 'public',
   server: {
