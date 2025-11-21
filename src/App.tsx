@@ -37,10 +37,12 @@ const Employees = lazy(() => import('./pages/Employees'));
 const Settings = lazy(() => import('./pages/Settings'));
 const ViewInvoice = lazy(() => import('./pages/ViewInvoice'));
 
+import LoadingSpinner from './components/UI/LoadingSpinner';
+
 // Skeleton loader component
 const PageSkeleton: React.FC = () => (
   <div className="min-h-screen bg-gray-100 dark:bg-black flex items-center justify-center">
-    <div className="w-16 h-16 border-4 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
+    <LoadingSpinner size="lg" />
   </div>
 );
 

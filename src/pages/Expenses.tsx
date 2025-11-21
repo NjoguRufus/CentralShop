@@ -12,6 +12,7 @@ import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
 import Modal from '../components/Modal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 const Expenses: React.FC = () => {
@@ -407,7 +408,7 @@ const Expenses: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LoadingSpinner size="md" />
       </div>
     );
   }

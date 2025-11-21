@@ -50,9 +50,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Users collection (testing): allow reads for any signed-in user to unblock Employees page
+    // Users collection: allow reads for signed-in users, and list/query for login page
     match /users/{userId} {
+      // Allow individual document reads for authenticated users
       allow read: if isSignedIn();
+      // Allow list/query operations for unauthenticated users (needed for login page email lookup)
+      allow list: if true;
       // Keep writes open during testing; tighten later to Admin-only
       allow create, update, delete: if isSignedIn();
     }
@@ -60,7 +63,10 @@ service cloud.firestore {
     // Dynamic User Collections: {ShopName}Users/{userId}
     // Examples: CentralShopUsers, MyBusinessUsers, etc.
     match /{shopUsers}/{userId} {
+      // Allow individual document reads for authenticated users
       allow read: if isSignedIn() && shopUsers.matches('.*Users$');
+      // Allow list/query operations for unauthenticated users (needed for login page email lookup)
+      allow list: if shopUsers.matches('.*Users$');
       // Allow create during setup (when user is authenticated but might not have shopId yet)
       allow create: if isSignedIn() && shopUsers.matches('.*Users$');
       // Allow update/delete for authenticated users (can be tightened later)
@@ -112,7 +118,10 @@ service cloud.firestore {
 
     // Employees: {ShopName}Employees/{employeeId}
     match /{shopEmployees}/{employeeId} {
+      // Allow individual document reads for authenticated users
       allow read: if isSignedIn() && shopEmployees.matches('.*Employees$');
+      // Allow list/query operations for unauthenticated users (needed for login page email lookup)
+      allow list: if shopEmployees.matches('.*Employees$');
       allow create, update, delete: if isSignedIn() && shopEmployees.matches('.*Employees$');
     }
 

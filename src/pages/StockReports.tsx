@@ -10,6 +10,7 @@ import FormInput from '../components/UI/SimpleFormInput';
 import Select from '../components/UI/Select';
 import DateInput from '../components/UI/DateInput';
 import Table from '../components/UI/Table';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 const StockReports: React.FC = () => {
@@ -368,7 +369,7 @@ ${reportData.categoryBreakdown.map(cat =>
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LoadingSpinner size="md" />
       </div>
     );
   }

@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   className={`
                     flex items-center px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all duration-200 text-sm
                     ${isActive 
-                      ? 'bg-gradient-primary text-white shadow-lg shadow-primary' 
+                      ? 'bg-gradient-primary text-white shadow-lg shadow-primary backdrop-blur-sm' 
                       : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary'
                     }
                   `}

@@ -92,7 +92,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user }) =>
         <div className="space-y-3">
         {/* Profile Header */}
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-4 bg-gradient-primary rounded-full flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto mb-4 bg-gradient-primary backdrop-blur-sm rounded-full flex items-center justify-center">
             {user.avatar ? (
               <img 
                 src={user.avatar} 

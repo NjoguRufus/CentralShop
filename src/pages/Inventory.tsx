@@ -375,8 +375,9 @@ const Inventory: React.FC = () => {
           {filteredProducts.map(product => {
           const stockStatus = getStockStatus(product.stock);
           return (
-            <Card key={product.id} className="p-3 md:p-4">
-              <div className="aspect-square rounded-xl overflow-hidden mb-4">
+            <Card key={product.id} className="p-0 overflow-hidden">
+              {/* Image - Full width and top */}
+              <div className="aspect-square w-full overflow-hidden relative">
                 {product.image ? (
                   <img 
                     src={product.image} 
@@ -390,23 +391,29 @@ const Inventory: React.FC = () => {
                 )}
               </div>
               
-              <div className="space-y-3">
+              {/* Content - with padding */}
+              <div className="p-3 md:p-4 space-y-3">
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">{product.name}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{product.category}</p>
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div>
                   <span className="text-lg font-bold text-[#4A90A4]">KSH {product.price.toLocaleString()}</span>
+                </div>
+                
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Stock: {product.stock} units</span>
                   <span className={`px-2 py-1 rounded-lg text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
                     {stockStatus.text}
                   </span>
                 </div>
                 
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  <div>Stock: {product.stock} units</div>
-                  {product.barcode && <div>Barcode: {product.barcode}</div>}
-                </div>
+                {product.barcode && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Barcode: {product.barcode}
+                  </div>
+                )}
                 
                 <div className="flex space-x-2">
                   <Button

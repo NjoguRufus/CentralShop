@@ -134,8 +134,8 @@ const DeveloperDashboard: React.FC = () => {
 
   const filteredShops = shops.filter(shop => {
     const matchesSearch = 
-      shop.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      shop.mainAdminName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    shop.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    shop.mainAdminName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       shop.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       shop.mainAdminEmail.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -244,19 +244,19 @@ const DeveloperDashboard: React.FC = () => {
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      address: '',
-      phone: '',
-      email: '',
-      mainAdminName: '',
-      mainAdminEmail: '',
-      mainAdminPassword: '',
-      currency: 'USD',
-      taxRate: 0.1,
-      timezone: 'UTC'
-    });
+      setFormData({
+        name: '',
+        description: '',
+        address: '',
+        phone: '',
+        email: '',
+        mainAdminName: '',
+        mainAdminEmail: '',
+        mainAdminPassword: '',
+        currency: 'USD',
+        taxRate: 0.1,
+        timezone: 'UTC'
+      });
   };
 
   const handleDelete = (id: string): void => {
@@ -330,11 +330,11 @@ const DeveloperDashboard: React.FC = () => {
 
   const getStatCardColor = (index: number) => {
     const colors = [
-      'from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 border-blue-200 dark:border-blue-800',
-      'from-green-500/10 to-green-600/10 dark:from-green-500/20 dark:to-green-600/20 border-green-200 dark:border-green-800',
-      'from-gray-500/10 to-gray-600/10 dark:from-gray-500/20 dark:to-gray-600/20 border-gray-200 dark:border-gray-700',
-      'from-red-500/10 to-red-600/10 dark:from-red-500/20 dark:to-red-600/20 border-red-200 dark:border-red-800',
-      'from-purple-500/10 to-purple-600/10 dark:from-purple-500/20 dark:to-purple-600/20 border-purple-200 dark:border-purple-800'
+      'bg-blue-500/10 dark:bg-blue-500/20 border-blue-200 dark:border-blue-800',
+      'bg-green-500/10 dark:bg-green-500/20 border-green-200 dark:border-green-800',
+      'bg-gray-500/10 dark:bg-gray-500/20 border-gray-200 dark:border-gray-700',
+      'bg-red-500/10 dark:bg-red-500/20 border-red-200 dark:border-red-800',
+      'bg-purple-500/10 dark:bg-purple-500/20 border-purple-200 dark:border-purple-800'
     ];
     return colors[index % colors.length];
   };
@@ -357,19 +357,19 @@ const DeveloperDashboard: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
+              <div className="p-3 rounded-xl bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 shadow-lg">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <div>
+        <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Shop Management
-                </h1>
+          </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
                   Manage shops, admins, and system configuration
                 </p>
               </div>
             </div>
-          </div>
+        </div>
           <Button 
             onClick={() => {
               setEditingShop(null);
@@ -379,11 +379,11 @@ const DeveloperDashboard: React.FC = () => {
             className="flex items-center gap-2 shadow-lg hover:shadow-xl transition-all bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Plus className="w-4 h-4" />
-            Create New Shop
-          </Button>
-        </div>
+          Create New Shop
+        </Button>
+      </div>
 
-        {/* Stats Cards */}
+      {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             { label: 'Total Shops', value: stats.totalShops, icon: Building2 },
@@ -394,7 +394,7 @@ const DeveloperDashboard: React.FC = () => {
           ].map((stat, index) => (
             <Card 
               key={stat.label}
-              className={`p-4 bg-gradient-to-br ${getStatCardColor(index)} border backdrop-blur-sm hover:shadow-lg transition-all`}
+              className={`p-4 ${getStatCardColor(index)} backdrop-blur-sm hover:shadow-lg transition-all`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -404,14 +404,14 @@ const DeveloperDashboard: React.FC = () => {
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {stat.value}
                   </p>
-                </div>
+            </div>
                 <div className={`p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 ${getStatIconColor(index)}`}>
                   <stat.icon className="w-6 h-6" />
-                </div>
-              </div>
-            </Card>
+            </div>
+          </div>
+        </Card>
           ))}
-        </div>
+      </div>
 
         {/* Filters and Search */}
         <Card className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -419,12 +419,12 @@ const DeveloperDashboard: React.FC = () => {
             <div className="flex-1 w-full md:w-auto">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <FormInput
-                  name="search"
-                  type="text"
+          <FormInput
+            name="search"
+            type="text"
                   placeholder="Search shops, admins, or emails..."
-                  value={searchTerm}
-                  onChange={handleSearch}
+            value={searchTerm}
+            onChange={handleSearch}
                   className="pl-10 w-full bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                 />
               </div>
@@ -442,8 +442,8 @@ const DeveloperDashboard: React.FC = () => {
                   { value: 'Suspended', label: 'Suspended' }
                 ]}
                 className="min-w-[150px] bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
-              />
-            </div>
+          />
+        </div>
 
             <div className="flex items-center gap-1 border-l border-gray-200 dark:border-gray-700 pl-4">
               <button
@@ -646,7 +646,7 @@ const DeveloperDashboard: React.FC = () => {
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(shop.status)}`}>
                           {getStatusIcon(shop.status)}
                           {shop.status}
-                        </span>
+                  </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900 dark:text-white">
@@ -665,21 +665,21 @@ const DeveloperDashboard: React.FC = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
+                    <button
                             onClick={() => handleEdit(shop)}
                             className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                            title="Edit Shop"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
+                      title="Edit Shop"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
                             onClick={() => handleDelete(shop.id)}
                             className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                            title="Delete Shop"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                      title="Delete Shop"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                       </td>
                     </tr>
                   ))}
@@ -815,155 +815,155 @@ const DeveloperDashboard: React.FC = () => {
           )}
         </Modal>
 
-        {/* Create/Edit Shop Modal */}
-        <Modal
-          open={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setEditingShop(null);
+      {/* Create/Edit Shop Modal */}
+      <Modal
+        open={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingShop(null);
             resetForm();
-          }}
-          title={editingShop ? 'Edit Shop' : 'Create New Shop'}
-          size="lg"
-        >
+        }}
+        title={editingShop ? 'Edit Shop' : 'Create New Shop'}
+        size="lg"
+      >
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormInput
-                label="Shop Name"
-                name="name"
-                type="text"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                placeholder="Enter shop name"
-                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-              />
-              <FormInput
-                label="Shop Email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                placeholder="shop@example.com"
-                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-              />
-            </div>
-            
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
-              label="Description"
-              name="description"
+              label="Shop Name"
+              name="name"
               type="text"
-              value={formData.description}
-              onChange={handleInputChange}
-              placeholder="Brief description of the shop"
-              className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-            />
-            
-            <FormInput
-              label="Address"
-              name="address"
-              type="text"
-              value={formData.address}
+              value={formData.name}
               onChange={handleInputChange}
               required
+                placeholder="Enter shop name"
+                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+            />
+            <FormInput
+              label="Shop Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+                placeholder="shop@example.com"
+                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+            />
+          </div>
+          
+          <FormInput
+            label="Description"
+            name="description"
+            type="text"
+            value={formData.description}
+            onChange={handleInputChange}
+            placeholder="Brief description of the shop"
+              className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+          />
+          
+          <FormInput
+            label="Address"
+            name="address"
+            type="text"
+            value={formData.address}
+            onChange={handleInputChange}
+            required
               placeholder="Full address"
               className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormInput
-                label="Phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleInputChange}
-                required
+          />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormInput
+              label="Phone"
+              name="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleInputChange}
+              required
                 placeholder="+1234567890"
                 className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-              />
-              <FormInput
-                label="Currency"
-                name="currency"
-                type="text"
-                value={formData.currency}
-                onChange={handleInputChange}
-                required
+            />
+            <FormInput
+              label="Currency"
+              name="currency"
+              type="text"
+              value={formData.currency}
+              onChange={handleInputChange}
+              required
                 placeholder="USD"
                 className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-              />
-            </div>
+            />
+          </div>
 
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Main Administrator
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput
-                  label="Admin Name"
-                  name="mainAdminName"
-                  type="text"
-                  value={formData.mainAdminName}
-                  onChange={handleInputChange}
-                  required
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput
+                label="Admin Name"
+                name="mainAdminName"
+                type="text"
+                value={formData.mainAdminName}
+                onChange={handleInputChange}
+                required
                   placeholder="Admin full name"
                   className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                />
-                <FormInput
-                  label="Admin Email"
-                  name="mainAdminEmail"
-                  type="email"
-                  value={formData.mainAdminEmail}
-                  onChange={handleInputChange}
-                  required
+              />
+              <FormInput
+                label="Admin Email"
+                name="mainAdminEmail"
+                type="email"
+                value={formData.mainAdminEmail}
+                onChange={handleInputChange}
+                required
                   placeholder="admin@example.com"
                   className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                />
-              </div>
-              {!editingShop && (
-                <FormInput
-                  label="Admin Password"
-                  name="mainAdminPassword"
-                  type="password"
-                  value={formData.mainAdminPassword}
-                  onChange={handleInputChange}
-                  required={!editingShop}
-                  placeholder="Minimum 6 characters"
-                  className="mt-4 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                />
-              )}
+              />
             </div>
+            {!editingShop && (
+              <FormInput
+                label="Admin Password"
+                name="mainAdminPassword"
+                type="password"
+                value={formData.mainAdminPassword}
+                onChange={handleInputChange}
+                  required={!editingShop}
+                placeholder="Minimum 6 characters"
+                  className="mt-4 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+              />
+            )}
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tax Rate
                 </label>
-                <input
-                  name="taxRate"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="1"
-                  value={formData.taxRate}
-                  onChange={handleInputChange}
+              <input
+                name="taxRate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={formData.taxRate}
+                onChange={handleInputChange}
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white px-3 py-2"
-                  required
-                />
+                required
+              />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Enter as decimal (e.g., 0.1 for 10%)
                 </p>
-              </div>
-              <div>
+            </div>
+            <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Timezone
                 </label>
-                <Dropdown
-                  value={formData.timezone}
+              <Dropdown
+                value={formData.timezone}
                   onChange={(value) => handleInputChange({ target: { name: 'timezone', value } } as any)}
-                  options={[
-                    { value: 'UTC', label: 'UTC' },
+                options={[
+                  { value: 'UTC', label: 'UTC' },
                     { value: 'America/New_York', label: 'Eastern Time (ET)' },
                     { value: 'America/Chicago', label: 'Central Time (CT)' },
                     { value: 'America/Denver', label: 'Mountain Time (MT)' },
@@ -973,46 +973,46 @@ const DeveloperDashboard: React.FC = () => {
                     { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
                     { value: 'Asia/Dubai', label: 'Dubai (GST)' },
                     { value: 'Africa/Nairobi', label: 'Nairobi (EAT)' }
-                  ]}
-                  placeholder="Select timezone"
+                ]}
+                placeholder="Select timezone"
                   className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                />
-              </div>
+              />
             </div>
+          </div>
 
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Button
-                type="button"
+            <Button
+              type="button"
                 variant="outline"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setEditingShop(null);
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingShop(null);
                   resetForm();
                 }}
                 className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-              >
-                Cancel
-              </Button>
+            >
+              Cancel
+            </Button>
               <Button 
                 type="submit"
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {editingShop ? 'Update Shop' : 'Create Shop'}
-              </Button>
-            </div>
-          </form>
-        </Modal>
+              {editingShop ? 'Update Shop' : 'Create Shop'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-        <ConfirmationModal
-          isOpen={showDeleteModal}
-          onClose={() => setShowDeleteModal(false)}
-          onConfirm={confirmDeleteShop}
-          title="Delete Shop"
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={confirmDeleteShop}
+        title="Delete Shop"
           message="Are you sure you want to delete this shop? This will also delete all associated data including products, orders, customers, and employees. This action cannot be undone."
-          type="danger"
+        type="danger"
           confirmText="Delete Shop"
-          cancelText="Cancel"
-        />
+        cancelText="Cancel"
+      />
       </div>
     </div>
   );

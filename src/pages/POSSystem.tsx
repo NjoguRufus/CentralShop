@@ -698,14 +698,14 @@ const POSSystem: React.FC = () => {
                 return (
                   <Card 
                     key={product.id} 
-                    className={`p-2 md:p-3 transition-all duration-300 ${
+                    className={`p-0 overflow-hidden transition-all duration-300 ${
                       isOutOfStock 
                         ? 'opacity-60 cursor-not-allowed' 
                         : 'hover:shadow-lg cursor-pointer'
                     }`}
                   >
                     <div onClick={() => !isOutOfStock && addToCart(product)}>
-                      <div className="aspect-square rounded-xl overflow-hidden mb-4 relative">
+                      <div className="aspect-square w-full overflow-hidden relative">
                         <img 
                           src={product.image} 
                           alt={product.name}
@@ -719,12 +719,14 @@ const POSSystem: React.FC = () => {
                           </div>
                         )}
                       </div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{product.name}</h3>
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-[#4A90A4]">KSH {product.price.toLocaleString()}</span>
-                        <span className={`text-sm ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-                          {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
-                        </span>
+                      <div className="p-2 md:p-3">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{product.name}</h3>
+                        <div className="space-y-1">
+                          <span className="text-lg font-bold text-[#4A90A4] block">KSH {product.price.toLocaleString()}</span>
+                          <span className={`text-sm ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
+                            {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </Card>

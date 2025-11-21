@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { Invoice, Customer } from '../types';
 import { Download } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
 // html2pdf.js import - using dynamic import for better compatibility
 const getHtml2Pdf = async () => {
   if (typeof window === 'undefined') return null;
@@ -200,7 +201,7 @@ const ViewInvoice: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }

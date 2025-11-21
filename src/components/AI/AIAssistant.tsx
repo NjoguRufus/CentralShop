@@ -304,7 +304,7 @@ const AIAssistant: React.FC = () => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-primary rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-primary backdrop-blur-sm rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
       >
         <Bot className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
       </button>
@@ -319,7 +319,7 @@ const AIAssistant: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-primary backdrop-blur-sm rounded-full flex items-center justify-center">
               <Bot className="w-4 h-4 text-white" />
             </div>
             <div className="flex items-center space-x-2">
@@ -486,7 +486,7 @@ const AIAssistant: React.FC = () => {
                   <div
                     className={`max-w-xs px-4 py-2 rounded-2xl ${
                       message.role === 'user'
-                        ? 'bg-gradient-primary text-white'
+                        ? 'bg-gradient-primary backdrop-blur-sm text-white'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                     }`}
                   >

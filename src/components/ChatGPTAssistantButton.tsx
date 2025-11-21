@@ -21,7 +21,7 @@ const ChatGPTAssistantButton: React.FC<ChatGPTAssistantButtonProps> = ({ onToggl
     >
       <button
         onClick={onToggle}
-        className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 relative"
+        className="bg-blue-500/90 backdrop-blur-sm border border-blue-400/30 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 relative"
       >
         <AnimatePresence mode="wait">
           {isOpen ? (

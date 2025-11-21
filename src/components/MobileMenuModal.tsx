@@ -86,7 +86,7 @@ const MobileMenuModal: React.FC<MobileMenuModalProps> = ({ isOpen, onClose }) =>
                 className={`
                   flex items-center px-4 py-3 rounded-xl transition-all duration-200
                   ${isActive 
-                    ? 'bg-gradient-primary text-white shadow-lg shadow-primary' 
+                    ? 'bg-gradient-primary text-white shadow-lg shadow-primary backdrop-blur-sm' 
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary'
                   }
                 `}

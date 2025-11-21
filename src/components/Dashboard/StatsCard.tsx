@@ -21,10 +21,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
   color = 'blue' 
 }) => {
   const colorClasses = {
-    blue: 'from-[#4A90A4] to-[#9DC3E6]',
-    green: 'from-green-500 to-emerald-500',
-    purple: 'from-purple-500 to-violet-500',
-    orange: 'from-[#D8B980] to-orange-500'
+    blue: 'bg-[#4A90A4]/20 dark:bg-[#4A90A4]/30 border-[#4A90A4]/30',
+    green: 'bg-green-500/20 dark:bg-green-500/30 border-green-500/30',
+    purple: 'bg-purple-500/20 dark:bg-purple-500/30 border-purple-500/30',
+    orange: 'bg-[#D8B980]/20 dark:bg-[#D8B980]/30 border-[#D8B980]/30'
   };
 
   return (
@@ -42,7 +42,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
           )}
         </div>
         
-        <div className={`p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br ${colorClasses[color]} shrink-0 ml-2`}>
+        <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${colorClasses[color]} backdrop-blur-sm border shrink-0 ml-2`}>
           <Icon className="w-4 h-4 md:w-6 md:h-6 text-white" />
         </div>
       </div>

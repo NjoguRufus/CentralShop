@@ -10,6 +10,7 @@ import Table from '../components/UI/Table';
 import Select from '../components/UI/Select';
 import Modal from '../components/Modal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 const Services: React.FC = () => {
@@ -162,7 +163,7 @@ const Services: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LoadingSpinner size="md" />
       </div>
     );
   }

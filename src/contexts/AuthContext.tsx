@@ -125,15 +125,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setLastLoginTracked(user.id);
               } catch (error) {
                 console.error('Error logging login activity:', error);
+                // Don't fail login if activity logging fails
               }
             }
           } else {
-            // If no user record exists, set currentUser to null
-            console.log('No user record found in database for UID:', firebaseUser.uid);
+            // If no user record exists, keep Firebase auth but set currentUser to null
+            // This allows the user to see an error message instead of being logged out
+            console.warn('No user record found in database for UID:', firebaseUser.uid);
+            console.warn('Searched in collections:', userCollectionName, 'users', getShopCollectionName('employees'));
             setCurrentUser(null);
+            // Don't sign out - let the UI handle showing an error message
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error fetching user data:', error);
+          // Check if it's a permission error
+          if (error.code === 'permission-denied') {
+            console.error('Permission denied when fetching user data. Check Firestore rules.');
+            toast.error('Permission denied. Please contact an administrator.');
+          } else {
+            console.error('Unexpected error fetching user data:', error);
+          }
+          // Don't sign out on error - keep Firebase auth active
           setCurrentUser(null);
         }
       } else {

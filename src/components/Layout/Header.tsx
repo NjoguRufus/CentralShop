@@ -80,7 +80,7 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
             onClick={onProfileClick}
             className="flex items-center space-x-1 md:space-x-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg p-1.5 md:p-2 transition-colors"
           >
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-primary flex items-center justify-center">
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-primary backdrop-blur-sm flex items-center justify-center">
               <User className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
             </div>
             <span className="hidden sm:inline text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">

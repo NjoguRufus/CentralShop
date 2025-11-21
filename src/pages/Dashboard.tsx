@@ -721,7 +721,7 @@ const Dashboard: React.FC = () => {
                    'Custom period'}
                 </p>
               </div>
-              <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-gradient-primary shrink-0">
+              <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-gradient-primary backdrop-blur-sm shrink-0">
                 <DollarSign className="w-5 h-5 md:w-8 md:h-8 text-white" />
               </div>
             </div>
@@ -741,7 +741,7 @@ const Dashboard: React.FC = () => {
                    'Custom period'}
                 </p>
               </div>
-              <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-gradient-primary shrink-0">
+              <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-gradient-primary backdrop-blur-sm shrink-0">
                 <TrendingUp className="w-5 h-5 md:w-8 md:h-8 text-white" />
               </div>
             </div>

@@ -3,6 +3,7 @@ import { X, CreditCard, Banknote, Smartphone, ShoppingCart, Search, User, Receip
 import Button from './UI/Button';
 import FormInput from './UI/FormInput';
 import Select from './UI/Select';
+import LoadingSpinner from './UI/LoadingSpinner';
 import { useCustomerLookup } from '../hooks/useCustomerLookup';
 import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import { useAuth } from '../contexts/AuthContext';
@@ -252,7 +253,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
           {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-[#4A90A4] to-[#3a7a8a] text-white">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-[#4A90A4]/90 backdrop-blur-sm text-white">
             <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <ShoppingCart className="w-6 h-6" />
@@ -399,7 +400,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </label>
                 {settingsLoading ? (
                     <div className="flex justify-center py-8">
-                      <div className="w-8 h-8 border-2 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
+                      <LoadingSpinner size="sm" />
                   </div>
                 ) : availablePaymentMethods.length === 0 ? (
                     <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
@@ -544,10 +545,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   {/* Debt/Partial Payment Fields */}
                   {paymentMethod === 'debt' && (
-                    <div className={`rounded-xl p-6 border ${
+                    <div className={`rounded-xl p-6 border backdrop-blur-sm ${
                       debtPaymentType === 'partial' 
-                        ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800'
-                        : 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800'
+                        ? 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                        : 'bg-orange-50/50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
                     }`}>
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-3">
@@ -750,7 +751,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <Button
                   onClick={handleConfirm}
                   disabled={!isValidPayment() || isLoading}
-                    className="flex-1 py-3 text-base font-medium bg-gradient-to-r from-[#4A90A4] to-[#3a7a8a] hover:from-[#3a7a8a] hover:to-[#2d5f6f] shadow-lg"
+                    className="flex-1 py-3 text-base font-medium bg-[#4A90A4] hover:bg-[#3a7a8a] backdrop-blur-sm shadow-lg transition-colors"
                   >
                     {isLoading ? (
                       <div className="flex items-center justify-center space-x-2">

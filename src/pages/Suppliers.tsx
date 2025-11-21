@@ -11,6 +11,7 @@ import Table from '../components/UI/Table';
 import Select from '../components/UI/Select';
 import Modal from '../components/Modal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
 import { Plus, Package, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -289,7 +290,7 @@ const Suppliers: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4A90A4]"></div>
+        <LoadingSpinner size="md" />
       </div>
     );
   }
