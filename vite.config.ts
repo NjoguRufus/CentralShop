@@ -4,8 +4,14 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   plugins: [
-    react(),
+    react({
+      // Ensure React is properly handled
+      jsxRuntime: 'automatic',
+    }),
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
@@ -147,8 +153,16 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: (id) => {
           // Code splitting for better performance
+          // Keep all React-related packages together to avoid forwardRef issues
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
+            // Bundle all React ecosystem together
+            if (
+              id.includes('react') || 
+              id.includes('react-dom') || 
+              id.includes('react/jsx-runtime') ||
+              id.includes('react-router') ||
+              id.includes('scheduler')
+            ) {
               return 'vendor-react';
             }
             if (id.includes('firebase')) {
@@ -167,6 +181,9 @@ export default defineConfig(({ mode }) => ({
     },
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
+    // Ensure proper module resolution
+    target: 'esnext',
+    minify: 'esbuild',
   },
   publicDir: 'public',
   server: {
