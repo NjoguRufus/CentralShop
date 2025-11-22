@@ -645,20 +645,6 @@ const POSSystem: React.FC = () => {
     toast.success('Cart cleared');
   };
 
-  const testDownloadReceipt = () => {
-    const testData = {
-      orderId: 'TEST-123',
-      items: [
-        { name: 'Test Product', quantity: 1, price: 10.00 }
-      ],
-      subtotal: 10.00,
-      tax: 1.00,
-      total: 11.00,
-      paymentMethod: 'cash',
-      timestamp: new Date()
-    };
-    downloadReceipt(testData);
-  };
 
   const openCheckout = () => {
     if (cart.length === 0) {
@@ -838,13 +824,6 @@ const POSSystem: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div className="space-y-3 mt-6">
-                  <Button 
-                    onClick={testDownloadReceipt} 
-                    variant="outline" 
-                    className="w-full flex items-center justify-center"
-                  >
-                    Test Receipt Download
-                  </Button>
                   <Button 
                     onClick={openCheckout} 
                     variant="primary" 

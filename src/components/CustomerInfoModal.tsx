@@ -124,6 +124,15 @@ const CustomerInfoModal: React.FC<CustomerInfoModalProps> = ({
     }
   };
 
+  const isValidCustomerInfo = () => {
+    // If no phone number is entered, button is always enabled (phone is optional)
+    if (!customerPhone.trim()) {
+      return true;
+    }
+    // If phone is entered, require name
+    return customerName.trim().length > 0;
+  };
+
   const handleConfirm = () => {
     // Get customer data - use selected customer data if available, otherwise use entered data
     let finalCustomerName = customerName;
@@ -270,7 +279,7 @@ const CustomerInfoModal: React.FC<CustomerInfoModalProps> = ({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isLoading || !customerName.trim()}
+            disabled={isLoading || !isValidCustomerInfo()}
             className="flex-1 py-3 text-base font-medium bg-[#4A90A4] hover:bg-[#3a7a8a] backdrop-blur-sm shadow-lg transition-colors"
           >
             {isLoading ? (
