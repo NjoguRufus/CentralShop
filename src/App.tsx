@@ -80,12 +80,12 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // Minimum 2 second loading screen
+  // Maximum 2.5 second loading screen
   useEffect(() => {
     if (!loading) {
       const timer = setTimeout(() => {
         setShowLoading(false);
-      }, 2000);
+      }, 2500);
       return () => clearTimeout(timer);
     } else {
       setShowLoading(true);
