@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Edit, Trash2, Package, Camera } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Camera, X } from 'lucide-react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +10,7 @@ import Modal from '../components/Modal';
 import FormInput from '../components/UI/FormInput';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
 import Dropdown from '../components/UI/Dropdown';
-import ImageCamera from '../components/ImageCamera';
+import BarcodeScanner from '../components/BarcodeScanner';
 import { Product } from '../types';
 import { toast } from 'react-toastify';
 
@@ -22,7 +21,6 @@ interface ProductCategory {
 
 const Inventory: React.FC = () => {
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -33,6 +31,7 @@ const Inventory: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showAddCategoryInline, setShowAddCategoryInline] = useState<boolean>(false);
   const [newCategoryName, setNewCategoryName] = useState<string>('');
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -42,7 +41,6 @@ const Inventory: React.FC = () => {
     barcode: '',
     images: [] as string[] // Changed to array for multiple images (max 3)
   });
-  const [showImageCamera, setShowImageCamera] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
@@ -277,15 +275,6 @@ const Inventory: React.FC = () => {
     }
   };
 
-  const handleCameraCapture = (imageDataUrl: string) => {
-    if (formData.images.length >= 3) {
-      toast.error('Maximum 3 images allowed');
-      return;
-    }
-    setFormData(prev => ({ ...prev, images: [...prev.images, imageDataUrl] }));
-    setShowImageCamera(false);
-    toast.success('Image captured successfully');
-  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const files = e.target.files;
@@ -550,10 +539,7 @@ const Inventory: React.FC = () => {
               />
               <button
                 type="button"
-                onClick={() => {
-                  const currentURL = window.location.href;
-                  navigate(`/scan?redirect=${encodeURIComponent(currentURL)}`);
-                }}
+                onClick={() => setShowBarcodeScanner(true)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-[#4A90A4] dark:text-gray-400 dark:hover:text-[#4A90A4] transition-colors"
                 title="Scan barcode with camera"
               >
@@ -561,6 +547,17 @@ const Inventory: React.FC = () => {
               </button>
             </div>
           </div>
+          
+          {showBarcodeScanner && (
+            <BarcodeScanner
+              onScan={(barcode) => {
+                setFormData({ ...formData, barcode });
+                setShowBarcodeScanner(false);
+                toast.success(`Barcode scanned: ${barcode}`);
+              }}
+              onClose={() => setShowBarcodeScanner(false)}
+            />
+          )}
           
           <div>
             <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -590,17 +587,6 @@ const Inventory: React.FC = () => {
                     {isDragOver ? 'Drop images here' : `Upload (${formData.images.length}/3)`}
                   </p>
                 </div>
-                {formData.images.length < 3 && (
-                  <Button
-                    type="button"
-                    onClick={() => setShowImageCamera(true)}
-                    variant="primary"
-                    className="flex items-center gap-1 md:gap-2 px-2 md:px-4"
-                  >
-                    <Camera className="w-3 h-3 md:w-4 md:h-4" />
-                    <span className="text-xs md:text-sm">Camera</span>
-                  </Button>
-                )}
               </div>
               
               {formData.images.length > 0 && (
@@ -629,13 +615,6 @@ const Inventory: React.FC = () => {
               )}
             </div>
           </div>
-          
-          {showImageCamera && (
-            <ImageCamera
-              onCapture={handleCameraCapture}
-              onClose={() => setShowImageCamera(false)}
-            />
-          )}
           
           <div className="flex space-x-3 pt-4">
             <Button type="submit" variant="primary" className="flex-1">

@@ -15,8 +15,6 @@ import OfflineNotifier from './components/OfflineNotifier';
 import Updater from './components/Updater';
 import SyncQueueManager from './components/SyncQueueManager';
 import BarcodeListener from './components/BarcodeListener';
-import MedianRedirect from './components/MedianRedirect';
-import OpenInBrowserWarning from './components/OpenInBrowserWarning';
 import { initializeOfflineSync } from './offline';
 import { useOfflineSync } from './offline/useSync';
 import { registerPushNotifications } from './services/pushNotifications';
@@ -38,7 +36,6 @@ const StockReports = lazy(() => import('./pages/StockReports'));
 const Employees = lazy(() => import('./pages/Employees'));
 const Settings = lazy(() => import('./pages/Settings'));
 const ViewInvoice = lazy(() => import('./pages/ViewInvoice'));
-const Scan = lazy(() => import('./pages/Scan'));
 
 import LoadingSpinner from './components/UI/LoadingSpinner';
 
@@ -78,130 +75,122 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <MedianRedirect>
-      <div className={theme}>
-        <OpenInBrowserWarning />
-        <BarcodeListener 
-          onBarcode={(code) => {
-            // Handle barcode - dispatch event for pages to listen to
-            window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { barcode: code } }));
-          }}
-          enabled={true}
-        />
-        <OfflineNotifier />
-        <AppUpdatePrompt />
-        <Updater />
-        <SyncQueueManager />
-        <Router>
-          <RouterContent>
-            <Routes>
-              <Route path="/setup" element={<Setup />} />
-              {/* Public invoice view route - format: /{customerName}/invoice */}
-              <Route path="/:customerName/invoice" element={<ViewInvoice />} />
-              {/* Barcode Scanner Page */}
-              <Route path="/scan" element={
-                <Suspense fallback={<PageSkeleton />}>
-                  <Scan />
-                </Suspense>
-              } />
-              {!user ? (
-                <Route path="*" element={<Login />} />
-              ) : (
-                <>
-                  {/* Developer Dashboard - Only for astraronix role */}
-                  <Route path="/developer" element={
-                    <ProtectedRoute requiredRole="astraronix">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <DeveloperDashboard />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  
-                  {/* Regular Shop Dashboard */}
-                  <Route path="/" element={<Layout />}>
-                  <Route index element={<RoleBasedRedirect />} />
-                  <Route path="dashboard" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Dashboard />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="inventory" element={
-                    <ProtectedRoute requiredRole="Stock Manager">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Inventory />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="pos" element={
-                    <ProtectedRoute requiredRole="Cashier">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <POSSystem />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="customers" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Customers />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="orders" element={
-                    <ProtectedRoute requiredRole="Cashier">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Orders />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="invoicing" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Invoicing />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="suppliers" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Suppliers />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="expenses" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Expenses />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="stock-reports" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <StockReports />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="employees" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Employees />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="settings" element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <Suspense fallback={<PageSkeleton />}>
-                      <Settings />
-                      </Suspense>
-                    </ProtectedRoute>
-                  } />
-                  </Route>
-                </>
-              )}
-            </Routes>
-          </RouterContent>
+    <div className={theme}>
+      <BarcodeListener 
+        onBarcode={(code) => {
+          // Handle barcode - dispatch event for pages to listen to
+          window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { barcode: code } }));
+        }}
+        enabled={true}
+      />
+      <OfflineNotifier />
+      <AppUpdatePrompt />
+      <Updater />
+      <SyncQueueManager />
+      <Router>
+        <RouterContent>
+          <Routes>
+            <Route path="/setup" element={<Setup />} />
+            {/* Public invoice view route - format: /{customerName}/invoice */}
+            <Route path="/:customerName/invoice" element={<ViewInvoice />} />
+            {!user ? (
+              <Route path="*" element={<Login />} />
+            ) : (
+              <>
+                {/* Developer Dashboard - Only for astraronix role */}
+                <Route path="/developer" element={
+                  <ProtectedRoute requiredRole="astraronix">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <DeveloperDashboard />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Regular Shop Dashboard */}
+                <Route path="/" element={<Layout />}>
+                <Route index element={<RoleBasedRedirect />} />
+                <Route path="dashboard" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Dashboard />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="inventory" element={
+                  <ProtectedRoute requiredRole="Stock Manager">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Inventory />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="pos" element={
+                  <ProtectedRoute requiredRole="Cashier">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <POSSystem />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="customers" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Customers />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="orders" element={
+                  <ProtectedRoute requiredRole="Cashier">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Orders />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="invoicing" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Invoicing />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="suppliers" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Suppliers />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="expenses" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Expenses />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="stock-reports" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <StockReports />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="employees" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Employees />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="settings" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <Settings />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                </Route>
+              </>
+            )}
+          </Routes>
+        </RouterContent>
         <Toaster 
           position="top-right"
           toastOptions={{
@@ -222,8 +211,7 @@ const AppContent: React.FC = () => {
           theme="colored"
         />
       </Router>
-      </div>
-    </MedianRedirect>
+    </div>
   );
 };
 

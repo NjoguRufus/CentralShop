@@ -29,11 +29,16 @@ const BarcodeListener: React.FC<BarcodeListenerProps> = ({
                           target.tagName === 'TEXTAREA' || 
                           target.isContentEditable;
       
-      // For input fields, only process if it looks like barcode scanner input
-      // (very fast typing - barcode scanners type much faster than humans)
+      // Skip barcode detection if user is typing in an input field
+      // This prevents cash amounts and other inputs from being treated as barcodes
       if (isInputField) {
-        // Still allow barcode scanning in input fields
-        // The timeout will handle detecting end of barcode
+        // Clear any existing buffer and timeout when user is typing in input fields
+        bufferRef.current = '';
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        return;
       }
 
       // Handle Enter key (end of barcode)

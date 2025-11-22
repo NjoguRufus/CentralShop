@@ -1,11 +1,10 @@
 /**
  * Barcode Scanner Component
- * Uses device camera to scan barcodes
+ * Uses device camera to scan barcodes - works across all browsers
  */
 import React, { useRef, useEffect, useState } from 'react';
-import { X, Camera } from 'lucide-react';
-import Button from './UI/Button';
-import { detectBarcode, cleanupBarcodeDetection } from '../utils/barcodeDetection';
+import { X } from 'lucide-react';
+import { BrowserMultiFormatReader } from '@zxing/library';
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
@@ -14,147 +13,124 @@ interface BarcodeScannerProps {
 
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
-    startCamera();
+    startScanning();
     return () => {
-      stopCamera();
-      cleanupBarcodeDetection();
+      stopScanning();
     };
   }, []);
 
-  const startCamera = async () => {
+  const startScanning = async () => {
     try {
       setError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
+      setScanning(true);
+
+      // Initialize ZXing barcode reader
+      const codeReader = new BrowserMultiFormatReader();
+      codeReaderRef.current = codeReader;
+
+      // Get available video input devices
+      const videoInputDevices = await codeReader.listVideoInputDevices();
+      
+      // Prefer back camera (environment) on mobile devices
+      let selectedDeviceId: string | undefined;
+      if (videoInputDevices.length > 0) {
+        // Try to find back camera
+        const backCamera = videoInputDevices.find(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('rear') ||
+          device.label.toLowerCase().includes('environment')
+        );
+        selectedDeviceId = backCamera?.deviceId || videoInputDevices[0].deviceId;
+      }
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setScanning(true);
+        // Start decoding from video stream
+        codeReader.decodeFromVideoDevice(
+          selectedDeviceId,
+          videoRef.current,
+          (result, error) => {
+            if (result) {
+              const barcode = result.getText();
+              if (barcode) {
+                stopScanning();
+                onScan(barcode);
+                onClose();
+              }
+            }
+            if (error && error.name !== 'NotFoundException') {
+              // NotFoundException is normal when no barcode is detected
+              console.debug('Barcode detection:', error.message);
+            }
+          }
+        );
       }
     } catch (err) {
-      console.error('Error accessing camera:', err);
+      console.error('Error starting barcode scanner:', err);
       setError('Unable to access camera. Please check permissions.');
+      setScanning(false);
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
+  const stopScanning = () => {
+    if (codeReaderRef.current) {
+      codeReaderRef.current.reset();
+      codeReaderRef.current = null;
     }
     setScanning(false);
   };
 
   const handleClose = () => {
-    stopCamera();
+    stopScanning();
     onClose();
   };
 
-  // Automatic barcode detection (works in all browsers)
-  useEffect(() => {
-    if (!scanning || !videoRef.current || error) return;
-
-    let animationFrameId: number;
-    let isDetecting = true;
-    let lastScanTime = 0;
-    const SCAN_INTERVAL = 200; // Scan every 200ms to avoid overloading
-
-    const scanForBarcode = async () => {
-      if (!videoRef.current || !isDetecting || !scanning) return;
-
-      const now = Date.now();
-      if (now - lastScanTime < SCAN_INTERVAL) {
-        if (isDetecting && scanning) {
-          animationFrameId = requestAnimationFrame(scanForBarcode);
-        }
-        return;
-      }
-
-      lastScanTime = now;
-
-      try {
-        const barcode = await detectBarcode(videoRef.current);
-        if (barcode) {
-          isDetecting = false;
-          stopCamera();
-          onScan(barcode);
-          handleClose();
-          return;
-        }
-      } catch (err) {
-        // Continue scanning on error
-        console.error('Barcode detection error:', err);
-      }
-
-      if (isDetecting && scanning) {
-        animationFrameId = requestAnimationFrame(scanForBarcode);
-      }
-    };
-
-    // Start scanning
-    scanForBarcode();
-
-    return () => {
-      isDetecting = false;
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-  }, [scanning, error, onScan]);
-
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-3 md:p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-            Scan Barcode
-          </h3>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Close button */}
+      <button
+        onClick={handleClose}
+        className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 transition-all"
+        aria-label="Close scanner"
+      >
+        <X className="w-6 h-6" />
+      </button>
 
+      {/* Camera container */}
+      <div className="relative w-full h-full bg-black">
         {error ? (
-          <div className="text-center py-8">
-            <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-            <Button onClick={handleClose}>Close</Button>
+          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+            <p className="text-red-400 mb-4 text-lg">{error}</p>
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              Close
+            </button>
           </div>
         ) : (
           <>
-            <div className="relative bg-black rounded-lg overflow-hidden mb-4" style={{ aspectRatio: '16/9' }}>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="border-2 border-blue-500 rounded-lg w-64 h-32"></div>
-              </div>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+            {/* Scanning frame overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="border-2 border-blue-500 rounded-lg w-64 h-32 shadow-lg"></div>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
-              Position the barcode within the frame
-            </p>
-            <Button onClick={handleClose} variant="secondary" className="w-full">
-              Cancel
-            </Button>
+            {/* Instructions */}
+            <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none">
+              <p className="text-white bg-black bg-opacity-50 px-4 py-2 rounded-lg inline-block text-sm">
+                Position the barcode within the frame
+              </p>
+            </div>
           </>
         )}
       </div>

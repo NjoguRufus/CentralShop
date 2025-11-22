@@ -169,13 +169,9 @@ const Login: React.FC = () => {
         {/* LOGO */}
         <div className="flex justify-center mb-6">
           <img
-            src="/A_logo_in_solid_black_is_displayed_on_a_white_back.png"
+            src="/icons/CentalDarkmode.png"
             alt="Central POS Logo"
             className="h-20 md:h-24 w-auto opacity-90"
-            onError={(e) => {
-              // Fallback to original logo if new one not found
-              (e.target as HTMLImageElement).src = '/icons/CentalDarkmode.png';
-            }}
           />
         </div>
 
