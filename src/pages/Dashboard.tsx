@@ -323,7 +323,7 @@ const Dashboard: React.FC = () => {
           return {
             id: productId,
             name: product.name,
-            sales: stats.sales,
+          sales: stats.sales,
             revenue: stats.revenue,
             image: product.image
           };
@@ -933,7 +933,7 @@ const Dashboard: React.FC = () => {
                   ) : (
                     <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
                       <Package className="w-6 h-6 md:w-8 md:h-8 text-gray-400" />
-                    </div>
+                </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 dark:text-white truncate text-sm md:text-base">{product.name}</p>
@@ -981,9 +981,9 @@ const Dashboard: React.FC = () => {
                 )}
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-gray-900 dark:text-white mb-2 truncate">{item.name}</h4>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Current: {item.stock}</span>
-                    <span className="text-sm text-red-600 dark:text-red-400">Min: {item.threshold}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-300">Current: {item.stock}</span>
+                <span className="text-sm text-red-600 dark:text-red-400">Min: {item.threshold}</span>
                   </div>
                 </div>
               </div>

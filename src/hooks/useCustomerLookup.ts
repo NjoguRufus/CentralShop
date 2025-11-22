@@ -48,10 +48,10 @@ export const useCustomerLookup = () => {
         if (cleanStoredPhone === cleanPhone || 
             cleanStoredPhone.endsWith(cleanPhone) || 
             cleanPhone.endsWith(cleanStoredPhone)) {
-          return {
+      return {
             id: doc.id,
             ...customerData
-          } as Customer;
+      } as Customer;
         }
       }
       

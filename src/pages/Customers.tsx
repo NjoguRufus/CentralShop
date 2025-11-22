@@ -259,19 +259,25 @@ const Customers: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</h3>
-          <p className="text-3xl font-bold text-[#4A90A4] mt-2">{totalCustomers}</p>
-        </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">KSH {totalRevenue.toLocaleString()}</p>
-        </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Orders</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{totalOrders}</p>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</h3>
+            <p className="text-2xl md:text-3xl font-bold text-[#4A90A4] mt-2">{totalCustomers}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</h3>
+            <p className="text-2xl md:text-3xl font-bold text-green-600 mt-2">KSH {totalRevenue.toLocaleString()}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Orders</h3>
+            <p className="text-2xl md:text-3xl font-bold text-blue-600 mt-2">{totalOrders}</p>
+          </Card>
+        </div>
       </div>
 
       <Card className="p-6">

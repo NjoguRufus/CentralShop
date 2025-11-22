@@ -594,16 +594,16 @@ const POSSystem: React.FC = () => {
       // Process receipt printing in parallel (non-blocking)
       BusinessSettingsService.getBusinessInfo(currentUser.shopId!).then(businessInfo => {
         ReceiptService.handleReceiptFlow(
-          receiptData,
-          paymentSettings,
-          businessInfo
+        receiptData,
+        paymentSettings,
+        businessInfo
         ).then(receiptResult => {
-          if (receiptResult.success) {
+      if (receiptResult.success) {
             // Silent success - receipt printed
             console.log('Receipt printed successfully');
-          } else {
+      } else {
             console.warn('Receipt printing issue:', receiptResult.message);
-          }
+      }
         }).catch(err => {
           console.error('Receipt printing error:', err);
         });
@@ -612,10 +612,10 @@ const POSSystem: React.FC = () => {
       // Add notification in background
       try {
         addNotification({
-          title: 'New Order Completed',
-          message: `Order ${receiptData.orderId} has been completed for KSH ${total.toLocaleString()}`,
-          type: 'success'
-        });
+        title: 'New Order Completed',
+        message: `Order ${receiptData.orderId} has been completed for KSH ${total.toLocaleString()}`,
+        type: 'success'
+      });
       } catch (err) {
         console.error('Notification error:', err);
       }
@@ -708,7 +708,7 @@ const POSSystem: React.FC = () => {
                       <div className="h-3 md:h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
                       <div className="h-2 md:h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                     </div>
-                  </Card>
+                </Card>
                 </div>
               ))}
             </div>
@@ -718,42 +718,42 @@ const POSSystem: React.FC = () => {
                 const isOutOfStock = product.stock <= 0;
                 return (
                   <div 
-                    key={product.id}
+                    key={product.id} 
                     className="aspect-square"
                   >
                     <Card 
                       className={`p-0 overflow-hidden transition-all duration-300 h-full ${
-                        isOutOfStock 
-                          ? 'opacity-60 cursor-not-allowed' 
-                          : 'hover:shadow-lg cursor-pointer'
-                      }`}
-                    >
+                      isOutOfStock 
+                        ? 'opacity-60 cursor-not-allowed' 
+                        : 'hover:shadow-lg cursor-pointer'
+                    }`}
+                  >
                       <div onClick={() => !isOutOfStock && addToCart(product)} className="flex flex-col h-full">
-                        <div className="flex-1 overflow-hidden relative bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                        <div className="flex-1 overflow-hidden relative">
                           <img 
                             src={product.image} 
                             alt={product.name}
-                            className="w-full h-full object-contain"
+                            className="w-full h-full object-cover"
                           />
-                          {isOutOfStock && (
-                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                               <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                                OUT OF STOCK
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                              OUT OF STOCK
+                            </span>
+                          </div>
+                        )}
+                      </div>
                         <div className="p-1.5 md:p-2 flex-shrink-0 bg-white dark:bg-gray-800">
                           <h3 className="font-semibold text-gray-900 dark:text-white text-xs md:text-sm mb-1 line-clamp-1">{product.name}</h3>
                           <div className="space-y-0.5">
                             <span className="text-sm md:text-base font-bold text-[#4A90A4] block">KSH {product.price.toLocaleString()}</span>
                             <span className={`text-xs ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-                              {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
-                            </span>
-                          </div>
+                            {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
+                          </span>
                         </div>
                       </div>
-                    </Card>
+                    </div>
+                  </Card>
                   </div>
                 );
               })}

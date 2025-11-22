@@ -1,6 +1,6 @@
 // src/pages/Orders.tsx
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, getDoc, where } from 'firebase/firestore';
 import Select from '../components/UI/Select';
 import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
@@ -115,7 +115,7 @@ const Orders: React.FC = () => {
         querySnapshot = await getDocs(q);
       } else {
         // For admins, fetch all orders with orderBy
-        const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
         querySnapshot = await getDocs(q);
       }
       
@@ -780,18 +780,18 @@ const Orders: React.FC = () => {
                           Only Main Admin
                         </div>
                       ) : (
-                        <Dropdown
-                          value={row.status}
-                          onChange={(value) => handleStatusUpdate(row.id!, value as Order['status'])}
-                          options={[
-                            { value: 'pending', label: 'Pending' },
-                            { value: 'completed', label: 'Completed' },
-                            { value: 'refunded', label: 'Refunded' },
-                            { value: 'cancelled', label: 'Cancelled' }
-                          ]}
-                          className="text-sm"
+                      <Dropdown
+                        value={row.status}
+                        onChange={(value) => handleStatusUpdate(row.id!, value as Order['status'])}
+                        options={[
+                          { value: 'pending', label: 'Pending' },
+                          { value: 'completed', label: 'Completed' },
+                          { value: 'refunded', label: 'Refunded' },
+                          { value: 'cancelled', label: 'Cancelled' }
+                        ]}
+                        className="text-sm"
                           disabled={row.status === 'completed' && !isMainAdmin}
-                        />
+                      />
                       )
                     ) : (
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[row.status]}`}>

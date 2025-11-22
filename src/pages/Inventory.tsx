@@ -347,84 +347,89 @@ const Inventory: React.FC = () => {
 
       {/* Products Grid */}
       {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3">
           {[...Array(10)].map((_, i) => (
-            <Card key={i} className="p-3 md:p-4">
-              <div className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse mb-4"></div>
-              <div className="space-y-3">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-            </Card>
+            <div key={i} className="aspect-square">
+              <Card className="p-0 overflow-hidden h-full">
+                <div className="flex-1 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+                <div className="p-1.5 md:p-2 bg-white dark:bg-gray-800">
+                  <div className="h-3 md:h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+                  <div className="h-2 md:h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+                  <div className="h-2 md:h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+              </Card>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3">
           {filteredProducts.map(product => {
           const stockStatus = getStockStatus(product.stock);
           return (
-            <Card key={product.id} className="p-0 overflow-hidden">
-              {/* Image - Full width and top */}
-              <div className="aspect-square w-full overflow-hidden relative">
-                {product.image ? (
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                    <Package className="w-12 h-12 text-gray-400" />
+            <div key={product.id} className="aspect-square">
+              <Card className="p-0 overflow-hidden transition-all duration-300 h-full">
+                <div className="flex flex-col h-full">
+                  {/* Image - Full width and top */}
+                  <div className="flex-1 overflow-hidden relative">
+                    {product.image ? (
+                      <img 
+                        src={product.image} 
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                        <Package className="w-12 h-12 text-gray-400" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              
-              {/* Content - with padding */}
-              <div className="p-3 md:p-4 space-y-3">
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{product.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{product.category}</p>
-                </div>
-                
-                <div>
-                  <span className="text-lg font-bold text-[#4A90A4]">KSH {product.price.toLocaleString()}</span>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Stock: {product.stock} units</span>
-                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
-                    {stockStatus.text}
-                  </span>
-                </div>
-                
-                {product.barcode && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Barcode: {product.barcode}
+                  
+                  {/* Content - with padding */}
+                  <div className="p-1.5 md:p-2 flex-shrink-0 bg-white dark:bg-gray-800 flex flex-col">
+                    <div className="mb-1">
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-xs md:text-sm line-clamp-1">{product.name}</h3>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{product.category}</p>
+                    </div>
+                    
+                    <div className="space-y-0.5 mt-auto">
+                      <span className="text-sm md:text-base font-bold text-[#4A90A4] block">KSH {product.price.toLocaleString()}</span>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">Stock: {product.stock}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
+                          {stockStatus.text}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex space-x-1 mt-2">
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(product);
+                        }}
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 flex items-center justify-center text-xs py-1"
+                      >
+                        <Edit className="w-3 h-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(product);
+                        }}
+                        variant="danger"
+                        size="sm"
+                        className="flex items-center justify-center text-xs py-1 px-2"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
-                )}
-                
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={() => handleEdit(product)}
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1 flex items-center justify-center"
-                  >
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    onClick={() => handleDeleteClick(product)}
-                    variant="danger"
-                    size="sm"
-                    className="flex items-center justify-center"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </div>
           );
         })}
         </div>

@@ -876,8 +876,33 @@ const Invoicing: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <LoadingSpinner size="md" />
+      <div className="space-y-3 md:space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="h-6 md:h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-2"></div>
+          </div>
+          <div className="h-10 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+        </div>
+        {/* Loading Skeleton for Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="aspect-square">
+              <Card className="p-3 md:p-6 h-full flex flex-col justify-center">
+                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </Card>
+            </div>
+          ))}
+        </div>
+        {/* Loading Skeleton for Table */}
+        <Card className="p-6">
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }
@@ -900,27 +925,37 @@ const Invoicing: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6">
-        <Card className="p-3 md:p-6">
-          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Invoices</h3>
-          <p className="text-xl md:text-3xl font-bold text-[#4A90A4] mt-1 md:mt-2">{totalInvoices}</p>
-        </Card>
-        <Card className="p-3 md:p-6">
-          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Draft</h3>
-          <p className="text-xl md:text-3xl font-bold text-gray-600 mt-1 md:mt-2">{draftInvoices}</p>
-        </Card>
-        <Card className="p-3 md:p-6">
-          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Paid</h3>
-          <p className="text-xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{paidInvoices}</p>
-        </Card>
-        <Card className="p-3 md:p-6">
-          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Overdue</h3>
-          <p className="text-xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{overdueInvoices}</p>
-        </Card>
-        <Card className="p-3 md:p-6 col-span-2 md:col-span-1">
-          <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Value</h3>
-          <p className="text-xl md:text-3xl font-bold text-blue-600 mt-1 md:mt-2">KSH {totalValue.toLocaleString()}</p>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+        <div className="aspect-square">
+          <Card className="p-3 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Invoices</h3>
+            <p className="text-xl md:text-3xl font-bold text-[#4A90A4] mt-1 md:mt-2">{totalInvoices}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-3 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Draft</h3>
+            <p className="text-xl md:text-3xl font-bold text-gray-600 mt-1 md:mt-2">{draftInvoices}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-3 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Paid</h3>
+            <p className="text-xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{paidInvoices}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-3 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Overdue</h3>
+            <p className="text-xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{overdueInvoices}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-3 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Value</h3>
+            <p className="text-xl md:text-3xl font-bold text-blue-600 mt-1 md:mt-2">KSH {totalValue.toLocaleString()}</p>
+          </Card>
+        </div>
       </div>
 
       <Card className="p-3 md:p-4">

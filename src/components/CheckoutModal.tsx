@@ -150,8 +150,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (paymentMethod === 'debt') {
       const hasCustomer = selectedCustomerId || (customerName.trim().length > 0 && customerPhone.trim().length > 0);
       if (debtPaymentType === 'partial') {
-        return partialAmount && parseFloat(partialAmount) > 0 && parseFloat(partialAmount) < total 
-          && hasCustomer && dueDate.trim().length > 0;
+      return partialAmount && parseFloat(partialAmount) > 0 && parseFloat(partialAmount) < total 
+        && hasCustomer && dueDate.trim().length > 0;
       }
       return hasCustomer && dueDate.trim().length > 0;
     }
@@ -476,7 +476,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 ) : (
                     <div className="relative" ref={paymentMethodRef}>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                     {availablePaymentMethods.map((method) => {
                       const IconComponent = method.icon === 'Banknote' ? Banknote : 
                                             method.icon === 'Smartphone' ? Smartphone :
@@ -540,7 +540,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           </button>
                         </>
                       )}
-                    </div>
+                  </div>
                 )}
               </div>
 
@@ -561,21 +561,21 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       Amount Received
                     </label>
                     <input
-                      name="amountReceived"
-                      type="number"
-                      value={amountReceived}
-                      onChange={(e) => setAmountReceived(e.target.value)}
+                    name="amountReceived"
+                    type="number"
+                    value={amountReceived}
+                    onChange={(e) => setAmountReceived(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && isValidPayment()) {
                           e.preventDefault();
                           handleContinue();
                         }
                       }}
-                      placeholder="0.00"
-                      step="0.01"
-                      min="0"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
                       className="w-full px-2 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
-                    />
+                  />
                   </div>
                   {amountReceived && parseFloat(amountReceived) > 0 && (
                     <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
@@ -718,17 +718,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             Amount to Pay Now <span className="text-red-500">*</span>
                           </label>
                           <input
-                            name="partialAmount"
-                            type="number"
-                            value={partialAmount}
-                            onChange={(e) => setPartialAmount(e.target.value)}
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            max={total}
-                            required
+                          name="partialAmount"
+                          type="number"
+                          value={partialAmount}
+                          onChange={(e) => setPartialAmount(e.target.value)}
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          max={total}
+                          required
                             className="w-full px-2 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
-                          />
+                        />
                         </div>
                         {partialAmount && parseFloat(partialAmount) > 0 && (
                           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-2">
@@ -843,17 +843,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* Action Buttons - Step 1: Payment Selection */}
               {currentStep === 'payment' && (
                 <div className="flex space-x-4">
-                  <Button
-                    onClick={handleClose}
+                <Button
+                  onClick={handleClose}
                     variant="secondary"
-                    disabled={isLoading}
+                  disabled={isLoading}
                     className="flex-1 py-3 text-base font-medium"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
+                >
+                  Cancel
+                </Button>
+                <Button
                     onClick={handleContinue}
-                    disabled={!isValidPayment() || isLoading}
+                  disabled={!isValidPayment() || isLoading}
                     className="flex-1 py-3 text-base font-medium bg-[#4A90A4] hover:bg-[#3a7a8a] backdrop-blur-sm shadow-lg transition-colors"
                   >
                     {availablePaymentMethods.length === 0 ? (
@@ -951,23 +951,23 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <Button
                       onClick={handleConfirm}
                       disabled={isLoading}
-                      className="flex-1 py-3 text-base font-medium bg-[#4A90A4] hover:bg-[#3a7a8a] backdrop-blur-sm shadow-lg transition-colors"
-                    >
-                      {isLoading ? (
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Processing...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center space-x-2">
-                          <ShoppingCart className="w-4 h-4" />
-                          <span>Complete Order</span>
-                        </div>
-                      )}
-                    </Button>
-                  </div>
+                    className="flex-1 py-3 text-base font-medium bg-[#4A90A4] hover:bg-[#3a7a8a] backdrop-blur-sm shadow-lg transition-colors"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Processing...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-2">
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>Complete Order</span>
+                      </div>
+                    )}
+                </Button>
                 </div>
               </div>
+            </div>
             )}
           </div>
         </div>

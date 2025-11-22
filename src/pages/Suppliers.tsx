@@ -289,8 +289,33 @@ const Suppliers: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <LoadingSpinner size="md" />
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="h-6 md:h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-2"></div>
+          </div>
+          <div className="h-10 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+        </div>
+        {/* Loading Skeleton for Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="aspect-square">
+              <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </Card>
+            </div>
+          ))}
+        </div>
+        {/* Loading Skeleton for Table */}
+        <Card className="p-6">
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }
@@ -309,23 +334,31 @@ const Suppliers: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Suppliers</h3>
-          <p className="text-3xl font-bold text-[#4A90A4] mt-2">{totalSuppliers}</p>
-        </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Active</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">{activeSuppliers}</p>
-        </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Supplies</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{totalSupplies}</p>
-        </Card>
-        <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Uncleared</h3>
-          <p className="text-3xl font-bold text-orange-600 mt-2">{unclearedSupplies}</p>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Suppliers</h3>
+            <p className="text-2xl md:text-3xl font-bold text-[#4A90A4] mt-2">{totalSuppliers}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Active</h3>
+            <p className="text-2xl md:text-3xl font-bold text-green-600 mt-2">{activeSuppliers}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Supplies</h3>
+            <p className="text-2xl md:text-3xl font-bold text-blue-600 mt-2">{totalSupplies}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Uncleared</h3>
+            <p className="text-2xl md:text-3xl font-bold text-orange-600 mt-2">{unclearedSupplies}</p>
+          </Card>
+        </div>
       </div>
 
       {/* Search Bar */}

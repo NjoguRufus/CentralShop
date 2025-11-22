@@ -146,7 +146,7 @@ export default defineConfig(({ mode }) => ({
   ],
   optimizeDeps: {
     exclude: ['lucide-react'],
-    include: ['html2pdf.js'],
+    include: ['html2pdf.js', 'styled-components'],
   },
   build: {
     rollupOptions: {
@@ -161,11 +161,17 @@ export default defineConfig(({ mode }) => ({
             if (id.includes('@google/generative-ai')) {
               return 'vendor-ai';
             }
+            if (id.includes('styled-components')) {
+              return 'vendor-styled';
+            }
             // Let Vite automatically handle React and other dependencies
             return 'vendor';
           }
         },
       },
+    },
+    commonjsOptions: {
+      include: [/html2pdf\.js/, /node_modules/, /styled-components/],
     },
     commonjsOptions: {
       include: [/html2pdf\.js/, /node_modules/],

@@ -84,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   routeMap[item.path]().catch(() => {});
                 }
               };
-
+              
               return (
                 <Link
                   key={item.path}

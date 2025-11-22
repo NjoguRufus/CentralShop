@@ -407,8 +407,33 @@ const Expenses: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <LoadingSpinner size="md" />
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="h-6 md:h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div className="flex space-x-2">
+            <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          </div>
+        </div>
+        {/* Loading Skeleton for Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="aspect-square">
+              <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </Card>
+            </div>
+          ))}
+        </div>
+        {/* Loading Skeleton for Table */}
+        <Card className="p-6">
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }
@@ -495,31 +520,31 @@ const Expenses: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Total Expenses</h3>
-            <p className="text-3xl font-bold text-primary">KSH {totalExpenses.toLocaleString()}</p>
-          </div>
-        </Card>
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Pending Approval</h3>
-            <p className="text-3xl font-bold text-yellow-600">KSH {pendingExpenses.toLocaleString()}</p>
-          </div>
-        </Card>
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Approved</h3>
-            <p className="text-3xl font-bold text-green-600">KSH {approvedExpenses.toLocaleString()}</p>
-          </div>
-        </Card>
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Revenue - Expenses</h3>
-            <p className="text-3xl font-bold text-gray-900">KSH {(totalRevenue - totalExpenses).toLocaleString()}</p>
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Expenses</h3>
+            <p className="text-2xl md:text-3xl font-bold text-[#4A90A4] mt-2">KSH {totalExpenses.toLocaleString()}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Pending Approval</h3>
+            <p className="text-2xl md:text-3xl font-bold text-yellow-600 mt-2">KSH {pendingExpenses.toLocaleString()}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Approved</h3>
+            <p className="text-2xl md:text-3xl font-bold text-green-600 mt-2">KSH {approvedExpenses.toLocaleString()}</p>
+          </Card>
+        </div>
+        <div className="aspect-square">
+          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
+            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Revenue - Expenses</h3>
+            <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-2">KSH {(totalRevenue - totalExpenses).toLocaleString()}</p>
+          </Card>
+        </div>
       </div>
 
       <Card>
