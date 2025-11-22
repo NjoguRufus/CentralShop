@@ -58,7 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <nav className="flex-1 px-2 md:px-3 py-3 md:py-4 space-y-1 md:space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
               const hasAccess = !item.requiredRole || hasPermission(item.requiredRole);
               
               if (!hasAccess) return null;
@@ -70,12 +70,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   className={`
                     flex items-center px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all duration-200 text-sm
                     ${isActive 
-                      ? 'bg-gradient-primary text-white shadow-lg shadow-primary backdrop-blur-sm' 
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary'
+                      ? 'bg-gradient-primary text-black dark:text-white shadow-lg shadow-primary backdrop-blur-sm' 
+                      : 'text-gray-900 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary'
                     }
                   `}
                 >
-                  <Icon className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                  <Icon className={`w-4 h-4 md:w-5 md:h-5 mr-2 ${isActive ? 'text-black dark:text-white' : 'text-gray-900 dark:text-gray-300'}`} />
                   <span className="font-medium">{item.label}</span>
                 </Link>
               );

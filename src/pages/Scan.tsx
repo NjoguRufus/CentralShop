@@ -1,22 +1,21 @@
-/**
- * Barcode Scanner Component
- * Uses device camera to scan barcodes
- */
 import React, { useRef, useEffect, useState } from 'react';
-import { X, Camera } from 'lucide-react';
-import Button from './UI/Button';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { X } from 'lucide-react';
+import Button from '../components/UI/Button';
 import { detectBarcode, cleanupBarcodeDetection } from '../utils/barcodeDetection';
 
-interface BarcodeScannerProps {
-  onScan: (barcode: string) => void;
-  onClose: () => void;
-}
-
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
+/**
+ * Barcode Scanner Page
+ * Full-page scanner with redirect support after scanning
+ */
+const Scan: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectURL = searchParams.get('redirect');
 
   useEffect(() => {
     startCamera();
@@ -61,7 +60,26 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
 
   const handleClose = () => {
     stopCamera();
-    onClose();
+    // Navigate back to redirect URL or POS
+    if (redirectURL) {
+      window.location.href = redirectURL;
+    } else {
+      navigate('/pos');
+    }
+  };
+
+  const handleScanSuccess = (barcode: string) => {
+    stopCamera();
+    
+    // Dispatch barcode scanned event
+    window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { barcode } }));
+    
+    // Navigate back to redirect URL or POS
+    if (redirectURL) {
+      window.location.href = redirectURL;
+    } else {
+      navigate('/pos');
+    }
   };
 
   // Automatic barcode detection (works in all browsers)
@@ -90,9 +108,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
         const barcode = await detectBarcode(videoRef.current);
         if (barcode) {
           isDetecting = false;
-          stopCamera();
-          onScan(barcode);
-          handleClose();
+          handleScanSuccess(barcode);
           return;
         }
       } catch (err) {
@@ -114,53 +130,51 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [scanning, error, onScan]);
+  }, [scanning, error, redirectURL]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-3 md:p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-            Scan Barcode
-          </h3>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+    <div className="min-h-screen bg-black flex flex-col">
+      {/* Header */}
+      <div className="bg-black/80 backdrop-blur-sm border-b border-gray-800 p-4 flex items-center justify-between">
+        <h1 className="text-white text-lg font-semibold">Scan Barcode</h1>
+        <button
+          onClick={handleClose}
+          className="text-gray-400 hover:text-white transition-colors p-2"
+          aria-label="Close scanner"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
 
+      {/* Scanner View */}
+      <div className="flex-1 flex items-center justify-center p-4">
         {error ? (
-          <div className="text-center py-8">
-            <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+          <div className="text-center max-w-md">
+            <p className="text-red-400 mb-4 text-lg">{error}</p>
             <Button onClick={handleClose}>Close</Button>
           </div>
         ) : (
-          <>
-            <div className="relative bg-black rounded-lg overflow-hidden mb-4" style={{ aspectRatio: '16/9' }}>
+          <div className="w-full max-w-2xl">
+            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="border-2 border-blue-500 rounded-lg w-64 h-32"></div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="border-4 border-blue-500 rounded-lg w-64 h-32 shadow-lg"></div>
               </div>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
+            <p className="text-gray-400 text-center mt-4 text-sm">
               Position the barcode within the frame
             </p>
-            <Button onClick={handleClose} variant="secondary" className="w-full">
-              Cancel
-            </Button>
-          </>
+          </div>
         )}
       </div>
     </div>
   );
 };
 
-export default BarcodeScanner;
+export default Scan;
 

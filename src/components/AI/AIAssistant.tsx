@@ -486,7 +486,7 @@ const AIAssistant: React.FC = () => {
                   <div
                     className={`max-w-xs px-4 py-2 rounded-2xl ${
                       message.role === 'user'
-                        ? 'bg-gradient-primary backdrop-blur-sm text-white'
+                        ? 'bg-gradient-primary backdrop-blur-sm text-black dark:text-white'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                     }`}
                   >

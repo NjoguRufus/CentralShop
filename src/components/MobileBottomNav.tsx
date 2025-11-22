@@ -74,7 +74,7 @@ const MobileBottomNav: React.FC = () => {
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
                 active
                   ? 'text-[#4A90A4] dark:text-[#4A90A4]'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-[#4A90A4] dark:hover:text-[#4A90A4]'
+                  : 'text-gray-900 dark:text-gray-400 hover:text-[#4A90A4] dark:hover:text-[#4A90A4]'
               }`}
               aria-label={item.label}
             >
@@ -88,7 +88,7 @@ const MobileBottomNav: React.FC = () => {
           className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
             isMenuOpen
               ? 'text-[#4A90A4] dark:text-[#4A90A4]'
-              : 'text-gray-500 dark:text-gray-400 hover:text-[#4A90A4] dark:hover:text-[#4A90A4]'
+              : 'text-gray-900 dark:text-gray-400 hover:text-[#4A90A4] dark:hover:text-[#4A90A4]'
           }`}
           aria-label="More Menu"
         >

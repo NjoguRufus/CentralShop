@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2, Package, Camera } from 'lucide-react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -10,7 +11,6 @@ import Modal from '../components/Modal';
 import FormInput from '../components/UI/FormInput';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
 import Dropdown from '../components/UI/Dropdown';
-import BarcodeScanner from '../components/BarcodeScanner';
 import ImageCamera from '../components/ImageCamera';
 import { Product } from '../types';
 import { toast } from 'react-toastify';
@@ -22,6 +22,7 @@ interface ProductCategory {
 
 const Inventory: React.FC = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -32,7 +33,6 @@ const Inventory: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showAddCategoryInline, setShowAddCategoryInline] = useState<boolean>(false);
   const [newCategoryName, setNewCategoryName] = useState<string>('');
-  const [showBarcodeScanner, setShowBarcodeScanner] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -550,7 +550,10 @@ const Inventory: React.FC = () => {
               />
               <button
                 type="button"
-                onClick={() => setShowBarcodeScanner(true)}
+                onClick={() => {
+                  const currentURL = window.location.href;
+                  navigate(`/scan?redirect=${encodeURIComponent(currentURL)}`);
+                }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-[#4A90A4] dark:text-gray-400 dark:hover:text-[#4A90A4] transition-colors"
                 title="Scan barcode with camera"
               >
@@ -558,17 +561,6 @@ const Inventory: React.FC = () => {
               </button>
             </div>
           </div>
-          
-          {showBarcodeScanner && (
-            <BarcodeScanner
-              onScan={(barcode) => {
-                setFormData({ ...formData, barcode });
-                setShowBarcodeScanner(false);
-                toast.success(`Barcode scanned: ${barcode}`);
-              }}
-              onClose={() => setShowBarcodeScanner(false)}
-            />
-          )}
           
           <div>
             <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">

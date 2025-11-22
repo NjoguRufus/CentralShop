@@ -91,7 +91,7 @@ const Dropdown: React.FC<DropdownProps> = ({
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown 
-          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+          className={`w-4 h-4 text-gray-900 dark:text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
         />
       </button>
 

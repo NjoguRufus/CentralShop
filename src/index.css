@@ -76,6 +76,17 @@
   border: 1px solid rgba(var(--color-primary-rgb, 59, 130, 246), 0.2);
 }
 
+/* Make text and icons black in light mode for glassmorphism */
+.bg-gradient-primary,
+.bg-gradient-primary * {
+  color: #000000 !important;
+}
+
+.dark .bg-gradient-primary,
+.dark .bg-gradient-primary * {
+  color: #ffffff !important;
+}
+
 .bg-gradient-primary-text {
   color: var(--color-primary);
 }
