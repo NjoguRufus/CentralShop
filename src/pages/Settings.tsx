@@ -32,12 +32,10 @@ interface ThemeSettings {
 
 
 interface PaymentSettings {
-  enableCardPayments: boolean;
   enableMobilePayments: boolean;
   enableCashPayments: boolean;
   enableDebtPayments: boolean;
   enablePartialPayments: boolean;
-  cardPaymentProvider?: string;
   mobilePaymentProvider?: string;
   autoDownloadReceipt: boolean;
   saveReceipt: boolean;
@@ -80,12 +78,10 @@ const Settings: React.FC = () => {
     },
     geminiApiKey: '',
     paymentSettings: {
-      enableCardPayments: true,
       enableMobilePayments: true,
       enableCashPayments: true,
       enableDebtPayments: false,
       enablePartialPayments: false,
-      cardPaymentProvider: '',
       mobilePaymentProvider: 'M-Pesa',
       autoDownloadReceipt: false,
       saveReceipt: false,

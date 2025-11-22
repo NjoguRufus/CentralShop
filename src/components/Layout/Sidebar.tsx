@@ -63,10 +63,33 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               
               if (!hasAccess) return null;
               
+              // Preload route on hover for faster navigation
+              const handleMouseEnter = () => {
+                // Preload the route component
+                const routeMap: Record<string, () => Promise<any>> = {
+                  '/developer': () => import('../../pages/DeveloperDashboard'),
+                  '/dashboard': () => import('../../pages/Dashboard'),
+                  '/inventory': () => import('../../pages/Inventory'),
+                  '/pos': () => import('../../pages/POSSystem'),
+                  '/customers': () => import('../../pages/Customers'),
+                  '/orders': () => import('../../pages/Orders'),
+                  '/invoicing': () => import('../../pages/Invoicing'),
+                  '/suppliers': () => import('../../pages/Suppliers'),
+                  '/expenses': () => import('../../pages/Expenses'),
+                  '/stock-reports': () => import('../../pages/StockReports'),
+                  '/employees': () => import('../../pages/Employees'),
+                  '/settings': () => import('../../pages/Settings'),
+                };
+                if (routeMap[item.path]) {
+                  routeMap[item.path]().catch(() => {});
+                }
+              };
+
               return (
                 <Link
                   key={item.path}
                   to={item.path}
+                  onMouseEnter={handleMouseEnter}
                   className={`
                     flex items-center px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all duration-200 text-sm
                     ${isActive 

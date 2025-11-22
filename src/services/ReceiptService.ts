@@ -48,90 +48,107 @@ export class ReceiptService {
         <meta charset="utf-8">
         <title>Receipt - ${receiptData.orderId}</title>
         <style>
+          @media print {
+            @page {
+              margin: 0;
+              size: 80mm auto;
+            }
+            body {
+              margin: 0;
+              padding: 5px;
+            }
+          }
           body {
             font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.4;
+            font-size: 11px;
+            line-height: 1.3;
             margin: 0;
-            padding: 20px;
+            padding: 5px;
             background: white;
             color: black;
+            width: 80mm;
           }
           .receipt {
-            max-width: 300px;
+            max-width: 80mm;
             margin: 0 auto;
-            border: 1px solid #ccc;
-            padding: 15px;
+            padding: 5px;
           }
           .header {
             text-align: center;
-            border-bottom: 1px dashed #ccc;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-          }
-          .business-name {
-            font-size: 16px;
-            font-weight: bold;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
             margin-bottom: 5px;
           }
+          .business-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 3px;
+          }
           .business-info {
-            font-size: 10px;
-            color: #666;
+            font-size: 9px;
+            color: #000;
           }
           .order-info {
-            margin-bottom: 15px;
+            margin-bottom: 5px;
           }
           .order-id {
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
+            font-size: 10px;
           }
           .date-time {
-            font-size: 10px;
-            color: #666;
+            font-size: 9px;
+            color: #000;
           }
           .items {
-            margin-bottom: 15px;
+            margin-bottom: 5px;
           }
           .item {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
-            padding: 2px 0;
+            margin-bottom: 2px;
+            padding: 1px 0;
+            font-size: 10px;
           }
           .item-name {
             flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
           .item-qty {
-            margin: 0 10px;
+            margin: 0 5px;
             text-align: center;
-            min-width: 30px;
+            min-width: 25px;
           }
           .item-price {
             text-align: right;
-            min-width: 60px;
+            min-width: 55px;
           }
           .divider {
-            border-top: 1px dashed #ccc;
-            margin: 10px 0;
+            border-top: 1px dashed #000;
+            margin: 5px 0;
           }
           .totals {
-            margin-bottom: 15px;
+            margin-bottom: 5px;
           }
           .total-line {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
+            font-size: 10px;
           }
           .total-label {
             font-weight: bold;
           }
           .payment-info {
-            border-top: 1px dashed #ccc;
-            padding-top: 10px;
-            margin-bottom: 15px;
+            border-top: 1px dashed #000;
+            padding-top: 5px;
+            margin-bottom: 5px;
+            font-size: 10px;
           }
           .payment-method {
-            margin-bottom: 5px;
+            margin-bottom: 2px;
           }
           ${receiptData.amountReceived ? `
           .amount-received {
@@ -159,25 +176,29 @@ export class ReceiptService {
           ` : ''}
           .footer {
             text-align: center;
-            font-size: 10px;
-            color: #666;
-            border-top: 1px dashed #ccc;
-            padding-top: 10px;
+            font-size: 9px;
+            color: #000;
+            border-top: 1px dashed #000;
+            padding-top: 5px;
           }
           .employee {
-            margin-bottom: 5px;
+            margin-bottom: 2px;
           }
           .thank-you {
             font-weight: bold;
-            margin-top: 10px;
+            margin-top: 5px;
+          }
+          img {
+            max-width: 50px;
+            max-height: 50px;
           }
         </style>
       </head>
       <body>
         <div class="receipt">
           <div class="header">
-            <div style="margin-bottom: 10px; text-align: center;">
-              <img src="/icons/CentalLightmode.png" alt="Central Shop Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto; display: block;" onerror="this.style.display='none'" />
+            <div style="margin-bottom: 5px; text-align: center;">
+              <img src="/icons/CentalLightmode.png" alt="Central Shop Logo" style="max-width: 40px; max-height: 40px; object-fit: contain; margin: 0 auto; display: block;" onerror="this.style.display='none'" />
             </div>
             <div class="business-name">CENTRAL SHOP</div>
             <div class="business-info">
@@ -554,11 +575,14 @@ export class ReceiptService {
       
       // Create a hidden iframe for printing
       const iframe = document.createElement('iframe');
-      iframe.style.position = 'absolute';
-      iframe.style.left = '-9999px';
-      iframe.style.top = '-9999px';
-      iframe.style.width = '300px';
-      iframe.style.height = '400px';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '80mm'; // Thermal printer width
+      iframe.style.height = '1px';
+      iframe.style.border = 'none';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
       document.body.appendChild(iframe);
 
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -568,20 +592,41 @@ export class ReceiptService {
       iframeDoc.write(html);
       iframeDoc.close();
 
-      // Wait for content to load
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for content to load (reduced delay for faster printing)
+      await new Promise(resolve => {
+        const checkReady = () => {
+          if (iframeDoc.readyState === 'complete') {
+            resolve(true);
+          } else {
+            setTimeout(checkReady, 50);
+          }
+        };
+        checkReady();
+      });
 
-      // Trigger print dialog
+      // Small additional delay for images if any
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Trigger print immediately (thermal printers handle this fast)
       const printWindow = iframe.contentWindow;
       if (printWindow) {
         printWindow.focus();
-        printWindow.print();
+        // Use requestAnimationFrame for immediate print
+        requestAnimationFrame(() => {
+          printWindow.print();
+        });
       }
 
-      // Clean up
+      // Clean up after print dialog appears
       setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
+        try {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }, 500);
       
       return true;
     } catch (error) {

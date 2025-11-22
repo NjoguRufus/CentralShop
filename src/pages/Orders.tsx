@@ -82,6 +82,8 @@ const Orders: React.FC = () => {
   
   // Check if user can edit orders (not Cashier)
   const canEditOrders = currentUser?.role !== 'Cashier';
+  // Check if user is Main Admin
+  const isMainAdmin = currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin';
 
   useEffect(() => {
     fetchOrders();
@@ -101,8 +103,22 @@ const Orders: React.FC = () => {
       }
 
       const ordersCollectionName = getShopCollectionName('orders');
-      const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
+      
+      // If user is a cashier, only fetch their own orders
+      let querySnapshot;
+      if (currentUser?.role === 'Cashier' && currentUser?.uid) {
+        // For cashiers, filter by employeeId and then sort in memory
+        const q = query(
+          collection(db, ordersCollectionName),
+          where('employeeId', '==', currentUser.uid)
+        );
+        querySnapshot = await getDocs(q);
+      } else {
+        // For admins, fetch all orders with orderBy
+        const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
+        querySnapshot = await getDocs(q);
+      }
+      
       const ordersData: Order[] = [];
       
       querySnapshot.forEach((orderDoc) => {
@@ -121,6 +137,15 @@ const Orders: React.FC = () => {
         
         ordersData.push(orderData);
       });
+      
+      // Sort cashier orders by createdAt in descending order (most recent first)
+      if (currentUser?.role === 'Cashier') {
+        ordersData.sort((a, b) => {
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.date || 0).getTime();
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.date || 0).getTime();
+          return dateB - dateA;
+        });
+      }
       setOrders(ordersData);
     } catch (error) {
       toast.error('Failed to fetch orders');
@@ -750,17 +775,24 @@ const Orders: React.FC = () => {
                       </button>
                     )}
                     {canEditOrders ? (
-                      <Dropdown
-                        value={row.status}
-                        onChange={(value) => handleStatusUpdate(row.id!, value as Order['status'])}
-                        options={[
-                          { value: 'pending', label: 'Pending' },
-                          { value: 'completed', label: 'Completed' },
-                          { value: 'refunded', label: 'Refunded' },
-                          { value: 'cancelled', label: 'Cancelled' }
-                        ]}
-                        className="text-sm"
-                      />
+                      row.status === 'completed' && !isMainAdmin ? (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 italic" title="Only the Main Admin Can make the Changes">
+                          Only Main Admin
+                        </div>
+                      ) : (
+                        <Dropdown
+                          value={row.status}
+                          onChange={(value) => handleStatusUpdate(row.id!, value as Order['status'])}
+                          options={[
+                            { value: 'pending', label: 'Pending' },
+                            { value: 'completed', label: 'Completed' },
+                            { value: 'refunded', label: 'Refunded' },
+                            { value: 'cancelled', label: 'Cancelled' }
+                          ]}
+                          className="text-sm"
+                          disabled={row.status === 'completed' && !isMainAdmin}
+                        />
+                      )
                     ) : (
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[row.status]}`}>
                         {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
@@ -782,8 +814,8 @@ const Orders: React.FC = () => {
         size="lg"
       >
         {selectedOrder && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4 p-2 md:p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">Customer</h3>
                 <p className="text-gray-900 dark:text-white">{getCustomerName(selectedOrder.customerId)}</p>
@@ -816,15 +848,15 @@ const Orders: React.FC = () => {
             
             <div>
               <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Products</h3>
-              <div className="border rounded-lg overflow-hidden dark:border-gray-600">
+              <div className="border rounded-lg overflow-hidden dark:border-gray-600 overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Product</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Category</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Quantity</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Price</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Total</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Product</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300 hidden md:table-cell">Category</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Qty</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Price</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Total</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -854,8 +886,8 @@ const Orders: React.FC = () => {
                       
                       return orderItems.length > 0 ? orderItems.map((product, index) => (
                         <tr key={index}>
-                          <td className="px-4 py-2 text-gray-900 dark:text-white font-medium">{product.name}</td>
-                          <td className="px-4 py-2">
+                          <td className="px-2 md:px-4 py-2 text-gray-900 dark:text-white font-medium text-sm md:text-base">{product.name}</td>
+                          <td className="px-2 md:px-4 py-2 hidden md:table-cell">
                             {product.category ? (
                               <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                                 {product.category}
@@ -864,9 +896,9 @@ const Orders: React.FC = () => {
                               <span className="text-gray-400">-</span>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-gray-900 dark:text-white">{product.quantity}</td>
-                          <td className="px-4 py-2 text-gray-900 dark:text-white">KSH {product.price.toLocaleString()}</td>
-                          <td className="px-4 py-2 text-gray-900 dark:text-white font-semibold">KSH {(product.quantity * product.price).toLocaleString()}</td>
+                          <td className="px-2 md:px-4 py-2 text-gray-900 dark:text-white text-sm md:text-base">{product.quantity}</td>
+                          <td className="px-2 md:px-4 py-2 text-gray-900 dark:text-white text-sm md:text-base">KSH {product.price.toLocaleString()}</td>
+                          <td className="px-2 md:px-4 py-2 text-gray-900 dark:text-white font-semibold text-sm md:text-base">KSH {(product.quantity * product.price).toLocaleString()}</td>
                         </tr>
                       )) : (
                         <tr>
@@ -877,8 +909,8 @@ const Orders: React.FC = () => {
                   </tbody>
                   <tfoot className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <td colSpan={4} className="px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total:</td>
-                      <td className="px-4 py-2 font-semibold text-gray-900 dark:text-white">KSH {selectedOrder.total.toLocaleString()}</td>
+                      <td colSpan={4} className="px-2 md:px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 text-sm md:text-base">Total:</td>
+                      <td className="px-2 md:px-4 py-2 font-semibold text-gray-900 dark:text-white text-sm md:text-base">KSH {selectedOrder.total.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>

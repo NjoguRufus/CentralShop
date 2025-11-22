@@ -10,6 +10,7 @@ import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Dropdown from '../components/UI/Dropdown';
 import CheckoutModal from '../components/CheckoutModal';
+import CustomerInfoModal from '../components/CustomerInfoModal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
 import { ReceiptService } from '../services/ReceiptService';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
@@ -32,6 +33,8 @@ const POSSystem: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isCustomerInfoOpen, setIsCustomerInfoOpen] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -384,16 +387,37 @@ const POSSystem: React.FC = () => {
   };
 
   const handleCheckout = async (paymentData: any) => {
+    // Capture cart snapshot before clearing
+    const cartSnapshot = [...cart];
+    
+    // Close modals immediately for instant response
+    setIsCustomerInfoOpen(false);
+    setPendingPaymentData(null);
+    setIsCheckoutOpen(false);
+    
+    // Clear cart immediately for instant UI response
+    setCart([]);
+    
+    // Show immediate success feedback
+    toast.success('Processing order...', { autoClose: 1000 });
+    
+    // Process order in background (non-blocking)
+    processOrderInBackground(paymentData, cartSnapshot);
+  };
+
+  const processOrderInBackground = async (paymentData: any, cartSnapshot: OrderItem[]) => {
     try {
       setIsProcessing(true);
       
       if (!currentUser?.shopId) {
         toast.error('No shop assigned to your account');
+        setIsProcessing(false);
         return;
       }
 
-      if (cart.length === 0) {
+      if (cartSnapshot.length === 0) {
         toast.error('Cart is empty');
+        setIsProcessing(false);
         return;
       }
 
@@ -414,7 +438,7 @@ const POSSystem: React.FC = () => {
 
       // Create order - filter out undefined values
       const orderData = {
-        items: cart.map(item => ({
+        items: cartSnapshot.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
           price: item.price
@@ -483,7 +507,7 @@ const POSSystem: React.FC = () => {
 
           // Create invoice
           const invoiceNumber = `INV-${Date.now()}`;
-          const invoiceItems = cart.map(item => ({
+          const invoiceItems = cartSnapshot.map(item => ({
             description: item.product.name,
             quantity: item.quantity,
             unitPrice: item.price,
@@ -530,7 +554,7 @@ const POSSystem: React.FC = () => {
       }
 
       // Update product stock
-      for (const item of cart) {
+      for (const item of cartSnapshot) {
         const product = products.find(p => p.id === item.productId);
         if (product) {
           const newStock = product.stock - item.quantity;
@@ -544,7 +568,7 @@ const POSSystem: React.FC = () => {
       // Prepare receipt data
       const receiptData = {
         orderId: `ORD-${Date.now()}`,
-        items: cart.map(item => ({
+        items: cartSnapshot.map(item => ({
           name: item.product.name,
           quantity: item.quantity,
           price: item.price,
@@ -567,39 +591,46 @@ const POSSystem: React.FC = () => {
         timestamp: new Date()
       };
 
-      // Handle receipt flow based on settings
-      const businessInfo = await BusinessSettingsService.getBusinessInfo(currentUser.shopId!);
+      // Process receipt printing in parallel (non-blocking)
+      BusinessSettingsService.getBusinessInfo(currentUser.shopId!).then(businessInfo => {
+        ReceiptService.handleReceiptFlow(
+          receiptData,
+          paymentSettings,
+          businessInfo
+        ).then(receiptResult => {
+          if (receiptResult.success) {
+            // Silent success - receipt printed
+            console.log('Receipt printed successfully');
+          } else {
+            console.warn('Receipt printing issue:', receiptResult.message);
+          }
+        }).catch(err => {
+          console.error('Receipt printing error:', err);
+        });
+      });
+      
+      // Add notification in background
+      try {
+        addNotification({
+          title: 'New Order Completed',
+          message: `Order ${receiptData.orderId} has been completed for KSH ${total.toLocaleString()}`,
+          type: 'success'
+        });
+      } catch (err) {
+        console.error('Notification error:', err);
+      }
 
-      const receiptResult = await ReceiptService.handleReceiptFlow(
-        receiptData,
-        paymentSettings,
-        businessInfo
-      );
-
-      if (receiptResult.success) {
-        toast.success(receiptResult.message);
+      // Show success message
+      if (paymentData.paymentMethod === 'debt') {
+        toast.success('Debt order created successfully!');
+      } else if (paymentData.paymentMethod === 'partial') {
+        toast.success('Partial payment order created!');
       } else {
-        toast.error(receiptResult.message);
+        toast.success('Order completed! Receipt printing...');
       }
       
-      // Add notification for new order
-      await addNotification({
-        title: 'New Order Completed',
-        message: `Order ${receiptData.orderId} has been completed for KSH ${total.toLocaleString()}`,
-        type: 'success'
-      });
-
-      // Show appropriate success message based on payment method
-      if (paymentData.paymentMethod === 'debt') {
-        toast.success('Debt order created successfully! Customer will be charged on the due date.');
-      } else if (paymentData.paymentMethod === 'partial') {
-        toast.success('Partial payment order created! Customer owes remaining amount on due date.');
-      } else {
-        toast.success('Order processed successfully!');
-      }
-      setCart([]);
-      setIsCheckoutOpen(false);
-      fetchProducts(); // Refresh products to get updated stock
+      // Refresh products in background
+      fetchProducts();
     } catch (error) {
       toast.error('Failed to process order');
       console.error('Error processing order:', error);
@@ -682,54 +713,62 @@ const POSSystem: React.FC = () => {
 
           {/* Products Grid */}
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3">
               {[...Array(10)].map((_, i) => (
-                <Card key={i} className="p-2 md:p-3">
-                  <div className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse mb-4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                </Card>
+                <div key={i} className="aspect-square">
+                  <Card className="p-0 overflow-hidden h-full">
+                    <div className="flex-1 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+                    <div className="p-1.5 md:p-2 bg-white dark:bg-gray-800">
+                      <div className="h-3 md:h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+                      <div className="h-2 md:h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                    </div>
+                  </Card>
+                </div>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3">
               {filteredProducts.map(product => {
                 const isOutOfStock = product.stock <= 0;
                 return (
-                  <Card 
-                    key={product.id} 
-                    className={`p-0 overflow-hidden transition-all duration-300 ${
-                      isOutOfStock 
-                        ? 'opacity-60 cursor-not-allowed' 
-                        : 'hover:shadow-lg cursor-pointer'
-                    }`}
+                  <div 
+                    key={product.id}
+                    className="aspect-square"
                   >
-                    <div onClick={() => !isOutOfStock && addToCart(product)}>
-                      <div className="aspect-square w-full overflow-hidden relative">
-                        <img 
-                          src={product.image} 
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                        {isOutOfStock && (
-                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                            <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                              OUT OF STOCK
+                    <Card 
+                      className={`p-0 overflow-hidden transition-all duration-300 h-full ${
+                        isOutOfStock 
+                          ? 'opacity-60 cursor-not-allowed' 
+                          : 'hover:shadow-lg cursor-pointer'
+                      }`}
+                    >
+                      <div onClick={() => !isOutOfStock && addToCart(product)} className="flex flex-col h-full">
+                        <div className="flex-1 overflow-hidden relative bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                          <img 
+                            src={product.image} 
+                            alt={product.name}
+                            className="w-full h-full object-contain"
+                          />
+                          {isOutOfStock && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                              <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                                OUT OF STOCK
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-1.5 md:p-2 flex-shrink-0 bg-white dark:bg-gray-800">
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-xs md:text-sm mb-1 line-clamp-1">{product.name}</h3>
+                          <div className="space-y-0.5">
+                            <span className="text-sm md:text-base font-bold text-[#4A90A4] block">KSH {product.price.toLocaleString()}</span>
+                            <span className={`text-xs ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
+                              {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
                             </span>
                           </div>
-                        )}
-                      </div>
-                      <div className="p-2 md:p-3">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{product.name}</h3>
-                        <div className="space-y-1">
-                          <span className="text-lg font-bold text-[#4A90A4] block">KSH {product.price.toLocaleString()}</span>
-                          <span className={`text-sm ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-                            {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
-                          </span>
                         </div>
                       </div>
-                    </div>
-                  </Card>
+                    </Card>
+                  </div>
                 );
               })}
             </div>
@@ -833,7 +872,11 @@ const POSSystem: React.FC = () => {
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
-        onConfirm={handleCheckout}
+        onContinue={(paymentData) => {
+          setPendingPaymentData(paymentData);
+          setIsCheckoutOpen(false);
+          setIsCustomerInfoOpen(true);
+        }}
         cart={cart.map(item => ({
           id: item.productId,
           name: item.product.name,
@@ -841,6 +884,22 @@ const POSSystem: React.FC = () => {
           quantity: item.quantity
         }))}
         total={getFinalTotal()}
+        isLoading={isProcessing}
+      />
+
+      {/* Customer Info Modal */}
+      <CustomerInfoModal
+        isOpen={isCustomerInfoOpen}
+        onClose={() => {
+          setIsCustomerInfoOpen(false);
+          setPendingPaymentData(null);
+        }}
+        onConfirm={(finalPaymentData) => {
+          handleCheckout(finalPaymentData);
+          setIsCustomerInfoOpen(false);
+          setPendingPaymentData(null);
+        }}
+        paymentData={pendingPaymentData || {}}
         isLoading={isProcessing}
       />
 

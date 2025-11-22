@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Banknote, Smartphone, ShoppingCart, Search, User, Receipt, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Banknote, Smartphone, ShoppingCart, Search, User, Receipt, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from './UI/Button';
 import FormInput from './UI/FormInput';
 import Select from './UI/Select';
@@ -22,13 +22,14 @@ interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (paymentData: PaymentData) => void;
+  onContinue?: (paymentData: Partial<PaymentData>) => void;
   cart: Product[];
   total: number;
   isLoading?: boolean;
 }
 
 interface PaymentData {
-  paymentMethod: 'cash' | 'card' | 'mobile' | 'debt' | 'partial';
+  paymentMethod: 'cash' | 'mobile' | 'debt' | 'partial';
   amountReceived?: number;
   change?: number;
   customerId?: string;
@@ -53,6 +54,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
+  onContinue,
   cart,
   total,
   isLoading = false
@@ -60,7 +62,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const { currentUser } = useAuth();
   const { lookupCustomer, isLoading: isLookingUpCustomer } = useCustomerLookup();
   const { getAvailablePaymentMethods, loading: settingsLoading } = usePaymentSettings();
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mobile' | 'debt' | 'partial'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile' | 'debt' | 'partial'>('cash');
   const [debtPaymentType, setDebtPaymentType] = useState<'debt' | 'partial'>('debt'); // Sub-modal type for debt/partial
   const [amountReceived, setAmountReceived] = useState<string>('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -70,9 +72,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [mpesaCode, setMpesaCode] = useState<string>('');
   const [customerFound, setCustomerFound] = useState<boolean>(false);
-  const [debtAmount, setDebtAmount] = useState<string>('');
   const [partialAmount, setPartialAmount] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
+  const [currentStep, setCurrentStep] = useState<'payment' | 'customer'>('payment');
+  const paymentMethodRef = useRef<HTMLDivElement>(null);
+  
+  // If onContinue is provided, always show payment step only
+  const showCustomerStep = !onContinue && currentStep === 'customer';
 
   const availablePaymentMethods = getAvailablePaymentMethods();
 
@@ -86,7 +92,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Set default payment method when modal opens
   useEffect(() => {
     if (isOpen && availablePaymentMethods.length > 0) {
-      const defaultMethod = availablePaymentMethods[0].value as 'cash' | 'card' | 'mobile' | 'debt' | 'partial';
+      const defaultMethod = availablePaymentMethods[0].value as 'cash' | 'mobile' | 'debt' | 'partial';
       setPaymentMethod(defaultMethod);
     }
   }, [isOpen]); // Only depend on isOpen, not on availablePaymentMethods
@@ -129,7 +135,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     ? total - parseFloat(partialAmount)
     : 0;
 
-  const isValidPayment = () => {
+  const isValidPayment = useCallback(() => {
     // If no payment methods are available, payment is not valid
     if (availablePaymentMethods.length === 0) {
       return false;
@@ -141,20 +147,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (paymentMethod === 'mobile') {
       return mpesaCode.trim().length > 0;
     }
-    if (paymentMethod === 'card') {
-      return true; // Card payments are always valid (no additional input required)
-    }
     if (paymentMethod === 'debt') {
       const hasCustomer = selectedCustomerId || (customerName.trim().length > 0 && customerPhone.trim().length > 0);
+      if (debtPaymentType === 'partial') {
+        return partialAmount && parseFloat(partialAmount) > 0 && parseFloat(partialAmount) < total 
+          && hasCustomer && dueDate.trim().length > 0;
+      }
       return hasCustomer && dueDate.trim().length > 0;
     }
-    if (paymentMethod === 'debt' && debtPaymentType === 'partial') {
-      const hasCustomer = selectedCustomerId || (customerName.trim().length > 0 && customerPhone.trim().length > 0);
-      return partialAmount && parseFloat(partialAmount) > 0 && parseFloat(partialAmount) < total 
-        && hasCustomer && dueDate.trim().length > 0;
-    }
     return true;
-  };
+  }, [availablePaymentMethods.length, paymentMethod, amountReceived, total, mpesaCode, customerName, customerPhone, dueDate, partialAmount, debtPaymentType, selectedCustomerId]);
 
   const handleConfirm = () => {
     // Get customer data - use selected customer data if available, otherwise use entered data
@@ -223,7 +225,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCustomerPhone('');
     setMpesaCode('');
     setCustomerFound(false);
-    setDebtAmount('');
     setPartialAmount('');
     setDueDate('');
     onClose();
@@ -241,11 +242,126 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setCustomerPhone('');
       setMpesaCode('');
       setCustomerFound(false);
-      setDebtAmount('');
       setPartialAmount('');
       setDueDate('');
+      setCurrentStep('payment');
     }
   }, [isOpen]);
+
+  const handleContinue = useCallback(() => {
+    if (isValidPayment()) {
+      // Prepare payment data without customer info
+      const paymentData: Partial<PaymentData> = {
+        paymentMethod,
+        amountReceived: paymentMethod === 'cash' ? parseFloat(amountReceived) : undefined,
+        change: paymentMethod === 'cash' ? change : undefined,
+        mpesaCode: paymentMethod === 'mobile' ? mpesaCode : undefined,
+        debtAmount: paymentMethod === 'debt' ? total : undefined,
+        partialAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? parseFloat(partialAmount) : undefined,
+        remainingAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? remainingAmount : undefined,
+        dueDate: paymentMethod === 'debt' ? dueDate : undefined,
+      };
+      
+      // If onContinue callback is provided, use it (for separate modal)
+      if (onContinue) {
+        onContinue(paymentData);
+        handleClose();
+      } else {
+        // Otherwise, show customer step in same modal
+        setCurrentStep('customer');
+      }
+    }
+  }, [isValidPayment, onContinue, paymentMethod, amountReceived, change, mpesaCode, total, debtPaymentType, partialAmount, remainingAmount, dueDate, handleClose]);
+
+  const handleBackToPayment = () => {
+    setCurrentStep('payment');
+  };
+
+  // Keyboard navigation for payment methods
+  useEffect(() => {
+    if (!isOpen || currentStep !== 'payment') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Left/Right arrow navigation for payment methods
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const currentIndex = availablePaymentMethods.findIndex(m => m.value === paymentMethod);
+        if (currentIndex === -1) return;
+
+        let newIndex: number;
+        if (e.key === 'ArrowLeft') {
+          newIndex = currentIndex > 0 ? currentIndex - 1 : availablePaymentMethods.length - 1;
+        } else {
+          newIndex = currentIndex < availablePaymentMethods.length - 1 ? currentIndex + 1 : 0;
+        }
+        setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial');
+      }
+
+      // Enter key to continue - allow in amount input field to trigger continue
+      if (e.key === 'Enter') {
+        const target = e.target as HTMLElement;
+        // Allow Enter in amount input field to trigger continue
+        if (target instanceof HTMLInputElement && (target.name === 'amountReceived' || target.name === 'mpesaCode')) {
+          e.preventDefault();
+          if (isValidPayment()) {
+            handleContinue();
+          }
+        } else if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) {
+          // For other cases, only if not in input/textarea
+          e.preventDefault();
+          if (isValidPayment()) {
+            handleContinue();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, currentStep, paymentMethod, availablePaymentMethods, isValidPayment, handleContinue]);
+
+  // Keyboard navigation for payment methods
+  useEffect(() => {
+    if (!isOpen || currentStep !== 'payment') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Left/Right arrow navigation for payment methods
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const currentIndex = availablePaymentMethods.findIndex(m => m.value === paymentMethod);
+        if (currentIndex === -1) return;
+
+        let newIndex: number;
+        if (e.key === 'ArrowLeft') {
+          newIndex = currentIndex > 0 ? currentIndex - 1 : availablePaymentMethods.length - 1;
+        } else {
+          newIndex = currentIndex < availablePaymentMethods.length - 1 ? currentIndex + 1 : 0;
+        }
+        setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial');
+      }
+
+      // Enter key to continue - allow in amount input field to trigger continue
+      if (e.key === 'Enter') {
+        const target = e.target as HTMLElement;
+        // Allow Enter in amount input field to trigger continue
+        if (target instanceof HTMLInputElement && (target.name === 'amountReceived' || target.name === 'mpesaCode')) {
+          e.preventDefault();
+          if (isValidPayment()) {
+            handleContinue();
+          }
+        } else if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) {
+          // For other cases, only if not in input/textarea
+          e.preventDefault();
+          if (isValidPayment()) {
+            handleContinue();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, currentStep, paymentMethod, availablePaymentMethods, isValidPayment, handleContinue]);
 
   if (!isOpen) return null;
 
@@ -322,66 +438,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 </div>
 
-                {/* Customer Information */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 mt-6">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <User className="w-4 h-4 mr-2 text-[#4A90A4]" />
-                    Customer Information
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Phone Number
-                      </label>
-                      <div className="relative">
-                        <FormInput
-                          name="customerPhone"
-                          type="tel"
-                          value={customerPhone}
-                          onChange={handleCustomerPhoneChange}
-                          placeholder="Enter phone number"
-                          className="pr-8 text-sm"
-                        />
-                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                          {isLookingUpCustomer ? (
-                            <div className="w-3 h-3 border-2 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
-                          ) : customerFound ? (
-                            <User className="w-3 h-3 text-green-500" />
-                          ) : (
-                            <Search className="w-3 h-3 text-gray-400" />
-                          )}
-                        </div>
-                      </div>
-                      {customerFound && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center">
-                          <User className="w-3 h-3 mr-1" />
-                          Customer found
-                        </p>
-                      )}
-                    </div>
-                    
-                    <FormInput
-                      name="customerName"
-                      type="text"
-                      label="Customer Name"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Enter customer name"
-                      disabled={customerFound}
-                      className="text-sm"
-                    />
-                    <FormInput
-                      name="customerEmail"
-                      type="email"
-                      label="Customer Email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="Enter customer email"
-                      disabled={customerFound}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -419,10 +475,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </div>
                   </div>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="relative" ref={paymentMethodRef}>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                     {availablePaymentMethods.map((method) => {
                       const IconComponent = method.icon === 'Banknote' ? Banknote : 
-                                          method.icon === 'CreditCard' ? CreditCard : 
                                             method.icon === 'Smartphone' ? Smartphone :
                                             method.icon === 'Receipt' ? Receipt :
                                             method.icon === 'Clock' ? Clock :
@@ -431,7 +487,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       return (
                         <button
                           key={method.value}
-                            onClick={() => setPaymentMethod(method.value as 'cash' | 'card' | 'mobile' | 'debt' | 'partial')}
+                            onClick={() => setPaymentMethod(method.value as 'cash' | 'mobile' | 'debt' | 'partial')}
                             className={`group relative p-4 rounded-xl border-2 transition-all duration-200 ${
                             paymentMethod === method.value
                                 ? 'border-[#4A90A4] bg-[#4A90A4]/10 text-[#4A90A4] shadow-lg scale-105'
@@ -454,7 +510,37 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </button>
                       );
                     })}
-                  </div>
+                      </div>
+                      {/* Navigation arrows */}
+                      {availablePaymentMethods.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentIndex = availablePaymentMethods.findIndex(m => m.value === paymentMethod);
+                              const newIndex = currentIndex > 0 ? currentIndex - 1 : availablePaymentMethods.length - 1;
+                              setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial');
+                            }}
+                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            title="Previous payment method (Left Arrow)"
+                          >
+                            <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentIndex = availablePaymentMethods.findIndex(m => m.value === paymentMethod);
+                              const newIndex = currentIndex < availablePaymentMethods.length - 1 ? currentIndex + 1 : 0;
+                              setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial');
+                            }}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            title="Next payment method (Right Arrow)"
+                          >
+                            <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                 )}
               </div>
 
@@ -470,16 +556,27 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Cash Payment</h4>
                       </div>
                       <div className="space-y-4">
-                  <FormInput
-                    name="amountReceived"
-                    type="number"
-                    label="Amount Received"
-                    value={amountReceived}
-                    onChange={(e) => setAmountReceived(e.target.value)}
-                    placeholder="0.00"
-                    step="0.01"
-                    min="0"
-                  />
+                  <div className="space-y-1">
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Amount Received
+                    </label>
+                    <input
+                      name="amountReceived"
+                      type="number"
+                      value={amountReceived}
+                      onChange={(e) => setAmountReceived(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && isValidPayment()) {
+                          e.preventDefault();
+                          handleContinue();
+                        }
+                      }}
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0"
+                      className="w-full px-2 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
+                    />
+                  </div>
                   {amountReceived && parseFloat(amountReceived) > 0 && (
                     <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between items-center">
@@ -537,7 +634,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     required
                   />
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Enter the M-Pesa transaction code from the customer's phone
+                    Enter the last 4 or full letters of the M-Pesa transaction code.
                   </p>
                       </div>
                 </div>
@@ -616,18 +713,23 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         {/* Partial Payment Amount Input - Only show for partial */}
                         {debtPaymentType === 'partial' && (
                           <>
-                        <FormInput
-                          name="partialAmount"
-                          type="number"
-                              label="Amount to Pay Now *"
-                          value={partialAmount}
-                          onChange={(e) => setPartialAmount(e.target.value)}
-                          placeholder="0.00"
-                          step="0.01"
-                          min="0"
-                          max={total}
-                          required
-                        />
+                        <div className="space-y-1">
+                          <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Amount to Pay Now <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            name="partialAmount"
+                            type="number"
+                            value={partialAmount}
+                            onChange={(e) => setPartialAmount(e.target.value)}
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0"
+                            max={total}
+                            required
+                            className="w-full px-2 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
+                          />
+                        </div>
                         {partialAmount && parseFloat(partialAmount) > 0 && (
                           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-2">
                             <div className="flex justify-between text-sm">
@@ -738,38 +840,135 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
                 
 
-              {/* Action Buttons */}
+              {/* Action Buttons - Step 1: Payment Selection */}
+              {currentStep === 'payment' && (
                 <div className="flex space-x-4">
-                <Button
-                  onClick={handleClose}
+                  <Button
+                    onClick={handleClose}
                     variant="secondary"
-                  disabled={isLoading}
+                    disabled={isLoading}
                     className="flex-1 py-3 text-base font-medium"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleConfirm}
-                  disabled={!isValidPayment() || isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleContinue}
+                    disabled={!isValidPayment() || isLoading}
                     className="flex-1 py-3 text-base font-medium bg-[#4A90A4] hover:bg-[#3a7a8a] backdrop-blur-sm shadow-lg transition-colors"
                   >
-                    {isLoading ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Processing...</span>
-                      </div>
-                    ) : availablePaymentMethods.length === 0 ? (
+                    {availablePaymentMethods.length === 0 ? (
                       'No Payment Method'
                     ) : (
                       <div className="flex items-center justify-center space-x-2">
-                        <ShoppingCart className="w-4 h-4" />
-                        <span>Complete Order</span>
+                        <span>Continue</span>
+                        <ChevronRight className="w-4 h-4" />
                       </div>
                     )}
-                </Button>
+                  </Button>
                 </div>
+              )}
               </div>
             </div>
+
+            {/* Step 2: Customer Information - Only shown if onContinue is not provided */}
+            {showCustomerStep && (
+              <div className="xl:col-span-2 p-6">
+                <div className="max-w-2xl mx-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                      <div className="w-2 h-2 bg-[#4A90A4] rounded-full mr-2"></div>
+                      Customer Information
+                    </h3>
+                    <button
+                      onClick={handleBackToPayment}
+                      className="text-sm text-[#4A90A4] hover:text-[#3a7a8a] flex items-center gap-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Back
+                    </button>
+                  </div>
+
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Phone Number
+                      </label>
+                      <div className="relative">
+                        <FormInput
+                          name="customerPhone"
+                          type="tel"
+                          value={customerPhone}
+                          onChange={handleCustomerPhoneChange}
+                          placeholder="Enter phone number"
+                          className="pr-8 text-sm"
+                        />
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          {isLookingUpCustomer ? (
+                            <div className="w-3 h-3 border-2 border-[#4A90A4] border-t-transparent rounded-full animate-spin"></div>
+                          ) : customerFound ? (
+                            <User className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Search className="w-3 h-3 text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                      {customerFound && (
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center">
+                          <User className="w-3 h-3 mr-1" />
+                          Customer found
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Customer Name
+                      </label>
+                      <input
+                        name="customerName"
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Enter customer name"
+                        disabled={customerFound}
+                        className="w-full px-2 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                    
+                    {/* Customer email removed from display as requested */}
+                  </div>
+
+                  {/* Action Buttons - Step 2: Customer Info */}
+                  <div className="flex space-x-4 mt-6">
+                    <Button
+                      onClick={handleBackToPayment}
+                      variant="secondary"
+                      disabled={isLoading}
+                      className="flex-1 py-3 text-base font-medium"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={isLoading}
+                      className="flex-1 py-3 text-base font-medium bg-[#4A90A4] hover:bg-[#3a7a8a] backdrop-blur-sm shadow-lg transition-colors"
+                    >
+                      {isLoading ? (
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Processing...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center space-x-2">
+                          <ShoppingCart className="w-4 h-4" />
+                          <span>Complete Order</span>
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

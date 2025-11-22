@@ -316,12 +316,6 @@ const Employees: React.FC = () => {
           return;
         }
 
-        // Validate admin password is provided
-        if (!adminPasswordForReauth) {
-          toast.error('Please enter your admin password to remain logged in');
-          return;
-        }
-
         // Store current admin info before creating employee
         const currentAdminEmail = currentUser?.email;
         const currentAdminUid = currentUser?.uid;
@@ -356,45 +350,52 @@ const Employees: React.FC = () => {
         // Also save to employees collection for employee-specific features (optional, for backward compatibility)
         await addDoc(collection(db, getShopCollectionName('employees')), employeeData);
 
-        // Check if the newly signed-in user is different from the admin
-        // If so, sign out and sign the admin back in
+        // Sign out the newly created user and sign admin back in
         if (auth.currentUser && auth.currentUser.uid !== currentAdminUid) {
           await signOut(auth);
           
-          // Sign the admin back in using stored password
-          if (currentAdminEmail && adminPasswordForReauth) {
-            try {
-              await signInWithEmailAndPassword(auth, currentAdminEmail, adminPasswordForReauth);
-              // Clear the stored password immediately after use
-              setAdminPasswordForReauth(null);
-              toast.success('Employee created successfully');
-            } catch (reauthError: any) {
-              console.error('Error signing admin back in:', reauthError);
-              toast.warning('Employee created successfully. Please sign back in manually.');
-              setAdminPasswordForReauth(null);
-            }
-          } else {
-            toast.warning('Employee created successfully. Please sign back in.');
-          }
+          // Sign the admin back in (if we have their email, try to sign them back in)
+          // Note: We can't automatically sign them back in without their password
+          // The admin will need to sign in again manually
+          toast.success('Employee created successfully. Please sign back in.');
         } else {
-        toast.success('Employee created successfully with login credentials');
+          toast.success('Employee created successfully with login credentials');
         }
       }
-      setIsModalOpen(false);
-      setEditingEmployee(null);
-      setFormData({ 
-        name: '', 
-        email: '', 
-        password: '', 
-        role: 'mainAdmin', 
-        status: 'Active', 
-        avatar: '',
-        workingHours: {
-          startTime: '09:00',
-          endTime: '17:00',
-          workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-        }
-      });
+      // Reset form but keep modal open (like add products)
+      if (!editingEmployee) {
+        setFormData({ 
+          name: '', 
+          email: '', 
+          password: '', 
+          role: 'mainAdmin', 
+          status: 'Active', 
+          avatar: '',
+          workingHours: {
+            startTime: '09:00',
+            endTime: '17:00',
+            workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+          }
+        });
+        setAdminPasswordForReauth(null);
+      } else {
+        setIsModalOpen(false);
+        setEditingEmployee(null);
+        setFormData({ 
+          name: '', 
+          email: '', 
+          password: '', 
+          role: 'mainAdmin', 
+          status: 'Active', 
+          avatar: '',
+          workingHours: {
+            startTime: '09:00',
+            endTime: '17:00',
+            workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+          }
+        });
+        setAdminPasswordForReauth(null);
+      }
       fetchEmployees();
     } catch (error: any) {
       console.error('Error saving employee:', error);
@@ -585,37 +586,48 @@ const Employees: React.FC = () => {
           setAdminPasswordForReauth(null);
         }}
         title={editingEmployee ? 'Edit Employee' : 'Add Employee'}
+        size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Avatar</label>
-            <input 
-              type="file" 
-              onChange={handleImageUpload} 
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-100" 
-            />
-            {formData.avatar && (
-              <img src={formData.avatar} alt="Avatar" className="w-20 h-20 rounded-full mt-2 object-cover" />
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Avatar</label>
+              <input 
+                type="file" 
+                onChange={handleImageUpload} 
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-100" 
+              />
+              {formData.avatar && (
+                <img src={formData.avatar} alt="Avatar" className="w-20 h-20 rounded-full mt-2 object-cover" />
+              )}
+            </div>
+            <div className="flex flex-col justify-end">
+              {formData.avatar && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Avatar preview
+                </div>
+              )}
+            </div>
           </div>
-          <FormInput
-            label="Name"
-            name="name"
-            type="text"
-            value={formData.name}
-            onChange={handleInputChange}
-            required
-          />
-          <FormInput
-            label="Email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            required
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormInput
+              label="Name"
+              name="name"
+              type="text"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+            />
+            <FormInput
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
           {!editingEmployee && (
-            <>
             <FormInput
               label="Password"
               name="password"
@@ -625,40 +637,32 @@ const Employees: React.FC = () => {
               required
               placeholder="Minimum 6 characters"
             />
-              <FormInput
-                label="Your Admin Password (to remain logged in)"
-                name="adminPassword"
-                type="password"
-                value={adminPasswordForReauth || ''}
-                onChange={(e) => setAdminPasswordForReauth(e.target.value)}
-                required
-                placeholder="Enter your password to stay logged in"
-              />
-            </>
           )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-            <Select
-              value={formData.role}
-              onChange={(v) => setFormData(prev => ({ ...prev, role: v as any }))}
-              options={[
-                { value: 'mainAdmin', label: 'Main Admin' },
-                { value: 'Admin', label: 'Admin' },
-                { value: 'Cashier', label: 'Cashier' },
-                { value: 'Stock Manager', label: 'Stock Manager' },
-              ]}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-            <Select
-              value={formData.status}
-              onChange={(v) => setFormData(prev => ({ ...prev, status: v as any }))}
-              options={[
-                { value: 'Active', label: 'Active' },
-                { value: 'Inactive', label: 'Inactive' },
-              ]}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
+              <Select
+                value={formData.role}
+                onChange={(v) => setFormData(prev => ({ ...prev, role: v as any }))}
+                options={[
+                  { value: 'mainAdmin', label: 'Main Admin' },
+                  { value: 'Admin', label: 'Admin' },
+                  { value: 'Cashier', label: 'Cashier' },
+                  { value: 'Stock Manager', label: 'Stock Manager' },
+                ]}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <Select
+                value={formData.status}
+                onChange={(v) => setFormData(prev => ({ ...prev, status: v as any }))}
+                options={[
+                  { value: 'Active', label: 'Active' },
+                  { value: 'Inactive', label: 'Inactive' },
+                ]}
+              />
+            </div>
           </div>
           
           {/* Working Hours Section */}

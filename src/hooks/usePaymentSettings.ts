@@ -78,9 +78,7 @@ export const usePaymentSettings = () => {
     if (paymentSettings.enableMobilePayments) {
       methods.push({ value: 'mobile', label: 'Mobile', icon: 'Smartphone' });
     }
-    if (paymentSettings.enableCardPayments) {
-      methods.push({ value: 'card', label: 'Card', icon: 'CreditCard' });
-    }
+    // Card payments removed
     if (paymentSettings.enableDebtPayments) {
       methods.push({ value: 'debt', label: 'Debt', icon: 'Receipt' });
     }

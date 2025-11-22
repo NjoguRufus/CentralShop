@@ -34,23 +34,28 @@ export const useCustomerLookup = () => {
       // Clean phone number (remove spaces, dashes, etc.)
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       
-      // Query customers by phone number
-      const q = query(
-        collection(db, getShopCollectionName('customers')),
-        where('phone', '==', cleanPhone)
-      );
+      // Get all customers and filter by phone (to handle different formats)
+      const customersRef = collection(db, getShopCollectionName('customers'));
+      const querySnapshot = await getDocs(customersRef);
       
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        return null;
+      // Try to find a match with different phone formats
+      for (const doc of querySnapshot.docs) {
+        const customerData = doc.data();
+        const storedPhone = customerData.phone || '';
+        const cleanStoredPhone = storedPhone.replace(/\D/g, '');
+        
+        // Match if cleaned phones are the same, or if one ends with the other (handles country codes)
+        if (cleanStoredPhone === cleanPhone || 
+            cleanStoredPhone.endsWith(cleanPhone) || 
+            cleanPhone.endsWith(cleanStoredPhone)) {
+          return {
+            id: doc.id,
+            ...customerData
+          } as Customer;
+        }
       }
-
-      const customerDoc = querySnapshot.docs[0];
-      return {
-        id: customerDoc.id,
-        ...customerDoc.data()
-      } as Customer;
+      
+      return null;
     } catch (err) {
       console.error('Error looking up customer:', err);
       setError('Failed to lookup customer');

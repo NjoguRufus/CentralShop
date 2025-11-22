@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ToastContainer } from 'react-toastify';
@@ -37,12 +37,21 @@ const Employees = lazy(() => import('./pages/Employees'));
 const Settings = lazy(() => import('./pages/Settings'));
 const ViewInvoice = lazy(() => import('./pages/ViewInvoice'));
 
-import LoadingSpinner from './components/UI/LoadingSpinner';
+import AppLoader from './components/UI/AppLoader';
 
 // Skeleton loader component
 const PageSkeleton: React.FC = () => (
-  <div className="min-h-screen bg-black flex items-center justify-center">
-    <LoadingSpinner size="lg" />
+  <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+    {/* Logo */}
+    <div className="mb-8">
+      <img
+        src="/icons/CentalDarkmode.png"
+        alt="Central POS Logo"
+        className="h-20 md:h-24 w-auto opacity-90"
+      />
+    </div>
+    {/* New Loader */}
+    <AppLoader />
   </div>
 );
 
@@ -56,6 +65,7 @@ const RouterContent: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 const AppContent: React.FC = () => {
   const { user, currentUser, loading } = useAuth();
   const { theme } = useTheme();
+  const [showLoading, setShowLoading] = useState(true);
   
   // Initialize offline sync hook
   useOfflineSync(5); // Sync every 5 minutes when online
@@ -70,7 +80,19 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  if (loading) {
+  // Minimum 2 second loading screen
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => {
+        setShowLoading(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoading(true);
+    }
+  }, [loading]);
+
+  if (loading || showLoading) {
     return <PageSkeleton />;
   }
 

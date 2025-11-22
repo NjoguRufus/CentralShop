@@ -3,6 +3,7 @@ import { Sun, Moon, User, LogOut, Bell, Menu, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationContext';
+import CloudLoader from '../UI/CloudLoader';
 
 interface HeaderProps {
   onProfileClick: () => void;
@@ -20,10 +21,14 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95">
       {/* Welcome Message - Top on Mobile */}
-      <div className="px-3 md:px-4 py-2 lg:hidden border-b border-gray-200 dark:border-gray-700">
+      <div className="px-3 md:px-4 py-2 lg:hidden border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h1 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white">
           Welcome back, {currentUser?.name || user?.displayName || 'User'}
         </h1>
+        <div className="flex items-center gap-2">
+          <CloudLoader />
+          <span className="text-xs font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Online</span>
+        </div>
       </div>
 
       {/* Main Header Content */}
@@ -55,7 +60,7 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
           </h1>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 md:space-x-4">
           <button
             onClick={toggleTheme}
             className="p-1.5 md:p-2 rounded-lg text-gray-900 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -94,6 +99,12 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
           >
             <LogOut className="w-4 h-4 md:w-5 md:h-5" />
           </button>
+
+          {/* Online Status Indicator - Rightmost (Desktop only) */}
+          <div className="hidden lg:flex items-center gap-2 ml-2">
+            <CloudLoader />
+            <span className="text-xs font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Online</span>
+          </div>
         </div>
       </div>
     </header>

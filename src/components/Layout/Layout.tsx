@@ -10,10 +10,12 @@ import { useAuth } from '../../contexts/AuthContext';
 const Layout: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Sidebar hidden by default for cashiers, open for others
+  const { currentUser } = useAuth();
+  const isCashier = currentUser?.role === 'Cashier';
+  const [sidebarOpen, setSidebarOpen] = useState(!isCashier);
   // AI assistant state removed
   const notificationTriggerRef = useRef<HTMLButtonElement>(null);
-  const { currentUser } = useAuth();
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-black">

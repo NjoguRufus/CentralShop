@@ -92,13 +92,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Close button */}
-      <button
-        onClick={handleClose}
+          <button
+            onClick={handleClose}
         className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 transition-all"
         aria-label="Close scanner"
-      >
-        <X className="w-6 h-6" />
-      </button>
+          >
+            <X className="w-6 h-6" />
+          </button>
 
       {/* Camera container */}
       <div className="relative w-full h-full bg-black">
@@ -114,17 +114,17 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
           </div>
         ) : (
           <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
               muted
-              className="w-full h-full object-cover"
-            />
+                className="w-full h-full object-cover"
+              />
             {/* Scanning frame overlay */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="border-2 border-blue-500 rounded-lg w-64 h-32 shadow-lg"></div>
-            </div>
+              </div>
             {/* Instructions */}
             <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none">
               <p className="text-white bg-black bg-opacity-50 px-4 py-2 rounded-lg inline-block text-sm">

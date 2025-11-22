@@ -25,15 +25,19 @@ interface DashboardStats {
 }
 
 interface TopProduct {
+  id: string;
   name: string;
   sales: number;
   revenue: number;
+  image?: string;
 }
 
 interface LowStockItem {
+  id: string;
   name: string;
   stock: number;
   threshold: number;
+  image?: string;
 }
 
 interface SalesData {
@@ -303,18 +307,27 @@ const Dashboard: React.FC = () => {
         }
       });
 
-      // Get product names and create top products list
-      const productsMap: { [key: string]: string } = {};
+      // Get product names and images and create top products list
+      const productsMap: { [key: string]: { name: string; image?: string } } = {};
       productsSnapshot.forEach((doc) => {
-        productsMap[doc.id] = doc.data().name;
+        const productData = doc.data();
+        productsMap[doc.id] = {
+          name: productData.name,
+          image: productData.images && productData.images.length > 0 ? productData.images[0] : undefined
+        };
       });
 
       const topProductsList = Object.entries(productStats)
-        .map(([productId, stats]) => ({
-          name: productsMap[productId] || 'Unknown Product',
-          sales: stats.sales,
-          revenue: stats.revenue
-        }))
+        .map(([productId, stats]) => {
+          const product = productsMap[productId] || { name: 'Unknown Product' };
+          return {
+            id: productId,
+            name: product.name,
+            sales: stats.sales,
+            revenue: stats.revenue,
+            image: product.image
+          };
+        })
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 4);
 
@@ -341,9 +354,11 @@ const Dashboard: React.FC = () => {
         
         if (stock <= threshold) {
           lowStockList.push({
+            id: doc.id,
             name: product.name,
             stock: stock,
-            threshold: threshold
+            threshold: threshold,
+            image: product.images && product.images.length > 0 ? product.images[0] : undefined
           });
         }
       });
@@ -907,14 +922,27 @@ const Dashboard: React.FC = () => {
           <div className="space-y-4">
             {topProducts.length > 0 ? (
               topProducts.map((product, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{product.name}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{product.sales} sold</p>
+              <div key={product.id || index} className="flex items-center gap-3 justify-between">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {product.image ? (
+                    <img 
+                      src={product.image} 
+                      alt={product.name}
+                      className="w-12 h-12 md:w-16 md:h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-700 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Package className="w-6 h-6 md:w-8 md:h-8 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white truncate text-sm md:text-base">{product.name}</p>
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">{product.sales} sold</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">KSH {product.revenue.toLocaleString()}</p>
-                  <p className="text-sm text-green-600">Revenue</p>
+                <div className="text-right flex-shrink-0">
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">KSH {product.revenue.toLocaleString()}</p>
+                  <p className="text-xs md:text-sm text-green-600">Revenue</p>
                 </div>
               </div>
               ))
@@ -938,11 +966,26 @@ const Dashboard: React.FC = () => {
         {lowStockItems.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {lowStockItems.map((item, index) => (
-            <div key={index} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-2">{item.name}</h4>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-300">Current: {item.stock}</span>
-                <span className="text-sm text-red-600 dark:text-red-400">Min: {item.threshold}</span>
+            <div key={item.id || index} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+              <div className="flex items-start gap-3 mb-3">
+                {item.image ? (
+                  <img 
+                    src={item.image} 
+                    alt={item.name}
+                    className="w-16 h-16 object-cover rounded-lg border border-red-200 dark:border-red-800"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                    <Package className="w-8 h-8 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2 truncate">{item.name}</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Current: {item.stock}</span>
+                    <span className="text-sm text-red-600 dark:text-red-400">Min: {item.threshold}</span>
+                  </div>
+                </div>
               </div>
               <div className="mt-2 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div 
