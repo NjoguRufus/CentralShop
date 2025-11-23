@@ -311,9 +311,11 @@ const Dashboard: React.FC = () => {
       const productsMap: { [key: string]: { name: string; image?: string } } = {};
       productsSnapshot.forEach((doc) => {
         const productData = doc.data();
+        // Check for both image (single) and images (array) fields
+        const productImage = productData.image || (productData.images && productData.images.length > 0 ? productData.images[0] : undefined);
         productsMap[doc.id] = {
           name: productData.name,
-          image: productData.images && productData.images.length > 0 ? productData.images[0] : undefined
+          image: productImage
         };
       });
 
@@ -353,12 +355,14 @@ const Dashboard: React.FC = () => {
         const threshold = 20; // Default threshold
         
         if (stock <= threshold) {
+          // Check for both image (single) and images (array) fields
+          const productImage = product.image || (product.images && product.images.length > 0 ? product.images[0] : undefined);
           lowStockList.push({
             id: doc.id,
             name: product.name,
             stock: stock,
             threshold: threshold,
-            image: product.images && product.images.length > 0 ? product.images[0] : undefined
+            image: productImage
           });
         }
       });

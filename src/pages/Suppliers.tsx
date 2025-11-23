@@ -334,31 +334,39 @@ const Suppliers: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Suppliers</h3>
-            <p className="text-2xl md:text-3xl font-bold text-[#4A90A4] mt-2">{totalSuppliers}</p>
-          </Card>
-        </div>
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Active</h3>
-            <p className="text-2xl md:text-3xl font-bold text-green-600 mt-2">{activeSuppliers}</p>
-          </Card>
-        </div>
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Supplies</h3>
-            <p className="text-2xl md:text-3xl font-bold text-blue-600 mt-2">{totalSupplies}</p>
-          </Card>
-        </div>
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Uncleared</h3>
-            <p className="text-2xl md:text-3xl font-bold text-orange-600 mt-2">{unclearedSupplies}</p>
-          </Card>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Total Suppliers</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">{totalSuppliers}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Active</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">{activeSuppliers}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Total Supplies</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">{totalSupplies}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Uncleared</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">{unclearedSupplies}</p>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Search Bar */}

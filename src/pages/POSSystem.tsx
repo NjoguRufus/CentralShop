@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Minus, Trash2, CreditCard, DollarSign, Search, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, Trash2, CreditCard, DollarSign, Search, ShoppingCart, Grid3x3, List } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,7 @@ import Dropdown from '../components/UI/Dropdown';
 import CheckoutModal from '../components/CheckoutModal';
 import CustomerInfoModal from '../components/CustomerInfoModal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
+import ProductsGrid from '../components/Products/ProductsGrid';
 import { ReceiptService } from '../services/ReceiptService';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
 import { Product, OrderItem } from '../types';
@@ -32,6 +33,7 @@ const POSSystem: React.FC = () => {
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isCustomerInfoOpen, setIsCustomerInfoOpen] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
@@ -454,7 +456,7 @@ const POSSystem: React.FC = () => {
         ...(paymentData.customerId && { customerId: paymentData.customerId }),
         ...(paymentData.amountReceived && { amountReceived: paymentData.amountReceived }),
         ...(paymentData.change && { change: paymentData.change }),
-        ...(paymentData.customerName && { customerName: paymentData.customerName }),
+        customerName: paymentData.customerName || 'Walk In Customer',
         ...(paymentData.customerEmail && { customerEmail: paymentData.customerEmail }),
         ...(paymentData.customerPhone && { customerPhone: paymentData.customerPhone }),
         ...(paymentData.mpesaCode && { mpesaCode: paymentData.mpesaCode }),
@@ -667,98 +669,73 @@ const POSSystem: React.FC = () => {
         {/* Products Section */}
         <div className="lg:col-span-2 space-y-6">
           {/* Category Dropdown and Search Bar */}
-          <Card className="p-3 md:p-4 relative z-50">
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Category Dropdown */}
-              <div className="w-full sm:w-48 flex-shrink-0 relative z-50">
-                <Dropdown
-                  value={selectedCategory}
-                  onChange={(value) => setSelectedCategory(value)}
-                  options={[
-                    { value: 'All', label: 'All Categories' },
-                    ...categories.map(cat => ({ value: cat.name, label: cat.name }))
-                  ]}
-                  placeholder="All Categories"
-                  className="w-full"
-                />
-              </div>
-
-              {/* Search Bar */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
-                />
-              </div>
+          <div className="flex flex-col sm:flex-row gap-2 relative z-50">
+            {/* Category Dropdown */}
+            <div className="w-full sm:w-40 flex-shrink-0 relative z-50">
+              <Dropdown
+                value={selectedCategory}
+                onChange={(value) => setSelectedCategory(value)}
+                options={[
+                  { value: 'All', label: 'All Categories' },
+                  ...categories.map(cat => ({ value: cat.name, label: cat.name }))
+                ]}
+                placeholder="All Categories"
+                className="w-full"
+              />
             </div>
-          </Card>
+
+            {/* Search Bar */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
+              />
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-[#4A90A4] text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                aria-label="Grid view"
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-[#4A90A4] text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                aria-label="List view"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
 
           {/* Products Grid */}
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="aspect-square">
-                  <Card className="p-0 overflow-hidden h-full">
-                    <div className="flex-1 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
-                    <div className="p-1.5 md:p-2 bg-white dark:bg-gray-800">
-                      <div className="h-3 md:h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
-                      <div className="h-2 md:h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                    </div>
-                </Card>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3">
-              {filteredProducts.map(product => {
-                const isOutOfStock = product.stock <= 0;
-                return (
-                  <div 
-                    key={product.id} 
-                    className="aspect-square"
-                  >
-                    <Card 
-                      className={`p-0 overflow-hidden transition-all duration-300 h-full ${
-                      isOutOfStock 
-                        ? 'opacity-60 cursor-not-allowed' 
-                        : 'hover:shadow-lg cursor-pointer'
-                    }`}
-                  >
-                      <div onClick={() => !isOutOfStock && addToCart(product)} className="flex flex-col h-full">
-                        <div className="flex-1 overflow-hidden relative">
-                          <img 
-                            src={product.image} 
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        {isOutOfStock && (
-                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                              <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                              OUT OF STOCK
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                        <div className="p-1.5 md:p-2 flex-shrink-0 bg-white dark:bg-gray-800">
-                          <h3 className="font-semibold text-gray-900 dark:text-white text-xs md:text-sm mb-1 line-clamp-1">{product.name}</h3>
-                          <div className="space-y-0.5">
-                            <span className="text-sm md:text-base font-bold text-[#4A90A4] block">KSH {product.price.toLocaleString()}</span>
-                            <span className={`text-xs ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-                            {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <ProductsGrid
+            products={filteredProducts}
+            mode="pos"
+            viewMode={viewMode}
+            loading={loading}
+            onAddToCart={addToCart}
+            getStockStatus={(stock: number) => {
+              if (stock === 0) return { text: 'Out of Stock', color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900' };
+              if (stock < 20) return { text: 'Low Stock', color: 'text-yellow-600', bg: 'bg-yellow-100 dark:bg-yellow-900' };
+              return { text: 'In Stock', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900' };
+            }}
+          />
         </div>
 
         {/* Cart Section */}
@@ -851,6 +828,7 @@ const POSSystem: React.FC = () => {
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
+        onConfirm={() => {}}
         onContinue={(paymentData) => {
           setPendingPaymentData(paymentData);
           setIsCheckoutOpen(false);

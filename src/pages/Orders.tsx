@@ -229,9 +229,20 @@ const Orders: React.FC = () => {
     return 'multiple';
   };
 
-  const getCustomerName = (customerId: string): string => {
-    const customer = customers.find(c => c.id === customerId);
-    return customer ? customer.name : 'Unknown Customer';
+  const getCustomerName = (order: Order): string => {
+    // First check if customerName is directly stored on the order (from checkout)
+    if (order.customerName) {
+      return order.customerName;
+    }
+    // If no customerName, try to look up by customerId
+    if (order.customerId) {
+      const customer = customers.find(c => c.id === order.customerId);
+      if (customer) {
+        return customer.name;
+      }
+    }
+    // Default to "Walk In Customer" if no customer information is available
+    return 'Walk In Customer';
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -258,7 +269,7 @@ const Orders: React.FC = () => {
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getCustomerName(order.customerId).toLowerCase().includes(searchTerm.toLowerCase());
+      getCustomerName(order).toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     
@@ -534,13 +545,11 @@ const Orders: React.FC = () => {
           ${order.mpesaCode ? `<div><strong>M-Pesa Code:</strong> ${order.mpesaCode}</div>` : ''}
         </div>
 
-        ${order.customerName || order.customerPhone ? `
-          <div class="customer-info">
-            <div><strong>Customer Details:</strong></div>
-            ${order.customerName ? `<div>Name: ${order.customerName}</div>` : ''}
-            ${order.customerPhone ? `<div>Phone: ${order.customerPhone}</div>` : ''}
-          </div>
-        ` : ''}
+        <div class="customer-info">
+          <div><strong>Customer Details:</strong></div>
+          <div>Name: ${order.customerName || 'Walk In Customer'}</div>
+          ${order.customerPhone ? `<div>Phone: ${order.customerPhone}</div>` : ''}
+        </div>
 
         <div class="footer">
           Thank you for your business!<br>
@@ -708,7 +717,7 @@ const Orders: React.FC = () => {
               { 
                 header: 'Customer Name', 
                 accessor: 'customerId',
-                render: (row: Order) => getCustomerName(row.customerId)
+                render: (row: Order) => getCustomerName(row)
               },
               { header: 'Date', accessor: 'date', render: (row: Order) => {
                   const d = row.createdAt?.toDate ? row.createdAt.toDate() : (row.date ? new Date(row.date) : null);
@@ -818,7 +827,7 @@ const Orders: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">Customer</h3>
-                <p className="text-gray-900 dark:text-white">{getCustomerName(selectedOrder.customerId)}</p>
+                <p className="text-gray-900 dark:text-white">{getCustomerName(selectedOrder)}</p>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">Order Date</h3>

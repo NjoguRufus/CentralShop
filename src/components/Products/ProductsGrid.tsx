@@ -1,0 +1,100 @@
+import React from 'react';
+import { Product } from '../../types';
+import GridProductCard from './GridProductCard';
+import ListProductCard from './ListProductCard';
+import SkeletonProductCard from './SkeletonProductCard';
+
+interface ProductsGridProps {
+  products: Product[];
+  mode: 'inventory' | 'pos';
+  viewMode: 'grid' | 'list';
+  loading?: boolean;
+  onEdit?: (product: Product) => void;
+  onDelete?: (product: Product) => void;
+  onAddToCart?: (product: Product) => void;
+  getStockStatus?: (stock: number) => {
+    text: string;
+    color: string;
+    bg: string;
+  };
+}
+
+const ProductsGrid: React.FC<ProductsGridProps> = ({
+  products,
+  mode,
+  viewMode,
+  loading = false,
+  onEdit,
+  onDelete,
+  onAddToCart,
+  getStockStatus
+}) => {
+  if (loading) {
+    return (
+      <div 
+        className="grid gap-4"
+        style={{ 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))'
+        }}
+      >
+        {[...Array(10)].map((_, i) => (
+          <SkeletonProductCard key={i} />
+        ))}
+      </div>
+    );
+  }
+
+  if (viewMode === 'list') {
+    return (
+      <div className="space-y-3">
+        {products.map((product) => {
+          const stockStatus = getStockStatus ? getStockStatus(product.stock) : undefined;
+          return (
+            <ListProductCard
+              key={product.id}
+              product={product}
+              mode={mode}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onAddToCart={onAddToCart}
+              stockStatus={stockStatus}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Grid mode - Use auto-fit with min-width for flexible layout (4 cards per row at 67% scale)
+  return (
+    <div 
+      className="grid gap-4"
+      style={{ 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))'
+      }}
+    >
+      {products.map((product) => {
+        // Always get stock status for both modes
+        const stockStatus = getStockStatus ? getStockStatus(product.stock) : {
+          text: product.stock === 0 ? 'Out of Stock' : product.stock < 20 ? 'Low Stock' : 'In Stock',
+          color: product.stock === 0 ? 'text-red-600' : product.stock < 20 ? 'text-yellow-600' : 'text-green-600',
+          bg: product.stock === 0 ? 'bg-red-100 dark:bg-red-900' : product.stock < 20 ? 'bg-yellow-100 dark:bg-yellow-900' : 'bg-green-100 dark:bg-green-900'
+        };
+        return (
+          <GridProductCard
+            key={product.id}
+            product={product}
+            mode={mode}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onAddToCart={onAddToCart}
+            stockStatus={stockStatus}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+export default ProductsGrid;
+

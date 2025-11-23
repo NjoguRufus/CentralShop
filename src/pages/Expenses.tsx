@@ -520,31 +520,39 @@ const Expenses: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Expenses</h3>
-            <p className="text-2xl md:text-3xl font-bold text-[#4A90A4] mt-2">KSH {totalExpenses.toLocaleString()}</p>
-          </Card>
-        </div>
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Pending Approval</h3>
-            <p className="text-2xl md:text-3xl font-bold text-yellow-600 mt-2">KSH {pendingExpenses.toLocaleString()}</p>
-          </Card>
-        </div>
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Approved</h3>
-            <p className="text-2xl md:text-3xl font-bold text-green-600 mt-2">KSH {approvedExpenses.toLocaleString()}</p>
-          </Card>
-        </div>
-        <div className="aspect-square">
-          <Card className="p-4 md:p-6 h-full flex flex-col justify-center">
-            <h3 className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Revenue - Expenses</h3>
-            <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-2">KSH {(totalRevenue - totalExpenses).toLocaleString()}</p>
-          </Card>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Total Expenses</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">KSH {totalExpenses.toLocaleString()}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Pending Approval</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">KSH {pendingExpenses.toLocaleString()}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Approved</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">KSH {approvedExpenses.toLocaleString()}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-2 md:p-4 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">Revenue - Expenses</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white mt-1">KSH {(totalRevenue - totalExpenses).toLocaleString()}</p>
+            </div>
+          </div>
+        </Card>
       </div>
 
       <Card>

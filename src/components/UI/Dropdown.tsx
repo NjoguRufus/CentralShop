@@ -80,7 +80,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
-          w-full px-3 py-2 text-left border border-gray-300 dark:border-gray-600 
+          w-full px-2.5 py-1.5 text-sm text-left border border-gray-300 dark:border-gray-600 
           rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A90A4] 
           focus:border-transparent dark:bg-gray-700 dark:text-white bg-white
           flex items-center justify-between
@@ -96,7 +96,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute z-[9999] w-full bottom-full mb-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-hidden">
+        <div className="absolute z-[9999] w-full top-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-hidden">
           {searchable && (
             <div className="p-2 border-b border-gray-200 dark:border-gray-600">
               <input
