@@ -38,7 +38,7 @@ const POSProductCard: React.FC<POSProductCardProps> = ({ product, onAddToCart, s
           onAddToCart(product);
         }
       }}
-      >
+    >
         {/* Image Area - Large Rectangular Banner */}
         <div className="w-full overflow-hidden rounded-t-2xl relative" style={{ height: '140px' }}>
           <img
@@ -60,7 +60,7 @@ const POSProductCard: React.FC<POSProductCardProps> = ({ product, onAddToCart, s
             KSH {product.price.toLocaleString()}
           </div>
         </div>
-    </Card>
+      </Card>
   );
 };
 

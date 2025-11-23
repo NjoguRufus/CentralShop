@@ -670,58 +670,58 @@ const POSSystem: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Category Dropdown and Search Bar */}
           <div className="flex flex-col sm:flex-row gap-2 relative z-50">
-            {/* Category Dropdown */}
+              {/* Category Dropdown */}
             <div className="w-full sm:w-40 flex-shrink-0 relative z-50">
-              <Dropdown
-                value={selectedCategory}
-                onChange={(value) => setSelectedCategory(value)}
-                options={[
-                  { value: 'All', label: 'All Categories' },
-                  ...categories.map(cat => ({ value: cat.name, label: cat.name }))
-                ]}
-                placeholder="All Categories"
-                className="w-full"
-              />
-            </div>
+                <Dropdown
+                  value={selectedCategory}
+                  onChange={(value) => setSelectedCategory(value)}
+                  options={[
+                    { value: 'All', label: 'All Categories' },
+                    ...categories.map(cat => ({ value: cat.name, label: cat.name }))
+                  ]}
+                  placeholder="All Categories"
+                  className="w-full"
+                />
+              </div>
 
-            {/* Search Bar */}
-            <div className="flex-1 relative">
+              {/* Search Bar */}
+              <div className="flex-1 relative">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
-              />
-            </div>
-            
-            {/* View Mode Toggle */}
+                />
+              </div>
+
+          {/* View Mode Toggle */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={() => setViewMode('grid')}
+                <button
+                  onClick={() => setViewMode('grid')}
                 className={`p-1.5 rounded-lg transition-colors ${
-                  viewMode === 'grid'
-                    ? 'bg-[#4A90A4] text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-                aria-label="Grid view"
-              >
+                    viewMode === 'grid'
+                      ? 'bg-[#4A90A4] text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                  aria-label="Grid view"
+                >
                 <Grid3x3 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
                 className={`p-1.5 rounded-lg transition-colors ${
-                  viewMode === 'list'
-                    ? 'bg-[#4A90A4] text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-                aria-label="List view"
-              >
+                    viewMode === 'list'
+                      ? 'bg-[#4A90A4] text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                  aria-label="List view"
+                >
                 <List className="w-4 h-4" />
-              </button>
+                </button>
+              </div>
             </div>
-          </div>
 
           {/* Products Grid */}
           <ProductsGrid

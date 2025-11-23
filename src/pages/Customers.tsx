@@ -263,15 +263,15 @@ const Customers: React.FC = () => {
         <Card className="p-3 md:p-4">
           <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400">Total Customers</h3>
           <p className="text-xl md:text-2xl font-bold text-[#4A90A4] mt-1">{totalCustomers}</p>
-        </Card>
+          </Card>
         <Card className="p-3 md:p-4">
           <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400">Total Revenue</h3>
           <p className="text-xl md:text-2xl font-bold text-green-600 mt-1">KSH {totalRevenue.toLocaleString()}</p>
-        </Card>
+          </Card>
         <Card className="p-3 md:p-4">
           <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400">Total Orders</h3>
           <p className="text-xl md:text-2xl font-bold text-blue-600 mt-1">{totalOrders}</p>
-        </Card>
+          </Card>
       </div>
 
       <Card className="p-6">

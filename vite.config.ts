@@ -171,10 +171,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
     commonjsOptions: {
-      include: [/html2pdf\.js/, /node_modules/, /styled-components/],
-    },
-    commonjsOptions: {
-      include: [/html2pdf\.js/, /node_modules/],
+      include: [/html2pdf\.js/, /node_modules/, /styled-components/, /@zxing\/library/],
     },
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
