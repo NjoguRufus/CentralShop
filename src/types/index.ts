@@ -190,3 +190,46 @@ export interface PaymentSettings {
   saveReceipt: boolean;
   receiptFormat: 'PDF' | 'TXT' | 'Image';
 }
+
+export interface StockReportData {
+  totalItems: number;
+  totalValue: number;
+  lowStockItems: number;
+  outOfStockItems: number;
+  topMovingItems: Array<{
+    productId: string;
+    name: string;
+    quantitySold: number;
+    revenue: number;
+    daysInStock?: number;
+  }>;
+  slowMovingItems: Array<{
+    productId: string;
+    name: string;
+    quantitySold: number;
+    daysInStock: number;
+  }>;
+  categoryBreakdown: Array<{
+    category: string;
+    itemCount: number;
+    totalValue: number;
+  }>;
+}
+
+export interface StockReport {
+  id: string;
+  reportType: 'inventory_summary' | 'low_stock' | 'out_of_stock' | 'movement' | 'valuation';
+  period: 'daily' | 'weekly' | 'monthly' | 'custom';
+  startDate: Date;
+  endDate: Date;
+  generatedAt: Date;
+  generatedBy: string;
+  shopId: string;
+  data: StockReportData;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  hasMore: boolean;
+  lastDoc?: any;
+}

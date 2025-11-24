@@ -30,7 +30,7 @@ const Loader = () => {
 
 const StyledWrapper = styled.div`
   .loader {
-    --size: 40px;
+    --size: 20px;
     --duration: 2s;
     --logo-color: #22c55e;
     --background: linear-gradient(

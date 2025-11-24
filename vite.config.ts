@@ -24,9 +24,9 @@ export default defineConfig(({ mode }) => ({
         start_url: "/",
         scope: "/",
         icons: [
-          { src: "/icons/CentalDarkmode.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icons/CentalDarkmode.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icons/CentalDarkmode.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       },
       workbox: {
@@ -46,7 +46,15 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 20 * 1024 * 1024, // 20 MB
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ request, url }) => {
+              // Exclude Vite dev server paths
+              if (url.pathname.startsWith('/@') || 
+                  url.pathname.startsWith('/src/') ||
+                  url.pathname.startsWith('/node_modules/')) {
+                return false;
+              }
+              return request.mode === "navigate";
+            },
             handler: "NetworkFirst",
             options: { 
               cacheName: "pages-cache",
@@ -61,7 +69,17 @@ export default defineConfig(({ mode }) => ({
             }
           },
           {
-            urlPattern: ({ request }) => request.destination === "script" || request.destination === "style",
+            urlPattern: ({ request, url }) => {
+              // Exclude Vite dev server paths
+              if (url.pathname.startsWith('/@') || 
+                  url.pathname.startsWith('/src/') ||
+                  url.pathname.startsWith('/node_modules/') ||
+                  url.pathname.includes('@react-refresh') ||
+                  url.pathname.includes('@vite-plugin-pwa')) {
+                return false;
+              }
+              return request.destination === "script" || request.destination === "style";
+            },
             handler: "StaleWhileRevalidate",
             options: { 
               cacheName: "assets-cache",
@@ -139,14 +157,17 @@ export default defineConfig(({ mode }) => ({
         skipWaiting: false
       },
       devOptions: {
-        enabled: true,
-        type: 'module'
-      }
+        enabled: false, // Disable PWA in dev mode to avoid interfering with Vite dev server
+        type: 'module',
+        navigateFallback: 'index.html'
+      },
+      // Enable PWA in production
+      injectRegister: 'auto'
     })
   ],
   optimizeDeps: {
-    exclude: ['lucide-react'],
-    include: ['html2pdf.js', 'styled-components'],
+    exclude: ['lucide-react', 'react-window'],
+    include: ['html2pdf.js', 'styled-components', 'xlsx', 'file-saver'],
   },
   build: {
     rollupOptions: {
@@ -164,14 +185,23 @@ export default defineConfig(({ mode }) => ({
             if (id.includes('styled-components')) {
               return 'vendor-styled';
             }
+            if (id.includes('recharts')) {
+              return 'vendor-recharts';
+            }
+            if (id.includes('react-window')) {
+              return 'vendor-react-window';
+            }
             // Let Vite automatically handle React and other dependencies
             return 'vendor';
           }
         },
       },
     },
+    worker: {
+      format: 'es'
+    },
     commonjsOptions: {
-      include: [/html2pdf\.js/, /node_modules/, /styled-components/, /@zxing\/library/],
+      include: [/html2pdf\.js/, /node_modules/, /styled-components/, /@zxing\/library/, /xlsx/],
     },
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,

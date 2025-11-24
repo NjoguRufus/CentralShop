@@ -21,8 +21,8 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95">
       {/* Welcome Message - Top on Mobile */}
-      <div className="px-3 md:px-4 py-2 lg:hidden border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h1 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white">
+      <div className="px-3 md:px-4 py-1 lg:hidden border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h1 className="text-xs md:text-sm font-semibold text-gray-900 dark:text-white">
           Welcome back, {currentUser?.name || user?.displayName || 'User'}
         </h1>
         <div className="flex items-center gap-2">
