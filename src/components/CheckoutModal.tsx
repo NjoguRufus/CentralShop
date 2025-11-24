@@ -666,35 +666,23 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             {debtPaymentType === 'debt' ? 'Debt Payment' : 'Partial Payment'}
                           </h4>
                         </div>
-                        {/* Switch buttons */}
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDebtPaymentType('debt');
-                              setPartialAmount('');
+                        {/* Switch buttons - Using custom Select component */}
+                        <div className="w-full">
+                          <Select
+                            value={debtPaymentType}
+                            onChange={(v) => {
+                              const newType = v as 'debt' | 'partial';
+                              setDebtPaymentType(newType);
+                              if (newType === 'debt') {
+                                setPartialAmount('');
+                              }
                             }}
-                            className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                              debtPaymentType === 'debt'
-                                ? 'bg-orange-600 text-white'
-                                : 'bg-white dark:bg-gray-800 text-orange-600 hover:bg-orange-50 dark:hover:bg-gray-700'
-                            }`}
-                          >
-                            Debt Payment
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDebtPaymentType('partial');
-                            }}
-                            className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                              debtPaymentType === 'partial'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white dark:bg-gray-800 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700'
-                            }`}
-                          >
-                            Partial Payment
-                          </button>
+                            options={[
+                              { value: 'debt', label: 'Debt Payment' },
+                              { value: 'partial', label: 'Partial Payment' }
+                            ]}
+                            className="w-full"
+                          />
                         </div>
                       </div>
                       <div className="space-y-4">

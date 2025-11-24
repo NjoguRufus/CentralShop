@@ -13,6 +13,7 @@ import Button from '../components/UI/Button';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
 import { toast } from 'react-toastify';
 import Select from '../components/UI/Select';
+import { generateEmployeeId } from '../utils/generateEmployeeId';
 
 interface Employee {
   id?: string;
@@ -23,6 +24,7 @@ interface Employee {
   status: 'Active' | 'Inactive';
   avatar?: string;
   uid?: string; // Firebase Auth UID
+  customId?: string; // Custom employee ID (CSH-00-001, MNG-00-001, ADM-00, etc.)
   shopId?: string; // For multi-tenant support
   shopName?: string; // For display purposes
   createdAt?: Date;
@@ -332,12 +334,23 @@ const Employees: React.FC = () => {
           displayName: formData.name
         });
 
+        // Generate custom employee ID based on role
+        const employeesCollectionName = getShopCollectionName('employees');
+        const existingEmployeesQuery = query(collection(db, employeesCollectionName));
+        const existingEmployeesSnapshot = await getDocs(existingEmployeesQuery);
+        const existingCustomIds = existingEmployeesSnapshot.docs
+          .map(doc => doc.data().customId)
+          .filter((id): id is string => !!id);
+        
+        const { customId } = generateEmployeeId(formData.role, existingCustomIds);
+
         // Save employee data to dynamic user collection (e.g., CentralShopUsers)
         const userCollectionName = getUserCollectionName(currentUser?.shopId, currentUser?.shopName);
         const employeeData = {
           ...formData,
           email: trimmedEmail, // Use trimmed email
           uid: userCredential.user.uid,
+          customId: customId, // Add custom ID
           shopId: currentUser?.shopId,
           shopName: currentUser?.shopName,
           createdAt: new Date(),

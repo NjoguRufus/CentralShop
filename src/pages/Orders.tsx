@@ -57,6 +57,16 @@ interface OrderRecord {
   dueDate?: string;
   debtIssuedBy?: string;
   debtIssuedById?: string;
+  refundedItems?: Array<{
+    productName: string;
+    removedBy: string;
+    removedById: string;
+    removedAt: Date;
+    originalItem: any;
+  }>;
+  lastModifiedBy?: string;
+  lastModifiedById?: string;
+  lastModifiedAt?: Date;
 }
 
 interface Customer {
@@ -88,11 +98,17 @@ const Orders: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [showSecondConfirmation, setShowSecondConfirmation] = useState<boolean>(false);
+  const [isProductDeleteModalOpen, setIsProductDeleteModalOpen] = useState<boolean>(false);
+  const [productToDelete, setProductToDelete] = useState<{index: number, name: string} | null>(null);
+  const [productDeletePassword, setProductDeletePassword] = useState<string>('');
+  const [isDeletingProduct, setIsDeletingProduct] = useState<boolean>(false);
   
   // Check if user can edit orders (not Cashier)
   const canEditOrders = currentUser?.role !== 'Cashier';
   // Check if user is Main Admin
   const isMainAdmin = currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin';
+  // Check if user can delete products (Admin or Stock Manager)
+  const canDeleteProducts = currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin' || currentUser?.role === 'Stock Manager';
 
   useEffect(() => {
     fetchOrders();
@@ -114,17 +130,19 @@ const Orders: React.FC = () => {
       const ordersCollectionName = getShopCollectionName('orders');
       
       // If user is a cashier, only fetch their own orders
+      // Managers, mainAdmin, and Admin roles see all orders
       let querySnapshot;
-      if (currentUser?.role === 'Cashier' && currentUser?.uid) {
-        // For cashiers, filter by employeeId and then sort in memory
+      if (currentUser?.role === 'Cashier' && (currentUser?.customId || currentUser?.uid)) {
+        // For cashiers, filter by employeeId (using customId if available, fallback to uid) and then sort in memory
+        const employeeId = currentUser.customId || currentUser.uid;
         const q = query(
           collection(db, ordersCollectionName),
-          where('employeeId', '==', currentUser.uid)
+          where('employeeId', '==', employeeId)
         );
         querySnapshot = await getDocs(q);
       } else {
-        // For admins, fetch all orders with orderBy
-      const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
+        // For managers, admins and mainAdmin, fetch all orders with orderBy
+        const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
         querySnapshot = await getDocs(q);
       }
       
@@ -154,6 +172,15 @@ const Orders: React.FC = () => {
           const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.date || 0).getTime();
           return dateB - dateA;
         });
+      }
+
+      // Also filter by customId if it exists (for backward compatibility with old orders using uid)
+      if (currentUser?.role === 'Cashier' && currentUser?.customId) {
+        // Filter to include orders with either customId or uid (for backward compatibility)
+        const employeeId = currentUser.customId;
+        ordersData = ordersData.filter(order => 
+          order.employeeId === employeeId || order.employeeId === currentUser.uid
+        );
       }
       setOrders(ordersData);
     } catch (error) {
@@ -298,6 +325,95 @@ const Orders: React.FC = () => {
     setOrderToDelete(order);
     setAdminPassword('');
     setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteProduct = async (): Promise<void> => {
+    if (!productToDelete || !selectedOrder || !productDeletePassword.trim()) {
+      toast.error('Please enter your login password');
+      return;
+    }
+
+    try {
+      if (!currentUser?.email) {
+        toast.error('User email not found');
+        return;
+      }
+
+      // Verify password by reauthenticating
+      const currentFirebaseUser = auth.currentUser;
+      if (!currentFirebaseUser) {
+        toast.error('User session not found. Please log in again.');
+        return;
+      }
+
+      const credential = EmailAuthProvider.credential(currentUser.email, productDeletePassword);
+      await reauthenticateWithCredential(currentFirebaseUser, credential);
+
+      setIsDeletingProduct(true);
+
+      // Get order items
+      const orderItems = selectedOrder.items || selectedOrder.products || [];
+      if (productToDelete.index >= orderItems.length) {
+        toast.error('Invalid product index');
+        return;
+      }
+
+      // Remove the product
+      const updatedItems = orderItems.filter((_: any, idx: number) => idx !== productToDelete.index);
+      
+      // Recalculate totals
+      const newSubtotal = updatedItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+      const newTax = newSubtotal * 0.1;
+      const newTotal = newSubtotal + newTax;
+
+      // Update order in Firestore
+      const ordersCollectionName = getShopCollectionName('orders');
+      await updateDoc(doc(db, ordersCollectionName, selectedOrder.id!), {
+        items: updatedItems,
+        products: updatedItems,
+        subtotal: newSubtotal,
+        tax: newTax,
+        total: newTotal,
+        refundedItems: [
+          ...(selectedOrder.refundedItems || []),
+          {
+            productName: productToDelete.name,
+            removedBy: currentUser.name || currentUser.email,
+            removedById: currentUser.customId || currentUser.uid,
+            removedAt: new Date(),
+            originalItem: orderItems[productToDelete.index]
+          }
+        ],
+        lastModifiedBy: currentUser.name || currentUser.email,
+        lastModifiedById: currentUser.customId || currentUser.uid,
+        lastModifiedAt: new Date()
+      });
+
+      // Add notification
+      await addNotification({
+        title: 'Product Removed from Order',
+        message: `${productToDelete.name} was removed from order ${selectedOrder.id} by ${currentUser.name || currentUser.email}`,
+        type: 'warning'
+      });
+
+      toast.success('Product removed successfully');
+      setIsProductDeleteModalOpen(false);
+      setProductToDelete(null);
+      setProductDeletePassword('');
+      fetchOrders();
+      // Refresh selected order
+      const updatedOrder = { ...selectedOrder, items: updatedItems, products: updatedItems, subtotal: newSubtotal, tax: newTax, total: newTotal };
+      setSelectedOrder(updatedOrder);
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        toast.error('Incorrect password. Please enter your login password.');
+      } else {
+        toast.error('Failed to remove product');
+      }
+    } finally {
+      setIsDeletingProduct(false);
+    }
   };
 
   const confirmDeleteOrder = async (): Promise<void> => {
@@ -751,6 +867,9 @@ const Orders: React.FC = () => {
                       <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Qty</th>
                       <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Price</th>
                       <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Total</th>
+                      {canDeleteProducts && (
+                        <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -793,17 +912,32 @@ const Orders: React.FC = () => {
                           <td className="px-2 md:px-4 py-2 text-gray-900 dark:text-white text-sm md:text-base">{product.quantity}</td>
                           <td className="px-2 md:px-4 py-2 text-gray-900 dark:text-white text-sm md:text-base">KSH {product.price.toLocaleString()}</td>
                           <td className="px-2 md:px-4 py-2 text-gray-900 dark:text-white font-semibold text-sm md:text-base">KSH {(product.quantity * product.price).toLocaleString()}</td>
+                          {canDeleteProducts && (
+                            <td className="px-2 md:px-4 py-2">
+                              <button
+                                onClick={() => {
+                                  setProductToDelete({ index, name: product.name });
+                                  setProductDeletePassword('');
+                                  setIsProductDeleteModalOpen(true);
+                                }}
+                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                                title="Remove product (refund)"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={5} className="px-4 py-2 text-center text-gray-500 dark:text-gray-400">No items found</td>
+                          <td colSpan={canDeleteProducts ? 6 : 5} className="px-4 py-2 text-center text-gray-500 dark:text-gray-400">No items found</td>
                         </tr>
                       );
                     })()}
                   </tbody>
                   <tfoot className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <td colSpan={4} className="px-2 md:px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 text-sm md:text-base">Total:</td>
+                      <td colSpan={canDeleteProducts ? 5 : 4} className="px-2 md:px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 text-sm md:text-base">Total:</td>
                       <td className="px-2 md:px-4 py-2 font-semibold text-gray-900 dark:text-white text-sm md:text-base">KSH {selectedOrder.total.toLocaleString()}</td>
                     </tr>
                   </tfoot>
@@ -897,6 +1031,60 @@ const Orders: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Delete Product Confirmation Modal */}
+      {isProductDeleteModalOpen && productToDelete && (
+        <Modal
+          open={isProductDeleteModalOpen}
+          onClose={() => {
+            setIsProductDeleteModalOpen(false);
+            setProductToDelete(null);
+            setProductDeletePassword('');
+          }}
+          title="Remove Product from Order"
+          size="md"
+        >
+          <div className="space-y-4">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                You are about to remove <strong>{productToDelete.name}</strong> from order <strong>{selectedOrder?.id}</strong>.
+                This action will recalculate the order total and record your identity for audit purposes.
+              </p>
+            </div>
+
+            <FormInput
+              label="Login Password"
+              name="productDeletePassword"
+              type="password"
+              value={productDeletePassword}
+              onChange={(e) => setProductDeletePassword(e.target.value)}
+              placeholder="Enter your login password to confirm"
+              required
+            />
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsProductDeleteModalOpen(false);
+                  setProductToDelete(null);
+                  setProductDeletePassword('');
+                }}
+                disabled={isDeletingProduct}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteProduct}
+                disabled={isDeletingProduct || !productDeletePassword.trim()}
+              >
+                {isDeletingProduct ? 'Removing...' : 'Remove Product'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

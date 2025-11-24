@@ -167,10 +167,22 @@ service cloud.firestore {
           && request.resource.data.status in ['completed', 'pending', 'cancelled', 'partial']
           && request.resource.data.items.size() > 0;
 
-      // Allow only status changes client-side
+      // Allow status changes and product deletion updates
       allow update: if isSignedIn()
-        && resource.data.diff(request.resource.data).changedKeys().hasOnly(['status'])
-        && request.resource.data.status in ['completed','pending','cancelled','partial'];
+        && (
+          // Allow status updates
+          (resource.data.diff(request.resource.data).changedKeys().hasOnly(['status'])
+           && request.resource.data.status in ['completed','pending','cancelled','partial'])
+          ||
+          // Allow product deletion updates (must include items, subtotal, tax, total; can also include products, refundedItems, lastModifiedBy, etc.)
+          (resource.data.diff(request.resource.data).changedKeys().hasAll(['items', 'subtotal', 'tax', 'total'])
+           && request.resource.data.subtotal >= 0
+           && request.resource.data.tax >= 0
+           && request.resource.data.total >= 0
+           && request.resource.data.total == request.resource.data.subtotal + request.resource.data.tax
+           && request.resource.data.items.size() >= 0
+           && (!('items' in resource.data) || request.resource.data.items.size() < resource.data.items.size()))
+        );
 
       allow delete: if isSignedIn();
     }
@@ -197,8 +209,20 @@ service cloud.firestore {
         && request.resource.data.items.size() > 0;
       allow update: if isSignedIn() 
         && shopOrders.matches('.*Orders$')
-        && resource.data.diff(request.resource.data).changedKeys().hasOnly(['status', 'category'])
-        && request.resource.data.status in ['completed','pending','cancelled','partial'];
+        && (
+          // Allow status and category updates
+          (resource.data.diff(request.resource.data).changedKeys().hasOnly(['status', 'category'])
+           && request.resource.data.status in ['completed','pending','cancelled','partial'])
+          ||
+          // Allow product deletion updates (must include items, subtotal, tax, total; can also include products, refundedItems, lastModifiedBy, etc.)
+          (resource.data.diff(request.resource.data).changedKeys().hasAll(['items', 'subtotal', 'tax', 'total'])
+           && request.resource.data.subtotal >= 0
+           && request.resource.data.tax >= 0
+           && request.resource.data.total >= 0
+           && request.resource.data.total == request.resource.data.subtotal + request.resource.data.tax
+           && request.resource.data.items.size() >= 0
+           && (!('items' in resource.data) || request.resource.data.items.size() < resource.data.items.size()))
+        );
       allow delete: if isSignedIn() && shopOrders.matches('.*Orders$');
     }
 

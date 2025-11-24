@@ -21,6 +21,7 @@ interface User {
   status: 'Active' | 'Inactive';
   avatar?: string;
   uid: string;
+  customId?: string; // Custom employee ID (CSH-00-001, MNG-00-001, ADM-00, etc.)
   shopId?: string; // For multi-tenant support
   shopName?: string; // For display purposes
   createdAt: Date;

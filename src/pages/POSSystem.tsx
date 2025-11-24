@@ -533,7 +533,7 @@ const POSSystem: React.FC = () => {
         status: orderStatus,
         paymentMethod: paymentData.paymentMethod,
         createdAt: new Date(),
-        employeeId: currentUser.uid,
+        employeeId: currentUser.customId || currentUser.uid,
         employeeName: currentUser.name || 'Cashier',
         ...(paymentData.amountReceived && { amountReceived: paymentData.amountReceived }),
         ...(paymentData.change && { change: paymentData.change }),
@@ -548,7 +548,7 @@ const POSSystem: React.FC = () => {
         // Track who issued debt/partial payment
         ...((paymentData.paymentMethod === 'debt' || paymentData.paymentMethod === 'partial') && {
           debtIssuedBy: currentUser.name || 'Cashier',
-          debtIssuedById: currentUser.uid
+          debtIssuedById: currentUser.customId || currentUser.uid
         })
       };
 

@@ -251,6 +251,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({ data, reportType, products 
       {/* Virtualized List */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-b-lg overflow-hidden">
         <FixedSizeList
+          key={`${currentPage}-${pageSize}`}
           height={Math.min(400, paginatedData.length * 50)}
           itemCount={paginatedData.length}
           itemSize={50}
