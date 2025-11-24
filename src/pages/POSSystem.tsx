@@ -39,6 +39,7 @@ const POSSystem: React.FC = () => {
   const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const cartItemCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   useEffect(() => {
     fetchProducts();
@@ -737,10 +738,11 @@ const POSSystem: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
         {/* Products Section */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Category Dropdown and Search Bar */}
-          <div className="flex flex-col sm:flex-row gap-2 relative z-50">
+          {/* Category Dropdown, Search & Controls */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center relative z-50">
+            <div className="flex flex-col sm:flex-row gap-2 flex-1">
               {/* Category Dropdown */}
-            <div className="w-full sm:w-40 flex-shrink-0 relative z-50">
+              <div className="w-full sm:w-40 flex-shrink-0 relative z-50">
                 <Dropdown
                   value={selectedCategory}
                   onChange={(value) => setSelectedCategory(value)}
@@ -755,42 +757,56 @@ const POSSystem: React.FC = () => {
 
               {/* Search Bar */}
               <div className="flex-1 relative">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
                 />
               </div>
+            </div>
 
-          {/* View Mode Toggle */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex items-center justify-between sm:justify-end gap-2">
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors ${
                     viewMode === 'grid'
                       ? 'bg-[#4A90A4] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                   aria-label="Grid view"
                 >
-                <Grid3x3 className="w-4 h-4" />
+                  <Grid3x3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors ${
                     viewMode === 'list'
                       ? 'bg-[#4A90A4] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                   aria-label="List view"
                 >
-                <List className="w-4 h-4" />
+                  <List className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Checkout Button */}
+              <Button
+                onClick={openCheckout}
+                variant="primary"
+                className="h-9 px-3 text-sm flex items-center gap-1.5"
+                disabled={cart.length === 0}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Checkout ({cartItemCount})
+              </Button>
             </div>
+          </div>
 
           {/* Products Grid */}
           <ProductsGrid

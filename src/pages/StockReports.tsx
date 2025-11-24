@@ -236,14 +236,14 @@ const StockReports: React.FC = () => {
           setIsGenerating(false);
           setWorkerProgress(null);
           toast.error(error.message || 'Report generation failed');
-        }
+    }
       }, 100);
 
       // Create report metadata
-      const report: StockReport = {
-        id: Date.now().toString(),
-        reportType,
-        period,
+    const report: StockReport = {
+      id: Date.now().toString(),
+      reportType,
+      period,
         startDate: start,
         endDate: end,
         generatedAt: new Date(),
@@ -252,7 +252,7 @@ const StockReports: React.FC = () => {
         data: {} as StockReportData // Will be set when worker completes
       };
 
-      setGeneratedReport(report);
+    setGeneratedReport(report);
 
     } catch (error: any) {
       console.error('Error generating report:', error);
@@ -386,7 +386,7 @@ const StockReports: React.FC = () => {
             >
               <Save className="w-4 h-4" />
               Save Snapshot
-            </Button>
+          </Button>
           </div>
         )}
       </div>
@@ -414,9 +414,9 @@ const StockReports: React.FC = () => {
             onExport={handleExport}
             isGenerating={isGenerating}
             canExport={!!reportData && !!generatedReport}
-          />
-        </div>
-
+              />
+            </div>
+            
         {/* Right: Results */}
         <div className="lg:col-span-3 space-y-6">
           {/* Loading/Progress */}
@@ -436,14 +436,14 @@ const StockReports: React.FC = () => {
                     >
                       <X className="w-4 h-4" />
                       Cancel
-                    </Button>
-                  </div>
+              </Button>
+            </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
                       className="bg-[#4A90A4] h-2 rounded-full transition-all duration-300"
                       style={{ width: `${workerProgress.pct}%` }}
                     />
-                  </div>
+          </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {workerProgress.pct.toFixed(0)}% complete
                   </p>
@@ -459,7 +459,7 @@ const StockReports: React.FC = () => {
               {/* Report Header */}
               <Card className="p-4">
                 <div className="flex items-center justify-between">
-                  <div>
+              <div>
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                       {generatedReport.reportType.replace('_', ' ').toUpperCase()} Report
                     </h2>
@@ -467,18 +467,18 @@ const StockReports: React.FC = () => {
                       Generated: {generatedReport.generatedAt.toLocaleString()} | 
                       Period: {generatedReport.startDate.toLocaleDateString()} - {generatedReport.endDate.toLocaleDateString()}
                     </p>
-                  </div>
+              </div>
                   {currentUser?.shopId && (
                     <div className="text-right">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {currentUser.shopId}
                       </p>
-                    </div>
-                  )}
-                </div>
-              </Card>
+            </div>
+          )}
+        </div>
+      </Card>
 
-              {/* Summary Cards */}
+          {/* Summary Cards */}
               <ReportSummaryCards
                 data={reportData}
                 previousData={previousReport || undefined}
@@ -497,7 +497,7 @@ const StockReports: React.FC = () => {
                   // Could open product detail modal
                   console.log('Row clicked:', row);
                 }}
-              />
+                />
             </>
           )}
 

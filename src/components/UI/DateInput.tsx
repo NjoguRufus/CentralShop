@@ -72,10 +72,17 @@ const DateInput: React.FC<DateInputProps> = ({
     const updatePosition = () => {
       if (!triggerRef.current) return;
       const rect = triggerRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const gutter = 8;
+      const width = Math.max(rect.width, 260);
+      const maxLeft = Math.max(gutter, viewportWidth - width - gutter);
+      const left = Math.min(Math.max(rect.left, gutter), maxLeft);
+      const top = Math.min(rect.bottom + 8, window.innerHeight - gutter);
+
       setMenuPosition({
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
-        width: rect.width
+        top,
+        left,
+        width
       });
     };
 

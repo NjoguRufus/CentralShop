@@ -321,7 +321,7 @@ const Orders: React.FC = () => {
           toast.error('User session not found. Please log in again.');
           return;
         }
-        
+
         const credential = EmailAuthProvider.credential(currentUser.email, adminPassword);
         await reauthenticateWithCredential(currentFirebaseUser, credential);
 
@@ -385,33 +385,33 @@ const Orders: React.FC = () => {
     try {
       const businessInfo = await BusinessSettingsService.getBusinessInfo(currentUser?.shopId || '');
 
-      const orderDate = order.createdAt?.toDate
-        ? order.createdAt.toDate()
-        : (order.date ? new Date(order.date) : new Date());
-
+    const orderDate = order.createdAt?.toDate 
+      ? order.createdAt.toDate() 
+      : (order.date ? new Date(order.date) : new Date());
+    
       const getOrderItems = (): Array<{ name: string; quantity: number; price: number }> => {
-        if (order.products && order.products.length > 0) {
-          return order.products.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price
-          }));
-        } else if (order.items && order.items.length > 0) {
-          return order.items.map(item => {
-            const product = products.find(p => p.id === item.productId);
-            return {
-              name: product?.name || item.name || `Product ${item.productId}`,
-              quantity: item.quantity,
-              price: item.price
-            };
-          });
-        }
-        return [];
-      };
+      if (order.products && order.products.length > 0) {
+        return order.products.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        }));
+      } else if (order.items && order.items.length > 0) {
+        return order.items.map(item => {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            name: product?.name || item.name || `Product ${item.productId}`,
+          quantity: item.quantity,
+          price: item.price
+          };
+        });
+      }
+      return [];
+    };
 
-      const orderItems = getOrderItems();
-      const subtotal = order.subtotal || (order.total / 1.1);
-      const tax = order.tax || (order.total - subtotal);
+    const orderItems = getOrderItems();
+    const subtotal = order.subtotal || (order.total / 1.1);
+    const tax = order.tax || (order.total - subtotal);
 
       const receiptData: ReceiptData = {
         orderId: order.id || `ORD-${Date.now()}`,

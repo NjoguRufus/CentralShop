@@ -75,10 +75,17 @@ const Dropdown: React.FC<DropdownProps> = ({
   const updateMenuPosition = () => {
     if (!isOpen || !dropdownRef.current) return;
     const rect = dropdownRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const gutter = 8;
+    const width = rect.width;
+    const maxLeft = Math.max(gutter, viewportWidth - width - gutter);
+    const left = Math.min(Math.max(rect.left, gutter), maxLeft);
+    const top = Math.min(rect.bottom + 4, window.innerHeight - gutter);
+
     setMenuPosition({
-      top: rect.bottom + window.scrollY + 4,
-      left: rect.left + window.scrollX,
-      width: rect.width
+      top,
+      left,
+      width
     });
   };
 

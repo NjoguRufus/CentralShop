@@ -44,40 +44,40 @@ export class ReceiptService {
     const brandName = receiptData.businessName || 'CENTRAL SHOP';
     const brandAddress = receiptData.businessAddress || '';
     const brandPhone = receiptData.businessPhone || '';
-
+    
     return `
       <!DOCTYPE html>
       <html>
-        <head>
+      <head>
           <meta charset="utf-8" />
-          <title>Receipt - ${receiptData.orderId}</title>
-          <style>
-            @media print {
-              @page {
-                margin: 0;
-                size: 80mm auto;
-              }
-              body {
-                margin: 0;
+        <title>Receipt - ${receiptData.orderId}</title>
+        <style>
+          @media print {
+            @page {
+              margin: 0;
+              size: 80mm auto;
+            }
+            body {
+              margin: 0;
                 padding: 0;
               }
             }
             * {
               box-sizing: border-box;
-            }
-            body {
+          }
+          body {
               font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
               background: #fff;
               color: #111;
-              width: 80mm;
+            width: 80mm;
               margin: 0 auto;
               padding: 0;
-            }
-            .receipt {
+          }
+          .receipt {
               padding: 10px 12px 16px;
-            }
+          }
             .brand {
-              text-align: center;
+            text-align: center;
               padding-bottom: 10px;
               border-bottom: 1px solid rgba(0,0,0,0.1);
             }
@@ -85,34 +85,34 @@ export class ReceiptService {
               display: flex;
               justify-content: center;
               margin-bottom: 6px;
-            }
+          }
             .brand-logo img {
               width: 42px;
               height: 42px;
               object-fit: contain;
-            }
+          }
             .brand-name {
               font-size: 16px;
               letter-spacing: 2px;
               font-weight: 700;
               color: ${accent};
-            }
+          }
             .tagline {
-              font-size: 9px;
+            font-size: 9px;
               text-transform: uppercase;
               letter-spacing: 3px;
               color: #666;
               margin-top: 2px;
-            }
+          }
             .meta {
               margin: 10px 0 12px;
               font-size: 10px;
               text-transform: uppercase;
               letter-spacing: 0.5px;
-            }
+          }
             .meta-row {
-              display: flex;
-              justify-content: space-between;
+            display: flex;
+            justify-content: space-between;
               margin: 2px 0;
             }
 
@@ -140,27 +140,27 @@ export class ReceiptService {
               display: grid;
               grid-template-columns: 1fr auto auto;
               gap: 6px;
-              font-size: 10px;
+            font-size: 10px;
               padding: 4px 0;
               border-bottom: 1px dashed rgba(0,0,0,0.08);
             }
             .item-row:last-child {
               border-bottom: none;
-            }
-            .item-name {
+          }
+          .item-name {
               font-weight: 600;
               color: #222;
-            }
-            .item-qty {
+          }
+          .item-qty {
               text-align: right;
               color: #666;
               min-width: 28px;
-            }
+          }
             .item-total {
-              text-align: right;
+            text-align: right;
               font-weight: 600;
-              min-width: 55px;
-            }
+            min-width: 55px;
+          }
 
             .stat-grid {
               display: grid;
@@ -183,17 +183,17 @@ export class ReceiptService {
             }
             .stat-value {
               font-weight: 600;
-            }
+          }
 
-            .totals {
+          .totals {
               margin-top: 14px;
               border-top: 1px dashed rgba(0,0,0,0.2);
               padding-top: 10px;
-            }
-            .total-line {
-              display: flex;
-              justify-content: space-between;
-              font-size: 10px;
+          }
+          .total-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
               margin: 2px 0;
             }
             .grand-total {
@@ -201,7 +201,7 @@ export class ReceiptService {
               font-weight: 700;
               color: #111;
               margin-top: 6px;
-            }
+          }
 
             .signature-block {
               margin-top: 14px;
@@ -211,7 +211,7 @@ export class ReceiptService {
               text-align: center;
               font-size: 9px;
               color: #555;
-            }
+          }
             .signature-label {
               text-transform: uppercase;
               letter-spacing: 2px;
@@ -219,21 +219,21 @@ export class ReceiptService {
               font-size: 8px;
             }
 
-            .footer {
+          .footer {
               margin-top: 14px;
-              text-align: center;
-              font-size: 9px;
+            text-align: center;
+            font-size: 9px;
               color: #777;
-            }
+          }
             .footer strong {
               display: block;
               margin-bottom: 3px;
               letter-spacing: 1px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="receipt">
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
             <div class="brand">
               <div class="brand-logo">
                 <img src="/icons/CentalLightmode.png" alt="${brandName} Logo" onerror="this.style.display='none'" />
@@ -250,7 +250,7 @@ export class ReceiptService {
               <div class="meta-row">
                 <span>Date</span>
                 <span>${receiptData.timestamp.toLocaleDateString()} ${receiptData.timestamp.toLocaleTimeString()}</span>
-              </div>
+          </div>
               ${receiptData.customerName ? `
               <div class="meta-row">
                 <span>Customer</span>
@@ -262,18 +262,18 @@ export class ReceiptService {
                 <span>${receiptData.employeeName}</span>
               </div>` : ''}
               <div class="badge">${receiptData.paymentMethod.toUpperCase()}</div>
-            </div>
-
-            <div class="items">
-              ${receiptData.items.map(item => `
+          </div>
+          
+          <div class="items">
+            ${receiptData.items.map(item => `
                 <div class="item-row">
                   <span class="item-name">${item.name}</span>
                   <span class="item-qty">× ${item.quantity}</span>
                   <span class="item-total">${formatCurrency(item.total)}</span>
-                </div>
-              `).join('')}
-            </div>
-
+              </div>
+            `).join('')}
+          </div>
+          
             <div class="stat-grid">
               <div class="stat-card">
                 <div class="stat-label">Subtotal</div>
@@ -314,8 +314,8 @@ export class ReceiptService {
                 <div class="stat-value" style="color:#b91c1c;">${formatCurrency(receiptData.remainingAmount || 0)}</div>
               </div>` : ''}
             </div>` : ''}
-
-            <div class="totals">
+          
+          <div class="totals">
               <div class="total-line grand-total">
                 <span>Total Due</span>
                 <span>${formatCurrency(receiptData.total)}</span>
@@ -332,9 +332,9 @@ export class ReceiptService {
               <strong>${brandAddress}</strong>
               ${brandPhone}<br/>
               Powered By Astraronix Solutions
-            </div>
           </div>
-        </body>
+        </div>
+      </body>
       </html>
     `;
   }
