@@ -36,6 +36,7 @@ const StockReports = lazy(() => import('./pages/StockReports'));
 const Employees = lazy(() => import('./pages/Employees'));
 const Settings = lazy(() => import('./pages/Settings'));
 const ViewInvoice = lazy(() => import('./pages/ViewInvoice'));
+const DeletedItems = lazy(() => import('./pages/DeletedItems'));
 
 import AppLoader from './components/UI/AppLoader';
 
@@ -163,6 +164,13 @@ const AppContent: React.FC = () => {
                   <ProtectedRoute requiredRole="Cashier">
                     <Suspense fallback={<PageSkeleton />}>
                     <Orders />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="deleted-items" element={
+                  <ProtectedRoute requiredRole="Cashier">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <DeletedItems />
                     </Suspense>
                   </ProtectedRoute>
                 } />

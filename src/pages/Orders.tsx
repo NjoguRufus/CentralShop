@@ -6,6 +6,7 @@ import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { getShopCollectionName } from '../config/shopConfig';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -14,7 +15,7 @@ import FormInput from '../components/UI/FormInput';
 import Table from '../components/UI/Table';
 import Modal from '../components/Modal';
 import Button from '../components/UI/Button';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, Trash2, Archive } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ReceiptService, ReceiptData } from '../services/ReceiptService';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
@@ -79,6 +80,7 @@ const Orders: React.FC = () => {
   // Ensure hooks are called at the top level
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+  const navigate = useNavigate();
   
   // State hooks
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -661,11 +663,21 @@ const Orders: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">Orders</h1>
-        {!canEditOrders && (
-          <div className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
-            View Only
-          </div>
-        )}
+        <div className="flex items-center space-x-3">
+          <Button
+            variant="secondary"
+            onClick={() => navigate('/deleted-items')}
+            className="flex items-center space-x-2"
+          >
+            <Archive className="w-4 h-4" />
+            <span className="hidden sm:inline">Deleted Items</span>
+          </Button>
+          {!canEditOrders && (
+            <div className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
+              View Only
+            </div>
+          )}
+        </div>
       </div>
 
       <Card className="p-3 md:p-4">
