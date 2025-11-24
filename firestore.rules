@@ -360,6 +360,26 @@ service cloud.firestore {
       
       allow update, delete: if isSignedIn();
     }
+
+    // Notifications: shops/{shopId}/notifications/{notificationId}
+    match /shops/{shopId}/notifications/{notificationId} {
+      allow read: if isSignedIn() && isShopMember(shopId);
+      allow create: if isSignedIn() && isShopMember(shopId);
+      allow update: if isSignedIn() && isShopMember(shopId);
+      allow delete: if isSignedIn() && isShopMember(shopId);
+    }
+
+    // Notifications: {ShopName}Notifications/{notificationId}
+    match /{shopNotifications}/{notificationId} {
+      allow read: if isSignedIn() && shopNotifications.matches('.*Notifications$');
+      allow create: if isSignedIn() 
+        && shopNotifications.matches('.*Notifications$')
+        && request.resource.data.shopId is string;
+      allow update: if isSignedIn() 
+        && shopNotifications.matches('.*Notifications$')
+        && (resource.data.shopId == request.resource.data.shopId || !('shopId' in request.resource.data));
+      allow delete: if isSignedIn() && shopNotifications.matches('.*Notifications$');
+    }
   }
 }
 

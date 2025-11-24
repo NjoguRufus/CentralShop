@@ -23,6 +23,7 @@ import { getShopCollectionName } from '../config/shopConfig';
 const ViewInvoice: React.FC = () => {
   const { customerName } = useParams<{ customerName: string }>();
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const invoiceContentRef = useRef<HTMLDivElement>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);

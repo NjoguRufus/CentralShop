@@ -31,22 +31,39 @@ export class EmployeeActivityService {
       });
 
       // Update employee's last login/logout time and active status
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const employeeRef = doc(db, 'users', employeeId);
-      
-      const updateData: any = {
-        updatedAt: new Date()
-      };
+      // Note: employeeId is the document ID from employees collection, not users collection
+      try {
+        const { doc, updateDoc, getDoc, query, where, getDocs } = await import('firebase/firestore');
+        const { getShopCollectionName } = await import('../config/shopConfig');
+        
+        const updateData: any = {
+          updatedAt: new Date()
+        };
 
-      if (action === 'login') {
-        updateData.lastLogin = new Date();
-        updateData.isCurrentlyActive = true;
-      } else {
-        updateData.lastLogout = new Date();
-        updateData.isCurrentlyActive = false;
+        if (action === 'login') {
+          updateData.lastLogin = new Date();
+          updateData.isCurrentlyActive = true;
+        } else {
+          updateData.lastLogout = new Date();
+          updateData.isCurrentlyActive = false;
+        }
+
+        // Try to find employee in employees collection by ID
+        const employeesCollectionName = getShopCollectionName('employees');
+        const employeeRef = doc(db, employeesCollectionName, employeeId);
+        
+        const employeeDoc = await getDoc(employeeRef);
+        if (employeeDoc.exists()) {
+          await updateDoc(employeeRef, updateData);
+        } else {
+          // If not found by ID, try to find by uid field (for dynamic user collections)
+          // This is a fallback - silently skip if not found
+          console.warn(`Employee document not found for ID: ${employeeId}`);
+        }
+      } catch (updateError) {
+        // Silently fail - activity logging shouldn't break the app
+        console.warn('Could not update employee status (non-critical):', updateError);
       }
-
-      await updateDoc(employeeRef, updateData);
     } catch (error) {
       console.error('Error logging employee activity:', error);
     }
