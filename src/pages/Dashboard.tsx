@@ -731,7 +731,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
-                <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${stats.totalRevenue.toLocaleString()}`}</p>
+                <p className="text-xl md:text-2xl font-bold text-[#2196F3] dark:text-[#42A5F5] mt-1 md:mt-2">{`KSH ${stats.totalRevenue.toLocaleString()}`}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {dateFilter === 'today' ? 'Today' : 
                    dateFilter === 'yesterday' ? 'Yesterday' :
@@ -751,7 +751,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Expenses</p>
-                <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2">{`KSH ${expensesToday.toLocaleString()}`}</p>
+                <p className="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 mt-1 md:mt-2">{`KSH ${expensesToday.toLocaleString()}`}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {dateFilter === 'today' ? 'Today' : 
                    dateFilter === 'yesterday' ? 'Yesterday' :
@@ -853,7 +853,7 @@ const Dashboard: React.FC = () => {
           {revenueResult != null && (
             <div className="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-300">Revenue for selected period</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{`KSH ${revenueResult.toLocaleString()}`}</p>
+              <p className="text-2xl font-semibold text-[#2196F3] dark:text-[#42A5F5]">{`KSH ${revenueResult.toLocaleString()}`}</p>
             </div>
           )}
         </div>
@@ -900,7 +900,7 @@ const Dashboard: React.FC = () => {
           {expensesResult != null && (
             <div className="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-300">Expenses for selected period</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{`KSH ${expensesResult.toLocaleString()}`}</p>
+              <p className="text-2xl font-semibold text-red-600 dark:text-red-400">{`KSH ${expensesResult.toLocaleString()}`}</p>
             </div>
           )}
         </div>

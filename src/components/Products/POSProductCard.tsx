@@ -23,9 +23,19 @@ const POSProductCard: React.FC<POSProductCardProps> = ({ product, onAddToCart, s
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!isOutOfStock && onAddToCart) {
+      // Prevent default to avoid double-tap zoom on mobile
+      e.preventDefault();
+      onAddToCart(product);
+    }
+  };
+
   return (
     <Card 
       onClick={handleCardClick}
+      onTouchStart={handleTouchStart}
       className={`overflow-hidden bg-white dark:bg-[#111827] border border-black/5 dark:border-white/10 rounded-2xl transition-all duration-300 ease-out hover:shadow-lg ${
         isOutOfStock ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
       }`}

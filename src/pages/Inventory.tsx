@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Package, Camera, X, Grid3x3, List } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Camera, X, Grid3x3, List, Loader2 } from 'lucide-react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,6 +34,7 @@ const Inventory: React.FC = () => {
   const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [showBarcodeScanner, setShowBarcodeScanner] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -159,6 +160,7 @@ const Inventory: React.FC = () => {
       return;
     }
     
+    setIsSubmitting(true);
     try {
       const productData = {
         name: formData.name,
@@ -186,6 +188,8 @@ const Inventory: React.FC = () => {
     } catch (error) {
       toast.error('Failed to save product');
       console.error('Error saving product:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -202,6 +206,7 @@ const Inventory: React.FC = () => {
     setEditingProduct(null);
     setShowAddCategoryInline(false);
     setNewCategoryName('');
+    setIsSubmitting(false);
   };
 
   const handleEdit = (product: Product) => {
@@ -568,10 +573,27 @@ const Inventory: React.FC = () => {
           </div>
           
           <div className="flex space-x-3 pt-4">
-            <Button type="submit" variant="primary" className="flex-1">
-              {editingProduct ? 'Update Product' : 'Add Product'}
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="flex-1 flex items-center justify-center gap-2"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {editingProduct ? 'Updating product...' : 'Adding product...'}
+                </>
+              ) : (
+                editingProduct ? 'Update Product' : 'Add Product'
+              )}
             </Button>
-            <Button type="button" onClick={resetForm} variant="secondary">
+            <Button 
+              type="button" 
+              onClick={resetForm} 
+              variant="secondary"
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
           </div>

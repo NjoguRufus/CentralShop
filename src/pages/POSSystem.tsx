@@ -682,15 +682,13 @@ const POSSystem: React.FC = () => {
       });
       
       // Add notification in background
-      try {
-        addNotification({
+      addNotification({
         title: 'New Order Completed',
         message: `Order ${receiptData.orderId} has been completed for KSH ${total.toLocaleString()}`,
         type: 'success'
-      });
-      } catch (err) {
+      }).catch(err => {
         console.error('Notification error:', err);
-      }
+      });
 
       // Show success message
       if (paymentData.paymentMethod === 'debt') {
