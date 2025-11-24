@@ -4,8 +4,9 @@ import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, getDoc,
 import Select from '../components/UI/Select';
 import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { getShopCollectionName } from '../config/shopConfig';
 import { useNotifications } from '../contexts/NotificationContext';
 import Card from '../components/UI/Card';
@@ -293,44 +294,43 @@ const Orders: React.FC = () => {
 
   const confirmDeleteOrder = async (): Promise<void> => {
     if (!orderToDelete || !adminPassword.trim()) {
-      toast.error('Please enter the admin password');
+      toast.error('Please enter your login password');
       return;
     }
 
-    // First confirmation - check password
+    // First confirmation - verify login password
     if (!showSecondConfirmation) {
       try {
-        if (!currentUser?.shopId) {
-          toast.error('No shop assigned to your account');
+        if (!currentUser?.email) {
+          toast.error('User email not found');
           return;
         }
 
-        // Get admin password from settings
-        const settingsDoc = await getDoc(doc(db, 'shops', currentUser.shopId, 'settings', 'general'));
-        if (!settingsDoc.exists()) {
-          toast.error('Settings not found');
+        // Verify password by reauthenticating with the current user's credentials
+        // This will throw an error if the password is incorrect
+        const currentFirebaseUser = auth.currentUser;
+        if (!currentFirebaseUser) {
+          toast.error('User session not found. Please log in again.');
           return;
         }
-
-        const settings = settingsDoc.data();
-        const storedPassword = settings.adminPassword;
-
-        if (!storedPassword) {
-          toast.error('Admin password not set. Please set it in Settings first.');
-          return;
-        }
-
-        if (adminPassword !== storedPassword) {
-          toast.error('Incorrect admin password');
-          return;
-        }
+        
+        const credential = EmailAuthProvider.credential(currentUser.email, adminPassword);
+        await reauthenticateWithCredential(currentFirebaseUser, credential);
 
         // Password is correct, show second confirmation
         setShowSecondConfirmation(true);
         return;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error verifying password:', error);
-        toast.error('Error verifying password');
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+          toast.error('Incorrect password. Please enter your login password.');
+        } else if (error.code === 'auth/user-not-found') {
+          toast.error('User account not found');
+        } else if (error.code === 'auth/too-many-requests') {
+          toast.error('Too many failed attempts. Please try again later.');
+        } else {
+          toast.error('Error verifying password. Please try again.');
+        }
         return;
       }
     }
@@ -958,12 +958,12 @@ const Orders: React.FC = () => {
 
               <div className="mb-6 space-y-4">
                 <FormInput
-                  label="Admin Password"
+                  label="Login Password"
                   name="adminPassword"
                   type="password"
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="Enter admin password to confirm deletion"
+                  placeholder="Enter your login password to confirm deletion"
                   required
                 />
                 

@@ -24,7 +24,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName } from '../config/shopConfig';
 import { StockReport, StockReportData } from '../types';
 import { 
   fetchAllProducts, 
@@ -342,8 +341,11 @@ const StockReports: React.FC = () => {
       };
 
       await addDoc(
-        collection(db, getShopCollectionName('reports')),
-        reportDoc
+        collection(db, `shops/${currentUser.shopId}/stockReports`),
+        {
+          ...reportDoc,
+          shopId: currentUser.shopId
+        }
       );
 
       toast.success('Report saved successfully');

@@ -1,9 +1,7 @@
 import React from 'react';
+import Dropdown, { DropdownOption } from './Dropdown';
 
-export interface SelectOption {
-  value: string;
-  label: string;
-}
+export interface SelectOption extends DropdownOption {}
 
 interface SelectProps {
   value: string;
@@ -14,6 +12,7 @@ interface SelectProps {
   disabled?: boolean;
   addNewLabel?: string;
   onAddNew?: () => void;
+  searchable?: boolean;
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -24,38 +23,21 @@ const Select: React.FC<SelectProps> = ({
   className = "",
   disabled = false,
   addNewLabel,
-  onAddNew
+  onAddNew,
+  searchable = false
 }) => {
   return (
-    <div className={`relative ${className}`}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white appearance-none bg-white dark:bg-gray-700 ${className}`}
-      >
-        {placeholder && (
-          <option value="" disabled>
-            {placeholder}
-          </option>
-        )}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-        {addNewLabel && onAddNew && (
-          <option value="__add_new__" className="text-primary font-medium">
-            {addNewLabel}
-          </option>
-        )}
-      </select>
-      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-    </div>
+    <Dropdown
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      className={className}
+      disabled={disabled}
+      addNewLabel={addNewLabel}
+      onAddNew={onAddNew}
+      searchable={searchable}
+    />
   );
 };
 

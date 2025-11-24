@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName } from '../config/shopConfig';
 import { useTheme } from '../contexts/ThemeContext';
 import Card from '../components/UI/Card';
 import FormInput from '../components/UI/FormInput';
@@ -99,8 +98,10 @@ const Settings: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (currentUser?.shopId) {
+      fetchSettings();
+    }
+  }, [currentUser?.shopId]);
 
   const fetchSettings = async (): Promise<void> => {
     try {
@@ -111,7 +112,7 @@ const Settings: React.FC = () => {
         return;
       }
       
-      const docRef = doc(db, getShopCollectionName('settings'), 'general');
+      const docRef = doc(db, 'shops', currentUser.shopId, 'settings', 'general');
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
@@ -170,7 +171,7 @@ const Settings: React.FC = () => {
       };
 
       console.log('Saving settings:', mergedSettings);
-      await setDoc(doc(db, getShopCollectionName('settings'), 'general'), mergedSettings);
+      await setDoc(doc(db, 'shops', currentUser.shopId, 'settings', 'general'), mergedSettings);
       console.log('Settings saved successfully');
       toast.success('Settings saved successfully');
       

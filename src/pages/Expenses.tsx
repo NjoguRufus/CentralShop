@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, where, Timestamp, DocumentData, QuerySnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { getShopCollectionName } from '../config/shopConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { Expense, ExpenseCategory, Supplier } from '../types';
 import Card from '../components/UI/Card';
@@ -12,7 +13,6 @@ import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
 import Modal from '../components/Modal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
-import LoadingSpinner from '../components/UI/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 const Expenses: React.FC = () => {
@@ -35,7 +35,9 @@ const Expenses: React.FC = () => {
     date: new Date(),
     paymentMethod: 'cash',
     status: 'pending',
-    notes: ''
+    notes: '',
+    supplierId: '',
+    supplierName: ''
   });
   const [editingCategory, setEditingCategory] = useState<Partial<ExpenseCategory>>({
     name: '',
@@ -131,15 +133,25 @@ const Expenses: React.FC = () => {
     if (!currentUser?.shopId) return;
     
     try {
-      const q = query(collection(db, `shops/${currentUser.shopId}/suppliers`));
-      const snapshot = await getDocs(q);
-      const suppliersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date()
-      })) as Supplier[];
-      setSuppliers(suppliersData);
+      const suppliersCollectionName = getShopCollectionName('suppliers');
+      const [globalSnapshot, legacySnapshot] = await Promise.all([
+        getDocs(collection(db, suppliersCollectionName)),
+        getDocs(collection(db, `shops/${currentUser.shopId}/suppliers`))
+      ]);
+
+      const mapDocs = (snapshot: QuerySnapshot<DocumentData>) =>
+        snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date(),
+          updatedAt: doc.data().updatedAt?.toDate() || new Date()
+        })) as Supplier[];
+
+      const combinedMap = new Map<string, Supplier>();
+      mapDocs(globalSnapshot).forEach((supplier) => combinedMap.set(supplier.id, supplier));
+      mapDocs(legacySnapshot).forEach((supplier) => combinedMap.set(supplier.id, supplier));
+
+      setSuppliers(Array.from(combinedMap.values()));
     } catch (error) {
       console.error('Error fetching suppliers:', error);
     }
@@ -163,6 +175,38 @@ const Expenses: React.FC = () => {
     }
   };
 
+  const buildExpensePayload = (includeCreatedMeta = false) => {
+    const supplierId = editingExpense.supplierId || '';
+    const supplier = supplierId ? suppliers.find((s) => s.id === supplierId) : null;
+
+    const payload: Record<string, any> = {
+      description: editingExpense.description?.trim() || '',
+      amount: Number(editingExpense.amount) || 0,
+      paymentMethod: editingExpense.paymentMethod || 'cash',
+      status: editingExpense.status || 'pending',
+      notes: editingExpense.notes?.trim() || '',
+      category: editingExpense.category ?? null,
+      supplierId: supplierId || null,
+      supplierName: supplier?.name || editingExpense.supplierName || null,
+      date: Timestamp.fromDate(editingExpense.date || new Date()),
+      updatedAt: Timestamp.now()
+    };
+
+    if (includeCreatedMeta && currentUser?.shopId) {
+      payload.shopId = currentUser.shopId;
+      payload.createdBy = currentUser.name || currentUser.email || 'Unknown';
+      payload.createdAt = Timestamp.now();
+    }
+
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    });
+
+    return payload;
+  };
+
   const handleCreateExpense = async () => {
     if (!currentUser?.shopId || !editingExpense.description || !editingExpense.amount) {
       toast.error('Please fill in all required fields');
@@ -170,14 +214,7 @@ const Expenses: React.FC = () => {
     }
 
     try {
-      const expenseData = {
-        ...editingExpense,
-        shopId: currentUser.shopId,
-        createdBy: currentUser.name || 'Unknown',
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        date: Timestamp.fromDate(editingExpense.date || new Date())
-      };
+      const expenseData = buildExpensePayload(true);
 
       await addDoc(collection(db, `shops/${currentUser.shopId}/expenses`), expenseData);
       
@@ -189,7 +226,9 @@ const Expenses: React.FC = () => {
         date: new Date(),
         paymentMethod: 'cash',
         status: 'pending',
-        notes: ''
+        notes: '',
+        supplierId: '',
+        supplierName: ''
       });
       fetchExpenses();
     } catch (error) {
@@ -203,11 +242,8 @@ const Expenses: React.FC = () => {
 
     try {
       const expenseRef = doc(db, `shops/${currentUser.shopId}/expenses`, selectedExpense.id);
-      await updateDoc(expenseRef, {
-        ...editingExpense,
-        updatedAt: Timestamp.now(),
-        date: Timestamp.fromDate(editingExpense.date || new Date())
-      });
+      const expenseData = buildExpensePayload();
+      await updateDoc(expenseRef, expenseData);
       
       toast.success('Expense updated successfully');
       setShowEditModal(false);
