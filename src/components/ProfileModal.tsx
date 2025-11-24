@@ -107,7 +107,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user }) =>
           <p className="text-gray-600 dark:text-gray-400">{user.email}</p>
         </div>
 
-        {/* Profile Details */}
+        {/* Profile details */}
         <div className="space-y-4">
           <div className="flex items-center space-x-3">
             <Shield className="w-5 h-5 text-gray-400" />
