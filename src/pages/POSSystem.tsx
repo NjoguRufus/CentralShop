@@ -215,12 +215,8 @@ const POSSystem: React.FC = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  const getTax = () => {
-    return getTotal() * 0.1; // 10% tax
-  };
-
   const getFinalTotal = () => {
-    return getTotal() + getTax();
+    return getTotal();
   };
 
   const upsertCustomerProfile = useCallback(
@@ -505,7 +501,7 @@ const POSSystem: React.FC = () => {
 
       // Calculate totals
       const subtotal = getTotal();
-      const tax = getTax();
+      const tax = 0; // Tax removed
       const total = getFinalTotal();
 
       // Determine order status based on payment method
@@ -545,6 +541,13 @@ const POSSystem: React.FC = () => {
         ...(paymentData.partialAmount && { partialAmount: paymentData.partialAmount }),
         ...(paymentData.remainingAmount && { remainingAmount: paymentData.remainingAmount }),
         ...(paymentData.dueDate && { dueDate: paymentData.dueDate }),
+        // Split payment fields
+        ...(paymentData.paymentMethod === 'split' && {
+          cashAmount: paymentData.cashAmount,
+          mpesaAmount: paymentData.mpesaAmount,
+          amountReceived: (paymentData.cashAmount || 0) + (paymentData.mpesaAmount || 0),
+          change: Math.max(0, ((paymentData.cashAmount || 0) + (paymentData.mpesaAmount || 0)) - total)
+        }),
         // Track who issued debt/partial payment
         ...((paymentData.paymentMethod === 'debt' || paymentData.paymentMethod === 'partial') && {
           debtIssuedBy: currentUser.name || 'Cashier',
@@ -656,6 +659,9 @@ const POSSystem: React.FC = () => {
         partialAmount: paymentData.partialAmount,
         remainingAmount: paymentData.remainingAmount,
         dueDate: paymentData.dueDate,
+        // Split payment fields
+        cashAmount: paymentData.cashAmount,
+        mpesaAmount: paymentData.mpesaAmount,
         employeeName: currentUser.name || 'Cashier',
         timestamp: new Date(),
         businessName: 'CENTRAL SHOP',
@@ -868,15 +874,7 @@ const POSSystem: React.FC = () => {
 
                 {/* Order Summary */}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>KSH {getTotal().toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tax (10%):</span>
-                    <span>KSH {getTax().toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg border-t border-gray-200 dark:border-gray-700 pt-2">
+                  <div className="flex justify-between font-bold text-lg">
                     <span>Total:</span>
                     <span>KSH {getFinalTotal().toLocaleString()}</span>
                   </div>

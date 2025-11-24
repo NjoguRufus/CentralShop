@@ -29,7 +29,7 @@ interface CheckoutModalProps {
 }
 
 interface PaymentData {
-  paymentMethod: 'cash' | 'mobile' | 'debt' | 'partial';
+  paymentMethod: 'cash' | 'mobile' | 'debt' | 'partial' | 'split';
   amountReceived?: number;
   change?: number;
   customerId?: string;
@@ -41,6 +41,9 @@ interface PaymentData {
   partialAmount?: number;
   remainingAmount?: number;
   dueDate?: string;
+  // Split payment fields
+  cashAmount?: number;
+  mpesaAmount?: number;
 }
 
 interface Customer {
@@ -62,7 +65,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const { currentUser } = useAuth();
   const { lookupCustomer, isLoading: isLookingUpCustomer } = useCustomerLookup();
   const { getAvailablePaymentMethods, loading: settingsLoading } = usePaymentSettings();
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile' | 'debt' | 'partial'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile' | 'debt' | 'partial' | 'split'>('cash');
   const [debtPaymentType, setDebtPaymentType] = useState<'debt' | 'partial'>('debt'); // Sub-modal type for debt/partial
   const [amountReceived, setAmountReceived] = useState<string>('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -74,6 +77,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [customerFound, setCustomerFound] = useState<boolean>(false);
   const [partialAmount, setPartialAmount] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
+  // Split payment fields
+  const [cashAmount, setCashAmount] = useState<string>('');
+  const [mpesaAmount, setMpesaAmount] = useState<string>('');
   const [currentStep, setCurrentStep] = useState<'payment' | 'customer'>('payment');
   const paymentMethodRef = useRef<HTMLDivElement>(null);
   
@@ -92,7 +98,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Set default payment method when modal opens
   useEffect(() => {
     if (isOpen && availablePaymentMethods.length > 0) {
-      const defaultMethod = availablePaymentMethods[0].value as 'cash' | 'mobile' | 'debt' | 'partial';
+      const defaultMethod = availablePaymentMethods[0].value as 'cash' | 'mobile' | 'debt' | 'partial' | 'split';
       setPaymentMethod(defaultMethod);
     }
   }, [isOpen]); // Only depend on isOpen, not on availablePaymentMethods
@@ -111,6 +117,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setCustomerFound(false);
     }
   }, [selectedCustomerId, customers]);
+
 
   const fetchCustomers = async () => {
     try {
@@ -135,6 +142,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     ? total - parseFloat(partialAmount)
     : 0;
 
+  // Calculate split payment amounts
+  const splitCashAmount = paymentMethod === 'split' && cashAmount ? parseFloat(cashAmount) : 0;
+  const splitMpesaAmount = paymentMethod === 'split' && mpesaAmount ? parseFloat(mpesaAmount) : 0;
+  const splitTotal = splitCashAmount + splitMpesaAmount;
+  const splitChange = paymentMethod === 'split' ? Math.max(0, splitTotal - total) : 0;
+
   const isValidPayment = useCallback(() => {
     // If no payment methods are available, payment is not valid
     if (availablePaymentMethods.length === 0) {
@@ -147,6 +160,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (paymentMethod === 'mobile') {
       return mpesaCode.trim().length > 0;
     }
+    if (paymentMethod === 'split') {
+      const cash = cashAmount ? parseFloat(cashAmount) : 0;
+      const mpesa = mpesaAmount ? parseFloat(mpesaAmount) : 0;
+      return cash >= 0 && mpesa >= 0 && (cash + mpesa) >= total && mpesaCode.trim().length > 0;
+    }
     if (paymentMethod === 'debt') {
       const hasCustomer = selectedCustomerId || (customerName.trim().length > 0 && customerPhone.trim().length > 0);
       if (debtPaymentType === 'partial') {
@@ -156,7 +174,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return hasCustomer && dueDate.trim().length > 0;
     }
     return true;
-  }, [availablePaymentMethods.length, paymentMethod, amountReceived, total, mpesaCode, customerName, customerPhone, dueDate, partialAmount, debtPaymentType, selectedCustomerId]);
+  }, [availablePaymentMethods.length, paymentMethod, amountReceived, total, mpesaCode, customerName, customerPhone, dueDate, partialAmount, debtPaymentType, selectedCustomerId, cashAmount, mpesaAmount]);
 
   const handleConfirm = () => {
     // Get customer data - use selected customer data if available, otherwise use entered data
@@ -181,11 +199,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       customerName: finalCustomerName || undefined,
       customerEmail: finalCustomerEmail || undefined,
       customerPhone: finalCustomerPhone || undefined,
-      mpesaCode: paymentMethod === 'mobile' ? mpesaCode : undefined,
+      mpesaCode: (paymentMethod === 'mobile' || paymentMethod === 'split') ? mpesaCode : undefined,
       debtAmount: paymentMethod === 'debt' ? total : undefined,
       partialAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? parseFloat(partialAmount) : undefined,
       remainingAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? remainingAmount : undefined,
       dueDate: paymentMethod === 'debt' ? dueDate : undefined,
+      // Split payment fields
+      cashAmount: paymentMethod === 'split' && cashAmount ? parseFloat(cashAmount) : undefined,
+      mpesaAmount: paymentMethod === 'split' && mpesaAmount ? parseFloat(mpesaAmount) : undefined,
     };
     onConfirm(paymentData);
   };
@@ -227,6 +248,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCustomerFound(false);
     setPartialAmount('');
     setDueDate('');
+    setCashAmount('');
+    setMpesaAmount('');
     onClose();
   };
 
@@ -244,6 +267,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setCustomerFound(false);
       setPartialAmount('');
       setDueDate('');
+      setCashAmount('');
+      setMpesaAmount('');
       setCurrentStep('payment');
     }
   }, [isOpen]);
@@ -255,11 +280,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         paymentMethod,
         amountReceived: paymentMethod === 'cash' ? parseFloat(amountReceived) : undefined,
         change: paymentMethod === 'cash' ? change : undefined,
-        mpesaCode: paymentMethod === 'mobile' ? mpesaCode : undefined,
+        mpesaCode: (paymentMethod === 'mobile' || paymentMethod === 'split') ? mpesaCode : undefined,
         debtAmount: paymentMethod === 'debt' ? total : undefined,
         partialAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? parseFloat(partialAmount) : undefined,
         remainingAmount: (paymentMethod === 'debt' && debtPaymentType === 'partial') ? remainingAmount : undefined,
         dueDate: paymentMethod === 'debt' ? dueDate : undefined,
+        // Split payment fields
+        cashAmount: paymentMethod === 'split' && cashAmount ? parseFloat(cashAmount) : undefined,
+        mpesaAmount: paymentMethod === 'split' && mpesaAmount ? parseFloat(mpesaAmount) : undefined,
       };
       
       // If onContinue callback is provided, use it (for separate modal)
@@ -421,19 +449,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                      <span className="text-gray-900 dark:text-white">KSH {(total * 0.909).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Tax (10%):</span>
-                      <span className="text-gray-900 dark:text-white">KSH {(total * 0.091).toFixed(2)}</span>
-                    </div>
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">Total:</span>
-                        <span className="text-xl font-bold text-[#4A90A4]">KSH {total.toFixed(2)}</span>
-                      </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-bold text-gray-900 dark:text-white">Total:</span>
+                      <span className="text-xl font-bold text-[#4A90A4]">KSH {total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -487,7 +505,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       return (
                         <button
                           key={method.value}
-                            onClick={() => setPaymentMethod(method.value as 'cash' | 'mobile' | 'debt' | 'partial')}
+                            onClick={() => setPaymentMethod(method.value as 'cash' | 'mobile' | 'debt' | 'partial' | 'split')}
                             className={`group relative flex-none px-3 py-2 rounded-lg border-2 transition-all duration-200 ${
                             paymentMethod === method.value
                                 ? 'border-[#4A90A4] bg-[#4A90A4]/10 text-[#4A90A4] shadow-lg scale-105'
@@ -519,7 +537,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             onClick={() => {
                               const currentIndex = availablePaymentMethods.findIndex(m => m.value === paymentMethod);
                               const newIndex = currentIndex > 0 ? currentIndex - 1 : availablePaymentMethods.length - 1;
-                              setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial');
+                              setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial' | 'split');
                             }}
                             className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             title="Previous payment method (Left Arrow)"
@@ -531,7 +549,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             onClick={() => {
                               const currentIndex = availablePaymentMethods.findIndex(m => m.value === paymentMethod);
                               const newIndex = currentIndex < availablePaymentMethods.length - 1 ? currentIndex + 1 : 0;
-                              setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial');
+                              setPaymentMethod(availablePaymentMethods[newIndex].value as 'cash' | 'mobile' | 'debt' | 'partial' | 'split');
                             }}
                             className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             title="Next payment method (Right Arrow)"
@@ -613,6 +631,164 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
+              {/* Split Payment Fields (Cash + M-Pesa) */}
+              {paymentMethod === 'split' && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                      <Banknote className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Split Payment (Cash + M-Pesa)</h4>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Due:</span>
+                        <span className="text-lg font-bold text-gray-900 dark:text-white">
+                          KSH {total.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Cash Amount <span className="text-red-500">*</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(Auto-fills)</span>
+                      </label>
+                      <input
+                        name="cashAmount"
+                        type="number"
+                        value={cashAmount}
+                        onChange={(e) => {
+                          setCashAmount(e.target.value);
+                          // Auto-calculate M-Pesa amount only if cash doesn't exceed total
+                          const cash = parseFloat(e.target.value) || 0;
+                          if (cash >= 0) {
+                            if (cash <= total) {
+                              const calculatedMpesa = Math.max(0, total - cash);
+                              setMpesaAmount(calculatedMpesa.toFixed(2));
+                            } else {
+                              // If cash exceeds total, set M-Pesa to 0
+                              setMpesaAmount('0.00');
+                            }
+                          }
+                        }}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        required
+                        className="w-full px-2 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-2 border-blue-300 dark:border-blue-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      {/* Cash Overdraft Container */}
+                      {splitCashAmount > total && (
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-blue-800 dark:text-blue-200">Cash Overdraft:</span>
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                              KSH {(splitCashAmount - total).toFixed(2)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            Excess cash payment (can be used as tip)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                        M-Pesa Amount <span className="text-red-500">*</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(Auto-filled)</span>
+                      </label>
+                      <input
+                        name="mpesaAmount"
+                        type="number"
+                        value={mpesaAmount}
+                        onChange={(e) => {
+                          setMpesaAmount(e.target.value);
+                          // Auto-calculate cash amount only if M-Pesa doesn't exceed total
+                          const mpesa = parseFloat(e.target.value) || 0;
+                          if (mpesa >= 0) {
+                            if (mpesa <= total) {
+                              const calculatedCash = Math.max(0, total - mpesa);
+                              setCashAmount(calculatedCash.toFixed(2));
+                            } else {
+                              // If M-Pesa exceeds total, set cash to 0
+                              setCashAmount('0.00');
+                            }
+                          }
+                        }}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        required
+                        className="w-full px-2 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-2 border-green-300 dark:border-green-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      />
+                      {/* M-Pesa Overdraft Container */}
+                      {splitMpesaAmount > total && (
+                        <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-green-800 dark:text-green-200">M-Pesa Overdraft:</span>
+                            <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                              KSH {(splitMpesaAmount - total).toFixed(2)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            Excess M-Pesa payment (can be used as tip)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <FormInput
+                      name="mpesaCode"
+                      type="text"
+                      label="M-Pesa Code"
+                      value={mpesaCode}
+                      onChange={handleMpesaCodeChange}
+                      placeholder="Enter M-Pesa transaction code"
+                      className="uppercase"
+                      required
+                    />
+                    {(splitCashAmount > 0 || splitMpesaAmount > 0) && (
+                      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Cash:</span>
+                          <span className="font-semibold text-blue-600 dark:text-blue-400">
+                            KSH {splitCashAmount.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">M-Pesa:</span>
+                          <span className="font-semibold text-green-600 dark:text-green-400">
+                            KSH {splitMpesaAmount.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-300 dark:border-gray-600">
+                          <span className="text-gray-600 dark:text-gray-400">Total Paid:</span>
+                          <span className={`font-bold ${splitTotal >= total ? 'text-green-600' : 'text-red-600'}`}>
+                            KSH {splitTotal.toFixed(2)}
+                          </span>
+                        </div>
+                        {splitChange > 0 && (
+                          <div className="flex justify-between text-sm pt-2 border-t border-gray-300 dark:border-gray-600">
+                            <span className="text-gray-600 dark:text-gray-400">Change:</span>
+                            <span className="font-bold text-green-600">
+                              KSH {splitChange.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        {splitTotal < total && (
+                          <div className="flex justify-between text-sm pt-2 border-t border-gray-300 dark:border-gray-600">
+                            <span className="text-gray-600 dark:text-gray-400">Amount Short:</span>
+                            <span className="font-bold text-red-600">
+                              KSH {(total - splitTotal).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Mobile Payment Fields */}
               {paymentMethod === 'mobile' && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
@@ -647,42 +823,56 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         ? 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                         : 'bg-orange-50/50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
                     }`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                            debtPaymentType === 'partial'
-                              ? 'bg-blue-100 dark:bg-blue-900/30'
-                              : 'bg-orange-100 dark:bg-orange-900/30'
-                          }`}>
-                            <Receipt className={`w-4 h-4 ${
-                              debtPaymentType === 'partial' ? 'text-blue-600' : 'text-orange-600'
-                            }`} />
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              debtPaymentType === 'partial'
+                                ? 'bg-blue-100 dark:bg-blue-900/30'
+                                : 'bg-orange-100 dark:bg-orange-900/30'
+                            }`}>
+                              <Receipt className={`w-4 h-4 ${
+                                debtPaymentType === 'partial' ? 'text-blue-600' : 'text-orange-600'
+                              }`} />
+                            </div>
+                            <h4 className={`text-lg font-semibold ${
+                              debtPaymentType === 'partial'
+                                ? 'text-blue-800 dark:text-blue-200'
+                                : 'text-orange-800 dark:text-orange-200'
+                            }`}>
+                              Payment Type
+                            </h4>
                           </div>
-                          <h4 className={`text-lg font-semibold ${
-                            debtPaymentType === 'partial'
-                              ? 'text-blue-800 dark:text-blue-200'
-                              : 'text-orange-800 dark:text-orange-200'
-                          }`}>
-                            {debtPaymentType === 'debt' ? 'Debt Payment' : 'Partial Payment'}
-                          </h4>
-                        </div>
-                        {/* Switch buttons - Using custom Select component */}
-                        <div className="w-full">
-                          <Select
-                            value={debtPaymentType}
-                            onChange={(v) => {
-                              const newType = v as 'debt' | 'partial';
-                              setDebtPaymentType(newType);
-                              if (newType === 'debt') {
+                          {/* Payment Type Buttons */}
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDebtPaymentType('debt');
                                 setPartialAmount('');
-                              }
-                            }}
-                            options={[
-                              { value: 'debt', label: 'Debt Payment' },
-                              { value: 'partial', label: 'Partial Payment' }
-                            ]}
-                            className="w-full"
-                          />
+                              }}
+                              className={`px-3 py-1.5 rounded-lg border-2 transition-all duration-200 text-xs font-medium ${
+                                debtPaymentType === 'debt'
+                                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 shadow-md'
+                                  : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-orange-300 dark:hover:border-orange-700 hover:bg-orange-50/50 dark:hover:bg-orange-900/10'
+                              }`}
+                            >
+                              Debt
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDebtPaymentType('partial');
+                              }}
+                              className={`px-3 py-1.5 rounded-lg border-2 transition-all duration-200 text-xs font-medium ${
+                                debtPaymentType === 'partial'
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 shadow-md'
+                                  : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/10'
+                              }`}
+                            >
+                              Partial
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <div className="space-y-4">

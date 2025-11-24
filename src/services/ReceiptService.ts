@@ -22,6 +22,9 @@ export interface ReceiptData {
   partialAmount?: number;
   remainingAmount?: number;
   dueDate?: string;
+  // Split payment fields
+  cashAmount?: number;
+  mpesaAmount?: number;
   employeeName: string;
   timestamp: Date;
   businessName: string;
@@ -276,14 +279,6 @@ export class ReceiptService {
           
             <div class="stat-grid">
               <div class="stat-card">
-                <div class="stat-label">Subtotal</div>
-                <div class="stat-value">${formatCurrency(receiptData.subtotal)}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Tax</div>
-                <div class="stat-value">${formatCurrency(receiptData.tax)}</div>
-              </div>
-              <div class="stat-card">
                 <div class="stat-label">Amount Received</div>
                 <div class="stat-value">${receiptData.amountReceived ? formatCurrency(receiptData.amountReceived) : '—'}</div>
               </div>
@@ -293,6 +288,22 @@ export class ReceiptService {
               </div>
             </div>
 
+            ${receiptData.paymentMethod === 'split' && receiptData.cashAmount !== undefined && receiptData.mpesaAmount !== undefined ? `
+            <div class="stat-grid" style="margin-top:8px;">
+              <div class="stat-card" style="border-color:#3b82f6;">
+                <div class="stat-label">Cash Paid</div>
+                <div class="stat-value" style="color:#3b82f6;">${formatCurrency(receiptData.cashAmount)}</div>
+              </div>
+              <div class="stat-card" style="border-color:#10b981;">
+                <div class="stat-label">M-Pesa Paid</div>
+                <div class="stat-value" style="color:#10b981;">${formatCurrency(receiptData.mpesaAmount)}</div>
+              </div>
+              ${receiptData.mpesaCode ? `
+              <div class="stat-card">
+                <div class="stat-label">M-Pesa Code</div>
+                <div class="stat-value" style="font-size:10px;">${receiptData.mpesaCode}</div>
+              </div>` : ''}
+            </div>` : ''}
             ${receiptData.debtAmount || receiptData.partialAmount ? `
             <div class="stat-grid" style="margin-top:8px;">
               ${receiptData.debtAmount ? `
