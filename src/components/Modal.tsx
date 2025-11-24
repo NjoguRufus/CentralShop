@@ -19,8 +19,15 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
   };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className={`w-full ${sizeClasses[size]} mx-4 bg-white dark:bg-slate-900 rounded-lg md:rounded-xl shadow-2xl p-3 md:p-4 transform transition-all`}>
+    <div className="fixed inset-0 z-[12000] flex items-start justify-center bg-black/50 p-4 overflow-y-auto">
+      <div
+        className={`
+          w-full ${sizeClasses[size]}
+          bg-white dark:bg-slate-900 rounded-lg md:rounded-2xl shadow-2xl
+          p-3 md:p-4 transform transition-all
+          max-h-[90vh] overflow-y-auto
+        `}
+      >
         <div className="flex items-center justify-between mb-2 md:mb-3">
           <h3 className="text-base md:text-lg font-semibold">{title}</h3>
           <button 

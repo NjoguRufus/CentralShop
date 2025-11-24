@@ -1,7 +1,6 @@
 // src/services/BusinessSettingsService.ts
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getShopCollectionName } from '../config/shopConfig';
 
 export interface BusinessInfo {
   name: string;
@@ -23,8 +22,8 @@ export class BusinessSettingsService {
         };
       }
 
-      // Get from general settings document (where settings are actually saved)
-      const settingsDoc = await getDoc(doc(db, getShopCollectionName('settings'), 'general'));
+      // Get from shop-specific settings document
+      const settingsDoc = await getDoc(doc(db, 'shops', shopId, 'settings', 'general'));
       
       if (settingsDoc.exists()) {
         const data = settingsDoc.data();

@@ -12,6 +12,8 @@ interface PaymentSettings {
   cardPaymentProvider?: string;
   mobilePaymentProvider?: string;
   autoDownloadReceipt: boolean;
+  saveReceipt: boolean;
+  receiptFormat: 'PDF' | 'TXT' | 'Image';
 }
 
 export const usePaymentSettings = () => {
@@ -24,7 +26,9 @@ export const usePaymentSettings = () => {
     enablePartialPayments: false,
     cardPaymentProvider: '',
     mobilePaymentProvider: 'M-Pesa',
-    autoDownloadReceipt: false
+    autoDownloadReceipt: false,
+    saveReceipt: false,
+    receiptFormat: 'PDF'
   });
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +59,9 @@ export const usePaymentSettings = () => {
           enablePartialPayments: false,
           cardPaymentProvider: '',
           mobilePaymentProvider: 'M-Pesa',
-          autoDownloadReceipt: false
+          autoDownloadReceipt: false,
+          saveReceipt: false,
+          receiptFormat: 'PDF'
         };
         console.log('Loaded payment settings:', settings);
         setPaymentSettings(settings);

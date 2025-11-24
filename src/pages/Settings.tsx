@@ -99,7 +99,7 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     if (currentUser?.shopId) {
-      fetchSettings();
+    fetchSettings();
     }
   }, [currentUser?.shopId]);
 

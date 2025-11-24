@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Minus, Trash2, CreditCard, DollarSign, Search, ShoppingCart, Grid3x3, List } from 'lucide-react';
-import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where } from 'firebase/firestore';
+import { Plus, Minus, Trash2, Search, ShoppingCart, Grid3x3, List } from 'lucide-react';
+import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName } from '../config/shopConfig';
@@ -25,7 +25,7 @@ interface ProductCategory {
 
 const POSSystem: React.FC = () => {
   const { currentUser } = useAuth();
-  const { paymentSettings, loading: settingsLoading } = usePaymentSettings();
+  const { paymentSettings } = usePaymentSettings();
   const { addNotification } = useNotifications();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -222,6 +222,84 @@ const POSSystem: React.FC = () => {
     return getTotal() + getTax();
   };
 
+  const upsertCustomerProfile = useCallback(
+    async (paymentData: any, orderTotal: number): Promise<string | null> => {
+      if (!currentUser?.shopId) {
+        return paymentData.customerId || null;
+      }
+
+      if (
+        !paymentData.customerId &&
+        !paymentData.customerPhone &&
+        !paymentData.customerName
+      ) {
+        return null;
+      }
+
+      const customersCollectionName = getShopCollectionName('customers');
+      const customersRef = collection(db, customersCollectionName);
+
+      let customerRef = paymentData.customerId
+        ? doc(db, customersCollectionName, paymentData.customerId)
+        : null;
+      let customerSnapshot = customerRef ? await getDoc(customerRef) : null;
+
+      if ((!customerSnapshot || !customerSnapshot.exists()) && paymentData.customerPhone) {
+        const existingQuery = query(customersRef, where('phone', '==', paymentData.customerPhone));
+        const existingSnapshot = await getDocs(existingQuery);
+        if (!existingSnapshot.empty) {
+          customerRef = existingSnapshot.docs[0].ref;
+          customerSnapshot = existingSnapshot.docs[0];
+        }
+      }
+
+      if (!customerSnapshot || !customerSnapshot.exists()) {
+        if (!paymentData.customerName && !paymentData.customerPhone) {
+          return paymentData.customerId || null;
+        }
+
+        const newCustomer = {
+          name: paymentData.customerName || 'Customer',
+          phone: paymentData.customerPhone || '',
+          email: paymentData.customerEmail || '',
+          loyaltyPoints: 0,
+          totalSpent: 0,
+          totalPurchases: 0,
+          orderCount: 0,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        };
+
+        const newDocRef = await addDoc(customersRef, newCustomer);
+        customerRef = newDocRef;
+        customerSnapshot = await getDoc(newDocRef);
+      }
+
+      if (!customerRef) {
+        return null;
+      }
+
+      const existingData = customerSnapshot?.data() || {};
+      const earnedPoints = Math.max(0, Math.floor((orderTotal || 0) / 200));
+
+      await updateDoc(customerRef, {
+        name: paymentData.customerName || existingData.name || 'Customer',
+        phone: paymentData.customerPhone || existingData.phone || '',
+        email: paymentData.customerEmail || existingData.email || '',
+        totalSpent: (existingData.totalSpent || 0) + orderTotal,
+        orderCount: (existingData.orderCount || existingData.totalPurchases || 0) + 1,
+        totalPurchases: (existingData.totalPurchases || existingData.orderCount || 0) + 1,
+        loyaltyPoints: (existingData.loyaltyPoints || 0) + earnedPoints,
+        lastPurchaseAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      });
+
+      return customerRef.id;
+    },
+    [currentUser?.shopId]
+  );
+
+  /*
   const downloadReceipt = (orderData: any) => {
     const formatCurrency = (amount: number) => `KSH ${amount.toLocaleString()}`;
     const formatDate = (date: Date) => date.toLocaleString('en-US', {
@@ -387,6 +465,7 @@ const POSSystem: React.FC = () => {
       printWindow.close();
     }
   };
+  */
 
   const handleCheckout = async (paymentData: any) => {
     // Capture cart snapshot before clearing
@@ -438,8 +517,10 @@ const POSSystem: React.FC = () => {
         }
       }
 
+      const customerIdForStats = await upsertCustomerProfile(paymentData, total);
+
       // Create order - filter out undefined values
-      const orderData = {
+      const orderData: any = {
         items: cartSnapshot.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -453,7 +534,6 @@ const POSSystem: React.FC = () => {
         createdAt: new Date(),
         employeeId: currentUser.uid,
         employeeName: currentUser.name || 'Cashier',
-        ...(paymentData.customerId && { customerId: paymentData.customerId }),
         ...(paymentData.amountReceived && { amountReceived: paymentData.amountReceived }),
         ...(paymentData.change && { change: paymentData.change }),
         customerName: paymentData.customerName || 'Walk In Customer',
@@ -471,43 +551,26 @@ const POSSystem: React.FC = () => {
         })
       };
 
+      if (paymentData.customerId) {
+        orderData.customerId = paymentData.customerId;
+      } else if (customerIdForStats) {
+        orderData.customerId = customerIdForStats;
+      }
+
       // Save order to Firebase - use shop-specific collection
       const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
       const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser.shopId!);
       await addDoc(collection(db, ordersCollectionName), orderData);
 
-      // If debt or partial payment, create invoice and save customer
-      let customerId: string | null = null;
+      // If debt or partial payment, create invoice
       if (paymentData.paymentMethod === 'debt' && paymentData.customerName && paymentData.customerPhone) {
-        try {
-          // Check if customer already exists by phone or use provided customerId
-          if (paymentData.customerId) {
-            customerId = paymentData.customerId;
-          } else {
-            const { getShopCollectionName } = await import('../config/shopConfig');
-            const customersRef = collection(db, getShopCollectionName('customers'));
-            const customerQuery = query(customersRef, where('phone', '==', paymentData.customerPhone));
-            const customerSnapshot = await getDocs(customerQuery);
-            
-            if (customerSnapshot.empty) {
-              // Create new customer
-              const newCustomer = {
-                name: paymentData.customerName,
-                phone: paymentData.customerPhone,
-                email: paymentData.customerEmail || '',
-                createdAt: Timestamp.now(),
-                totalPurchases: 0,
-                totalSpent: 0
-              };
-              const customerDocRef = await addDoc(customersRef, newCustomer);
-              customerId = customerDocRef.id;
-            } else {
-              // Use existing customer
-              customerId = customerSnapshot.docs[0].id;
-            }
-          }
+        let customerId = customerIdForStats || paymentData.customerId || null;
+        if (!customerId) {
+          customerId = await upsertCustomerProfile(paymentData, total);
+        }
 
-          // Create invoice
+        if (customerId) {
+          try {
           const invoiceNumber = `INV-${Date.now()}`;
           const invoiceItems = cartSnapshot.map(item => ({
             description: item.product.name,
@@ -553,6 +616,9 @@ const POSSystem: React.FC = () => {
           console.error('Error creating invoice/customer:', error);
           toast.error('Order created but failed to create invoice. Please create manually.');
         }
+        } else {
+          toast.error('Unable to create invoice because customer information is missing.');
+        }
       }
 
       // Update product stock
@@ -590,7 +656,10 @@ const POSSystem: React.FC = () => {
         remainingAmount: paymentData.remainingAmount,
         dueDate: paymentData.dueDate,
         employeeName: currentUser.name || 'Cashier',
-        timestamp: new Date()
+        timestamp: new Date(),
+        businessName: 'CENTRAL SHOP',
+        businessAddress: '',
+        businessPhone: ''
       };
 
       // Process receipt printing in parallel (non-blocking)
@@ -811,7 +880,7 @@ const POSSystem: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={() => setIsClearCartModalOpen(true)} 
-                    variant="outline" 
+                    variant="secondary"
                     className="w-full flex items-center justify-center text-red-600 hover:text-red-700 hover:border-red-300"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />

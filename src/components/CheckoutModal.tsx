@@ -776,6 +776,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                 { value: '', label: 'New Customer' },
                                 ...customers.map(c => ({ value: c.id, label: `${c.name} - ${c.phone}` }))
                               ]}
+                              searchable
+                              dropdownClassName="max-h-48"
                             />
                           </div>
                           {/* Hide customer fields when customer is selected */}

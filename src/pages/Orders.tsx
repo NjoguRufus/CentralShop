@@ -1,6 +1,6 @@
 // src/pages/Orders.tsx
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, getDoc, where } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, where } from 'firebase/firestore';
 import Select from '../components/UI/Select';
 import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
@@ -16,6 +16,8 @@ import Modal from '../components/Modal';
 import Button from '../components/UI/Button';
 import { Download, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { ReceiptService, ReceiptData } from '../services/ReceiptService';
+import { BusinessSettingsService } from '../services/BusinessSettingsService';
 
 interface Product {
   id: string;
@@ -24,11 +26,13 @@ interface Product {
   quantity: number;
 }
 
-interface Order {
+interface OrderRecord {
   id?: string;
   customerId: string;
   date: string;
   total: number;
+  subtotal?: number;
+  tax?: number;
   status: 'pending' | 'completed' | 'refunded' | 'cancelled';
   products?: Product[];
   items?: Array<{
@@ -47,6 +51,10 @@ interface Order {
   createdAt?: any;
   employeeId?: string;
   employeeName?: string;
+  debtAmount?: number;
+  partialAmount?: number;
+  remainingAmount?: number;
+  dueDate?: string;
   debtIssuedBy?: string;
   debtIssuedById?: string;
 }
@@ -63,7 +71,7 @@ const Orders: React.FC = () => {
   const { addNotification } = useNotifications();
   
   // State hooks
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -72,10 +80,10 @@ const Orders: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
-  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<OrderRecord | null>(null);
   const [adminPassword, setAdminPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -120,10 +128,10 @@ const Orders: React.FC = () => {
         querySnapshot = await getDocs(q);
       }
       
-      const ordersData: Order[] = [];
+      const ordersData: OrderRecord[] = [];
       
       querySnapshot.forEach((orderDoc) => {
-        const orderData = { id: orderDoc.id, ...orderDoc.data() } as Order;
+        const orderData = { id: orderDoc.id, ...orderDoc.data() } as OrderRecord;
         
         // Auto-determine category if not set
         if (!orderData.category) {
@@ -203,7 +211,7 @@ const Orders: React.FC = () => {
   };
 
   // Auto-determine order category based on products
-  const determineOrderCategory = (order: Order): string => {
+  const determineOrderCategory = (order: OrderRecord): string => {
     if (!order.items || order.items.length === 0) {
       return 'multiple';
     }
@@ -230,7 +238,7 @@ const Orders: React.FC = () => {
     return 'multiple';
   };
 
-  const getCustomerName = (order: Order): string => {
+  const getCustomerName = (order: OrderRecord): string => {
     // First check if customerName is directly stored on the order (from checkout)
     if (order.customerName) {
       return order.customerName;
@@ -250,7 +258,7 @@ const Orders: React.FC = () => {
     setSearchTerm(e.target.value);
   };
 
-  const handleStatusUpdate = async (orderId: string, newStatus: Order['status']): Promise<void> => {
+  const handleStatusUpdate = async (orderId: string, newStatus: OrderRecord['status']): Promise<void> => {
     try {
       if (!currentUser?.shopId) {
         toast.error('No shop assigned to your account');
@@ -281,12 +289,12 @@ const Orders: React.FC = () => {
     return matchesSearch && matchesStatus && matchesDate && matchesCategory;
   });
 
-  const viewOrderDetails = (order: Order): void => {
+  const viewOrderDetails = (order: OrderRecord): void => {
     setSelectedOrder(order);
     setIsDetailModalOpen(true);
   };
 
-  const handleDeleteOrder = (order: Order): void => {
+  const handleDeleteOrder = (order: OrderRecord): void => {
     setOrderToDelete(order);
     setAdminPassword('');
     setIsDeleteModalOpen(true);
@@ -372,192 +380,69 @@ const Orders: React.FC = () => {
     }
   };
 
-  const downloadReceipt = async (order: Order): Promise<void> => {
-    const formatCurrency = (amount: number) => `KSH ${amount.toLocaleString()}`;
-    
-    // Get order date
-    const orderDate = order.createdAt?.toDate 
-      ? order.createdAt.toDate() 
-      : (order.date ? new Date(order.date) : new Date());
-    
-    const formatDate = (date: Date) => date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+  const downloadReceipt = async (order: OrderRecord): Promise<void> => {
+    let receiptHTML = '';
+    try {
+      const businessInfo = await BusinessSettingsService.getBusinessInfo(currentUser?.shopId || '');
 
-    // Get products from either products array or items array
-    const getOrderItems = (): Array<{name: string, quantity: number, price: number}> => {
-      if (order.products && order.products.length > 0) {
-        return order.products.map(item => ({
+      const orderDate = order.createdAt?.toDate
+        ? order.createdAt.toDate()
+        : (order.date ? new Date(order.date) : new Date());
+
+      const getOrderItems = (): Array<{ name: string; quantity: number; price: number }> => {
+        if (order.products && order.products.length > 0) {
+          return order.products.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price
+          }));
+        } else if (order.items && order.items.length > 0) {
+          return order.items.map(item => {
+            const product = products.find(p => p.id === item.productId);
+            return {
+              name: product?.name || item.name || `Product ${item.productId}`,
+              quantity: item.quantity,
+              price: item.price
+            };
+          });
+        }
+        return [];
+      };
+
+      const orderItems = getOrderItems();
+      const subtotal = order.subtotal || (order.total / 1.1);
+      const tax = order.tax || (order.total - subtotal);
+
+      const receiptData: ReceiptData = {
+        orderId: order.id || `ORD-${Date.now()}`,
+        items: orderItems.map(item => ({
           name: item.name,
           quantity: item.quantity,
-          price: item.price
-        }));
-      } else if (order.items && order.items.length > 0) {
-        return order.items.map(item => {
-          const product = products.find(p => p.id === item.productId);
-          return {
-            name: product?.name || item.name || `Product ${item.productId}`,
-          quantity: item.quantity,
-          price: item.price
-          };
-        });
-      }
-      return [];
-    };
+          price: item.price,
+          total: item.price * item.quantity
+        })),
+        subtotal,
+        tax,
+        total: order.total,
+        paymentMethod: order.paymentMethod || 'N/A',
+        amountReceived: order.amountReceived,
+        change: order.change,
+        customerName: order.customerName || 'Walk In Customer',
+        customerPhone: order.customerPhone,
+        mpesaCode: order.mpesaCode,
+        employeeName: order.employeeName || currentUser?.name || 'Central Shop Team',
+        timestamp: orderDate,
+        businessName: businessInfo.name || 'CENTRAL SHOP',
+        businessAddress: businessInfo.address || '',
+        businessPhone: businessInfo.phone || ''
+      };
 
-    const orderItems = getOrderItems();
-    
-    // Calculate subtotal and tax
-    const subtotal = order.subtotal || (order.total / 1.1);
-    const tax = order.tax || (order.total - subtotal);
-
-    const receiptHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Receipt - ${order.id}</title>
-        <style>
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-            margin: 0;
-            padding: 10px;
-            width: 300px;
-          }
-          .header {
-            text-align: center;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-          }
-          .shop-name {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 5px;
-          }
-          .order-info {
-            font-size: 10px;
-            margin-bottom: 10px;
-          }
-          .items {
-            margin-bottom: 10px;
-          }
-          .item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 3px;
-          }
-          .item-name {
-            flex: 1;
-          }
-          .item-qty {
-            margin: 0 10px;
-          }
-          .item-price {
-            text-align: right;
-            min-width: 60px;
-          }
-          .totals {
-            border-top: 1px dashed #000;
-            padding-top: 10px;
-            margin-top: 10px;
-          }
-          .total-line {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 3px;
-          }
-          .total-final {
-            font-weight: bold;
-            font-size: 14px;
-            border-top: 1px solid #000;
-            padding-top: 5px;
-            margin-top: 5px;
-          }
-          .payment-info {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed #000;
-          }
-          .customer-info {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed #000;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 10px;
-          }
-          @media print {
-            body { margin: 0; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div style="margin-bottom: 10px; text-align: center;">
-            <img src="/icons/CentalLightmode.png" alt="CENTRAL SHOP Logo" style="max-width: 60px; max-height: 60px; object-fit: contain; margin: 0 auto;" />
-          </div>
-          <div class="shop-name">CENTRAL SHOP</div>
-          <div class="order-info">
-            Order: ${order.id || 'N/A'}<br>
-            Date: ${formatDate(orderDate)}<br>
-            Status: ${order.status.toUpperCase()}
-          </div>
-        </div>
-
-        <div class="items">
-          ${orderItems.length > 0 ? orderItems.map(item => `
-            <div class="item">
-              <div class="item-name">${item.name}</div>
-              <div class="item-qty">${item.quantity}x</div>
-              <div class="item-price">${formatCurrency(item.price * item.quantity)}</div>
-            </div>
-          `).join('') : '<div class="item">No items found</div>'}
-        </div>
-
-        <div class="totals">
-          <div class="total-line">
-            <span>Subtotal:</span>
-            <span>${formatCurrency(subtotal)}</span>
-          </div>
-          <div class="total-line">
-            <span>Tax (${order.tax ? ((order.tax / subtotal) * 100).toFixed(0) : '10'}%):</span>
-            <span>${formatCurrency(tax)}</span>
-          </div>
-          <div class="total-line total-final">
-            <span>TOTAL:</span>
-            <span>${formatCurrency(order.total)}</span>
-          </div>
-        </div>
-
-        <div class="payment-info">
-          <div><strong>Payment Method:</strong> ${order.paymentMethod?.toUpperCase() || 'N/A'}</div>
-          ${order.amountReceived ? `<div><strong>Amount Received:</strong> ${formatCurrency(order.amountReceived)}</div>` : ''}
-          ${order.change ? `<div><strong>Change:</strong> ${formatCurrency(order.change)}</div>` : ''}
-          ${order.mpesaCode ? `<div><strong>M-Pesa Code:</strong> ${order.mpesaCode}</div>` : ''}
-        </div>
-
-        <div class="customer-info">
-          <div><strong>Customer Details:</strong></div>
-          <div>Name: ${order.customerName || 'Walk In Customer'}</div>
-          ${order.customerPhone ? `<div>Phone: ${order.customerPhone}</div>` : ''}
-        </div>
-
-        <div class="footer">
-          Thank you for your business!<br>
-          Please keep this receipt for your records.
-        </div>
-      </body>
-      </html>
-    `;
+      receiptHTML = ReceiptService.buildReceiptHTML(receiptData);
+    } catch (error) {
+      console.error('Error preparing receipt:', error);
+      toast.error('Failed to prepare receipt');
+      return;
+    }
 
     // Convert HTML to PDF and download
     try {
@@ -617,9 +502,9 @@ const Orders: React.FC = () => {
       const element = iframeDoc.body;
 
       const opt = {
-        margin: [5, 5, 5, 5],
+        margin: [5, 5, 5, 5] as [number, number, number, number],
         filename: `Receipt-${order.id || 'Order'}-${new Date().getTime()}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
         html2canvas: { 
           scale: 2, 
           useCORS: true,
@@ -627,7 +512,7 @@ const Orders: React.FC = () => {
           windowWidth: element.scrollWidth,
           windowHeight: element.scrollHeight
         },
-        jsPDF: { unit: 'mm', format: [80, 200], orientation: 'portrait' } // Receipt format
+        jsPDF: { unit: 'mm', format: [80, 200] as [number, number], orientation: 'portrait' as 'portrait' } // Receipt format
       };
 
       await html2pdf().set(opt).from(element).save();
@@ -717,15 +602,15 @@ const Orders: React.FC = () => {
               { 
                 header: 'Customer Name', 
                 accessor: 'customerId',
-                render: (row: Order) => getCustomerName(row)
+                render: (row: OrderRecord) => getCustomerName(row)
               },
-              { header: 'Date', accessor: 'date', render: (row: Order) => {
+              { header: 'Date', accessor: 'date', render: (row: OrderRecord) => {
                   const d = row.createdAt?.toDate ? row.createdAt.toDate() : (row.date ? new Date(row.date) : null);
                   return d ? d.toLocaleDateString() : (row.date || '-');
                 }
               },
-              { header: 'Total', accessor: 'total', render: (row: Order) => `KSH ${row.total.toLocaleString()}` },
-              { header: 'Category', accessor: 'category', render: (row: Order) => {
+              { header: 'Total', accessor: 'total', render: (row: OrderRecord) => `KSH ${row.total.toLocaleString()}` },
+              { header: 'Category', accessor: 'category', render: (row: OrderRecord) => {
                   const category = row.category || determineOrderCategory(row);
                   return <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{category}</span>;
                 }
@@ -733,12 +618,12 @@ const Orders: React.FC = () => {
               { 
                 header: 'Sold By', 
                 accessor: 'employeeName',
-                render: (row: Order) => row.employeeName || 'N/A'
+                render: (row: OrderRecord) => row.employeeName || 'N/A'
               },
               { 
                 header: 'Debt Issued By', 
                 accessor: 'debtIssuedBy',
-                render: (row: Order) => {
+                render: (row: OrderRecord) => {
                   if (row.paymentMethod === 'debt' || row.paymentMethod === 'partial') {
                     return row.debtIssuedBy || row.employeeName || 'N/A';
                   }
@@ -748,7 +633,7 @@ const Orders: React.FC = () => {
               { 
                 header: 'Status', 
                 accessor: 'status',
-                render: (row: Order) => (
+                render: (row: OrderRecord) => (
                   <span className={`px-2 py-1 rounded-full text-xs ${statusColors[row.status]} badge-text-dark`}>
                     {row.status}
                   </span>
@@ -757,7 +642,7 @@ const Orders: React.FC = () => {
               {
                 header: 'Actions',
                 accessor: 'actions',
-                render: (row: Order) => (
+                render: (row: OrderRecord) => (
                   <div className="flex space-x-2 items-center">
                     <button
                       onClick={() => viewOrderDetails(row)}
@@ -791,7 +676,7 @@ const Orders: React.FC = () => {
                       ) : (
                       <Dropdown
                         value={row.status}
-                        onChange={(value) => handleStatusUpdate(row.id!, value as Order['status'])}
+                        onChange={(value) => handleStatusUpdate(row.id!, value as OrderRecord['status'])}
                         options={[
                           { value: 'pending', label: 'Pending' },
                           { value: 'completed', label: 'Completed' },

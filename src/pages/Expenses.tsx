@@ -141,11 +141,11 @@ const Expenses: React.FC = () => {
 
       const mapDocs = (snapshot: QuerySnapshot<DocumentData>) =>
         snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-          updatedAt: doc.data().updatedAt?.toDate() || new Date()
-        })) as Supplier[];
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        updatedAt: doc.data().updatedAt?.toDate() || new Date()
+      })) as Supplier[];
 
       const combinedMap = new Map<string, Supplier>();
       mapDocs(globalSnapshot).forEach((supplier) => combinedMap.set(supplier.id, supplier));

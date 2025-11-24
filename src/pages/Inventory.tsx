@@ -437,6 +437,7 @@ const Inventory: React.FC = () => {
                 placeholder="Select category"
                 addNewLabel="Add new category"
                 onAddNew={() => setShowAddCategoryInline(true)}
+                menuClassName="max-h-48"
               />
             ) : (
               <div className="flex gap-2">

@@ -124,7 +124,7 @@ const DateInput: React.FC<DateInputProps> = ({
       </button>
 
       {isOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] pointer-events-none">
+        <div className="fixed inset-0 z-[12000] pointer-events-none">
           <div
             ref={menuRef}
             className="pointer-events-auto mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4 min-w-[260px]"

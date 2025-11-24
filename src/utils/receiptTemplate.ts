@@ -24,163 +24,208 @@ export interface ReceiptData {
  * Generate HTML receipt template
  */
 export function generateReceiptHTML(data: ReceiptData): string {
+  const accent = '#4A90A4';
+  const format = (value: number) => `KSH ${value.toFixed(2)}`;
+  const brandName = 'CENTRAL SHOP';
+
   return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Receipt - ${data.orderId}</title>
-  <style>
-    @media print {
-      @page {
-        margin: 0;
-        size: 80mm auto;
-      }
-      body {
-        margin: 0;
-        padding: 10px;
-      }
-      .no-print {
-        display: none;
-      }
-    }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      width: 80mm;
-      margin: 0 auto;
-      padding: 10px;
-      background: white;
-      color: black;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 15px;
-    }
-    .logo {
-      font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-    .business-info {
-      font-size: 10px;
-      color: #666;
-    }
-    .divider {
-      border-top: 1px dashed #000;
-      margin: 10px 0;
-    }
-    .section {
-      margin: 10px 0;
-    }
-    .item-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 5px 0;
-      font-size: 11px;
-    }
-    .item-name {
-      flex: 1;
-    }
-    .item-quantity {
-      margin: 0 5px;
-    }
-    .item-price {
-      text-align: right;
-      min-width: 60px;
-    }
-    .totals {
-      margin-top: 10px;
-    }
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 5px 0;
-      font-weight: bold;
-    }
-    .grand-total {
-      font-size: 14px;
-      border-top: 2px solid #000;
-      padding-top: 5px;
-      margin-top: 5px;
-    }
-    .footer {
-      margin-top: 20px;
-      text-align: center;
-      font-size: 10px;
-      color: #666;
-    }
-    .payment-info {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px dashed #000;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="logo">CENTRAL SHOP</div>
-    <div class="business-info">
-      Point of Sale System<br>
-      ${data.date}
-    </div>
-  </div>
-  
-  <div class="divider"></div>
-  
-  <div class="section">
-    <div><strong>Order #:</strong> ${data.orderId}</div>
-    ${data.customerName ? `<div><strong>Customer:</strong> ${data.customerName}</div>` : ''}
-    ${data.employeeName ? `<div><strong>Cashier:</strong> ${data.employeeName}</div>` : ''}
-  </div>
-  
-  <div class="divider"></div>
-  
-  <div class="section">
-    ${data.items.map(item => `
-      <div class="item-row">
-        <span class="item-name">${item.name}</span>
-        <span class="item-quantity">x${item.quantity}</span>
-        <span class="item-price">KSH ${(item.price * item.quantity).toLocaleString()}</span>
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Receipt - ${data.orderId}</title>
+      <style>
+        @media print {
+          @page {
+            margin: 0;
+            size: 80mm auto;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+        }
+        * {
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
+          background: #fff;
+          color: #111;
+          width: 80mm;
+          margin: 0 auto;
+        }
+        .wrap {
+          padding: 10px 12px 16px;
+        }
+        .brand {
+          text-align: center;
+          padding-bottom: 10px;
+          border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        .brand-logo {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 6px;
+        }
+        .brand-logo img {
+          width: 42px;
+          height: 42px;
+          object-fit: contain;
+        }
+        .brand-name {
+          font-size: 16px;
+          letter-spacing: 2px;
+          font-weight: 700;
+          color: ${accent};
+        }
+        .tagline {
+          font-size: 9px;
+          text-transform: uppercase;
+          letter-spacing: 3px;
+          color: #666;
+          margin-top: 2px;
+        }
+        .meta {
+          margin: 10px 0 12px;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .meta-row {
+          display: flex;
+          justify-content: space-between;
+          margin: 2px 0;
+        }
+        .items {
+          margin-top: 12px;
+          border: 1px solid rgba(0,0,0,0.08);
+          border-radius: 10px;
+          padding: 8px;
+        }
+        .item-row {
+          display: grid;
+          grid-template-columns: 1fr auto auto;
+          gap: 6px;
+          font-size: 10px;
+          padding: 4px 0;
+          border-bottom: 1px dashed rgba(0,0,0,0.08);
+        }
+        .item-row:last-child {
+          border-bottom: none;
+        }
+        .item-name {
+          font-weight: 600;
+          color: #222;
+        }
+        .item-qty {
+          text-align: right;
+          color: #666;
+          min-width: 28px;
+        }
+        .item-price {
+          text-align: right;
+          font-weight: 600;
+          min-width: 55px;
+        }
+        .totals {
+          margin-top: 14px;
+          border-top: 1px dashed rgba(0,0,0,0.2);
+          padding-top: 10px;
+        }
+        .total-line {
+          display: flex;
+          justify-content: space-between;
+          font-size: 10px;
+          margin: 2px 0;
+        }
+        .grand-total {
+          font-size: 12px;
+          font-weight: 700;
+          color: #111;
+          margin-top: 6px;
+        }
+        .footer {
+          margin-top: 14px;
+          text-align: center;
+          font-size: 9px;
+          color: #777;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <div class="brand">
+              <div class="brand-logo">
+                <img src="/icons/CentalLightmode.png" alt="${brandName} Logo" onerror="this.style.display='none'" />
+              </div>
+              <div class="brand-name">${brandName}</div>
+          <div class="tagline">Boutique Retail Experience</div>
+        </div>
+
+        <div class="meta">
+          <div class="meta-row">
+            <span>Order</span>
+            <span>#${data.orderId}</span>
+          </div>
+          <div class="meta-row">
+            <span>Date</span>
+            <span>${data.date}</span>
+          </div>
+          ${data.customerName ? `
+          <div class="meta-row">
+            <span>Customer</span>
+            <span>${data.customerName}</span>
+          </div>` : ''}
+          ${data.employeeName ? `
+          <div class="meta-row">
+            <span>Served By</span>
+            <span>${data.employeeName}</span>
+          </div>` : ''}
+        </div>
+
+        <div class="items">
+          ${data.items.map(item => `
+            <div class="item-row">
+              <span class="item-name">${item.name}</span>
+              <span class="item-qty">× ${item.quantity}</span>
+              <span class="item-price">${format(item.price * item.quantity)}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="totals">
+          <div class="total-line">
+            <span>Subtotal</span>
+            <span>${format(data.subtotal)}</span>
+          </div>
+          <div class="total-line">
+            <span>Tax</span>
+            <span>${format(data.tax)}</span>
+          </div>
+          <div class="total-line grand-total">
+            <span>Total</span>
+            <span>${format(data.total)}</span>
+          </div>
+          <div class="total-line" style="margin-top:6px;">
+            <span>Paid via</span>
+            <span>${data.paymentMethod}</span>
+          </div>
+          ${data.change !== undefined && data.change > 0 ? `
+          <div class="total-line">
+            <span>Change</span>
+            <span>${format(data.change)}</span>
+          </div>` : ''}
+        </div>
+
+        <div class="footer">
+          <strong>Modern Luxury Retail</strong>
+          Powered By Astraronix Solutions
+        </div>
       </div>
-    `).join('')}
-  </div>
-  
-  <div class="divider"></div>
-  
-  <div class="totals">
-    <div class="total-row">
-      <span>Subtotal:</span>
-      <span>KSH ${data.subtotal.toLocaleString()}</span>
-    </div>
-    <div class="total-row">
-      <span>Tax:</span>
-      <span>KSH ${data.tax.toLocaleString()}</span>
-    </div>
-    <div class="total-row grand-total">
-      <span>TOTAL:</span>
-      <span>KSH ${data.total.toLocaleString()}</span>
-    </div>
-  </div>
-  
-  <div class="payment-info">
-    <div><strong>Payment Method:</strong> ${data.paymentMethod}</div>
-    ${data.change !== undefined && data.change > 0 ? `<div><strong>Change:</strong> KSH ${data.change.toLocaleString()}</div>` : ''}
-  </div>
-  
-  <div class="footer">
-    Thank you for your business!<br>
-    Central Shop POS
-  </div>
-</body>
-</html>
-  `;
+    </body>
+  </html>`;
 }
 
 /**

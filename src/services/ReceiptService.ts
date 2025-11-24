@@ -38,233 +38,303 @@ export class ReceiptService {
     return `${productName}_${dateStr}_${timeStr}`;
   }
 
-  private static generateReceiptHTML(receiptData: ReceiptData): string {
+  static buildReceiptHTML(receiptData: ReceiptData): string {
     const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
-    
+    const accent = '#4A90A4';
+    const brandName = receiptData.businessName || 'CENTRAL SHOP';
+    const brandAddress = receiptData.businessAddress || '';
+    const brandPhone = receiptData.businessPhone || '';
+
     return `
       <!DOCTYPE html>
       <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Receipt - ${receiptData.orderId}</title>
-        <style>
-          @media print {
-            @page {
-              margin: 0;
-              size: 80mm auto;
+        <head>
+          <meta charset="utf-8" />
+          <title>Receipt - ${receiptData.orderId}</title>
+          <style>
+            @media print {
+              @page {
+                margin: 0;
+                size: 80mm auto;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+              }
+            }
+            * {
+              box-sizing: border-box;
             }
             body {
-              margin: 0;
-              padding: 5px;
+              font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
+              background: #fff;
+              color: #111;
+              width: 80mm;
+              margin: 0 auto;
+              padding: 0;
             }
-          }
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            line-height: 1.3;
-            margin: 0;
-            padding: 5px;
-            background: white;
-            color: black;
-            width: 80mm;
-          }
-          .receipt {
-            max-width: 80mm;
-            margin: 0 auto;
-            padding: 5px;
-          }
-          .header {
-            text-align: center;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 5px;
-            margin-bottom: 5px;
-          }
-          .business-name {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 3px;
-          }
-          .business-info {
-            font-size: 9px;
-            color: #000;
-          }
-          .order-info {
-            margin-bottom: 5px;
-          }
-          .order-id {
-            font-weight: bold;
-            margin-bottom: 2px;
-            font-size: 10px;
-          }
-          .date-time {
-            font-size: 9px;
-            color: #000;
-          }
-          .items {
-            margin-bottom: 5px;
-          }
-          .item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 2px;
-            padding: 1px 0;
-            font-size: 10px;
-          }
-          .item-name {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-          .item-qty {
-            margin: 0 5px;
-            text-align: center;
-            min-width: 25px;
-          }
-          .item-price {
-            text-align: right;
-            min-width: 55px;
-          }
-          .divider {
-            border-top: 1px dashed #000;
-            margin: 5px 0;
-          }
-          .totals {
-            margin-bottom: 5px;
-          }
-          .total-line {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 2px;
-            font-size: 10px;
-          }
-          .total-label {
-            font-weight: bold;
-          }
-          .payment-info {
-            border-top: 1px dashed #000;
-            padding-top: 5px;
-            margin-bottom: 5px;
-            font-size: 10px;
-          }
-          .payment-method {
-            margin-bottom: 2px;
-          }
-          ${receiptData.amountReceived ? `
-          .amount-received {
-            margin-bottom: 5px;
-          }
-          .change {
-            margin-bottom: 5px;
-          }
-          ` : ''}
-          ${receiptData.debtAmount ? `
-          .debt-amount {
-            margin-bottom: 5px;
-            color: #e74c3c;
-          }
-          ` : ''}
-          ${receiptData.partialAmount ? `
-          .partial-amount {
-            margin-bottom: 5px;
-            color: #f39c12;
-          }
-          .remaining-amount {
-            margin-bottom: 5px;
-            color: #e74c3c;
-          }
-          ` : ''}
-          .footer {
-            text-align: center;
-            font-size: 9px;
-            color: #000;
-            border-top: 1px dashed #000;
-            padding-top: 5px;
-          }
-          .employee {
-            margin-bottom: 2px;
-          }
-          .thank-you {
-            font-weight: bold;
-            margin-top: 5px;
-          }
-          img {
-            max-width: 50px;
-            max-height: 50px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="receipt">
-          <div class="header">
-            <div style="margin-bottom: 5px; text-align: center;">
-              <img src="/icons/CentalLightmode.png" alt="Central Shop Logo" style="max-width: 40px; max-height: 40px; object-fit: contain; margin: 0 auto; display: block;" onerror="this.style.display='none'" />
-            </div>
-            <div class="business-name">CENTRAL SHOP</div>
-            <div class="business-info">
-              ${receiptData.businessAddress}<br>
-              ${receiptData.businessPhone}
-            </div>
-          </div>
-          
-          <div class="order-info">
-            <div class="order-id">Order: ${receiptData.orderId}</div>
-            <div class="date-time">${receiptData.timestamp.toLocaleString()}</div>
-          </div>
-          
-          <div class="items">
-            ${receiptData.items.map(item => `
-              <div class="item">
-                <div class="item-name">${item.name}</div>
-                <div class="item-qty">${item.quantity}</div>
-                <div class="item-price">${formatCurrency(item.total)}</div>
+            .receipt {
+              padding: 10px 12px 16px;
+            }
+            .brand {
+              text-align: center;
+              padding-bottom: 10px;
+              border-bottom: 1px solid rgba(0,0,0,0.1);
+            }
+            .brand-logo {
+              display: flex;
+              justify-content: center;
+              margin-bottom: 6px;
+            }
+            .brand-logo img {
+              width: 42px;
+              height: 42px;
+              object-fit: contain;
+            }
+            .brand-name {
+              font-size: 16px;
+              letter-spacing: 2px;
+              font-weight: 700;
+              color: ${accent};
+            }
+            .tagline {
+              font-size: 9px;
+              text-transform: uppercase;
+              letter-spacing: 3px;
+              color: #666;
+              margin-top: 2px;
+            }
+            .meta {
+              margin: 10px 0 12px;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .meta-row {
+              display: flex;
+              justify-content: space-between;
+              margin: 2px 0;
+            }
+
+            .badge {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 9px;
+              padding: 2px 6px;
+              border-radius: 999px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              border: 1px solid ${accent};
+              color: ${accent};
+              margin-top: 4px;
+            }
+
+            .items {
+              margin-top: 12px;
+              border: 1px solid rgba(0,0,0,0.08);
+              border-radius: 10px;
+              padding: 8px;
+            }
+            .item-row {
+              display: grid;
+              grid-template-columns: 1fr auto auto;
+              gap: 6px;
+              font-size: 10px;
+              padding: 4px 0;
+              border-bottom: 1px dashed rgba(0,0,0,0.08);
+            }
+            .item-row:last-child {
+              border-bottom: none;
+            }
+            .item-name {
+              font-weight: 600;
+              color: #222;
+            }
+            .item-qty {
+              text-align: right;
+              color: #666;
+              min-width: 28px;
+            }
+            .item-total {
+              text-align: right;
+              font-weight: 600;
+              min-width: 55px;
+            }
+
+            .stat-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 6px;
+              margin-top: 10px;
+              font-size: 9.5px;
+            }
+            .stat-card {
+              border: 1px solid rgba(0,0,0,0.08);
+              border-radius: 8px;
+              padding: 6px;
+            }
+            .stat-label {
+              color: #777;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              font-size: 8px;
+              margin-bottom: 2px;
+            }
+            .stat-value {
+              font-weight: 600;
+            }
+
+            .totals {
+              margin-top: 14px;
+              border-top: 1px dashed rgba(0,0,0,0.2);
+              padding-top: 10px;
+            }
+            .total-line {
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+              margin: 2px 0;
+            }
+            .grand-total {
+              font-size: 12px;
+              font-weight: 700;
+              color: #111;
+              margin-top: 6px;
+            }
+
+            .signature-block {
+              margin-top: 14px;
+              padding: 10px;
+              border: 1px dashed rgba(0,0,0,0.2);
+              border-radius: 10px;
+              text-align: center;
+              font-size: 9px;
+              color: #555;
+            }
+            .signature-label {
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              color: #999;
+              font-size: 8px;
+            }
+
+            .footer {
+              margin-top: 14px;
+              text-align: center;
+              font-size: 9px;
+              color: #777;
+            }
+            .footer strong {
+              display: block;
+              margin-bottom: 3px;
+              letter-spacing: 1px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="brand">
+              <div class="brand-logo">
+                <img src="/icons/CentalLightmode.png" alt="${brandName} Logo" onerror="this.style.display='none'" />
               </div>
-            `).join('')}
-          </div>
-          
-          <div class="divider"></div>
-          
-          <div class="totals">
-            <div class="total-line">
-              <span>Subtotal:</span>
-              <span>${formatCurrency(receiptData.subtotal)}</span>
+              <div class="brand-name">${brandName}</div>
+              <div class="tagline">Boutique Retail Experience</div>
             </div>
-            <div class="total-line">
-              <span>Tax:</span>
-              <span>${formatCurrency(receiptData.tax)}</span>
+
+            <div class="meta">
+              <div class="meta-row">
+                <span>Order</span>
+                <span>#${receiptData.orderId}</span>
+              </div>
+              <div class="meta-row">
+                <span>Date</span>
+                <span>${receiptData.timestamp.toLocaleDateString()} ${receiptData.timestamp.toLocaleTimeString()}</span>
+              </div>
+              ${receiptData.customerName ? `
+              <div class="meta-row">
+                <span>Customer</span>
+                <span>${receiptData.customerName}</span>
+              </div>` : ''}
+              ${receiptData.employeeName ? `
+              <div class="meta-row">
+                <span>Served By</span>
+                <span>${receiptData.employeeName}</span>
+              </div>` : ''}
+              <div class="badge">${receiptData.paymentMethod.toUpperCase()}</div>
             </div>
-            <div class="total-line">
-              <span class="total-label">Total:</span>
-              <span class="total-label">${formatCurrency(receiptData.total)}</span>
+
+            <div class="items">
+              ${receiptData.items.map(item => `
+                <div class="item-row">
+                  <span class="item-name">${item.name}</span>
+                  <span class="item-qty">× ${item.quantity}</span>
+                  <span class="item-total">${formatCurrency(item.total)}</span>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="stat-label">Subtotal</div>
+                <div class="stat-value">${formatCurrency(receiptData.subtotal)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Tax</div>
+                <div class="stat-value">${formatCurrency(receiptData.tax)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Amount Received</div>
+                <div class="stat-value">${receiptData.amountReceived ? formatCurrency(receiptData.amountReceived) : '—'}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Change</div>
+                <div class="stat-value">${receiptData.change ? formatCurrency(receiptData.change) : '—'}</div>
+              </div>
+            </div>
+
+            ${receiptData.debtAmount || receiptData.partialAmount ? `
+            <div class="stat-grid" style="margin-top:8px;">
+              ${receiptData.debtAmount ? `
+              <div class="stat-card" style="border-color:#b45309;">
+                <div class="stat-label">Debt Amount</div>
+                <div class="stat-value" style="color:#b45309;">${formatCurrency(receiptData.debtAmount)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Due Date</div>
+                <div class="stat-value">${receiptData.dueDate || '—'}</div>
+              </div>` : ''}
+              ${receiptData.partialAmount ? `
+              <div class="stat-card" style="border-color:#f97316;">
+                <div class="stat-label">Partial Paid</div>
+                <div class="stat-value" style="color:#c2410c;">${formatCurrency(receiptData.partialAmount)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Balance</div>
+                <div class="stat-value" style="color:#b91c1c;">${formatCurrency(receiptData.remainingAmount || 0)}</div>
+              </div>` : ''}
+            </div>` : ''}
+
+            <div class="totals">
+              <div class="total-line grand-total">
+                <span>Total Due</span>
+                <span>${formatCurrency(receiptData.total)}</span>
+              </div>
+            </div>
+
+            <div class="signature-block">
+              <div class="signature-label">Signature</div>
+              <div style="margin: 8px 0 4px;">__________________________</div>
+              <div style="font-size: 8px;">Thank you for choosing Central Shop</div>
+            </div>
+
+            <div class="footer">
+              <strong>${brandAddress}</strong>
+              ${brandPhone}<br/>
+              Powered By Astraronix Solutions
             </div>
           </div>
-          
-          <div class="payment-info">
-            <div class="payment-method">Payment: ${receiptData.paymentMethod}</div>
-            ${receiptData.amountReceived ? `
-            <div class="amount-received">Amount Received: ${formatCurrency(receiptData.amountReceived)}</div>
-            <div class="change">Change: ${formatCurrency(receiptData.change || 0)}</div>
-            ` : ''}
-            ${receiptData.debtAmount ? `
-            <div class="debt-amount">Debt Amount: ${formatCurrency(receiptData.debtAmount)}</div>
-            <div class="debt-amount">Due Date: ${receiptData.dueDate}</div>
-            ` : ''}
-            ${receiptData.partialAmount ? `
-            <div class="partial-amount">Amount Paid: ${formatCurrency(receiptData.partialAmount)}</div>
-            <div class="remaining-amount">Remaining: ${formatCurrency(receiptData.remainingAmount || 0)}</div>
-            <div class="remaining-amount">Due Date: ${receiptData.dueDate}</div>
-            ` : ''}
-            ${receiptData.customerName ? `<div>Customer: ${receiptData.customerName}</div>` : ''}
-            ${receiptData.customerPhone ? `<div>Phone: ${receiptData.customerPhone}</div>` : ''}
-            ${receiptData.mpesaCode ? `<div>M-Pesa Code: ${receiptData.mpesaCode}</div>` : ''}
-          </div>
-          
-          <div class="footer">
-            <div class="employee">Served by: ${receiptData.employeeName}</div>
-            <div class="thank-you">Thank you for your business!</div>
-          </div>
-        </div>
-      </body>
+        </body>
       </html>
     `;
   }
@@ -278,9 +348,9 @@ export class ReceiptService {
       // Add business info to receipt data
       const fullReceiptData = {
         ...receiptData,
-        businessName: 'CENTRAL SHOP', // Always use CENTRAL SHOP
-        businessAddress: businessInfo.address,
-        businessPhone: businessInfo.phone
+        businessName: businessInfo.name || 'CENTRAL SHOP',
+        businessAddress: businessInfo.address || '',
+        businessPhone: businessInfo.phone || ''
       };
 
       if (paymentSettings.saveReceipt) {
@@ -411,7 +481,7 @@ export class ReceiptService {
     format: 'PDF' | 'TXT' | 'Image'
   ): Promise<boolean> {
     try {
-      const html = this.generateReceiptHTML(receiptData);
+      const html = this.buildReceiptHTML(receiptData);
       
       if (format === 'PDF') {
         return await this.saveAsPDF(html, fileName);
@@ -571,7 +641,7 @@ export class ReceiptService {
 
   private static async printReceipt(receiptData: ReceiptData): Promise<boolean> {
     try {
-      const html = this.generateReceiptHTML(receiptData);
+      const html = this.buildReceiptHTML(receiptData);
       
       // Create a hidden iframe for printing
       const iframe = document.createElement('iframe');

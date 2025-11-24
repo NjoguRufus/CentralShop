@@ -13,6 +13,7 @@ interface SelectProps {
   addNewLabel?: string;
   onAddNew?: () => void;
   searchable?: boolean;
+  dropdownClassName?: string;
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -24,7 +25,8 @@ const Select: React.FC<SelectProps> = ({
   disabled = false,
   addNewLabel,
   onAddNew,
-  searchable = false
+  searchable = false,
+  dropdownClassName
 }) => {
   return (
     <Dropdown
@@ -37,6 +39,7 @@ const Select: React.FC<SelectProps> = ({
       addNewLabel={addNewLabel}
       onAddNew={onAddNew}
       searchable={searchable}
+      menuClassName={dropdownClassName}
     />
   );
 };
