@@ -12,9 +12,10 @@ export type AppNotification = {
 type NotificationContextValue = {
   notifications: AppNotification[];
   unreadCount: number;
+  loading: boolean;
   addNotification: (n: Omit<AppNotification, 'id' | 'createdAt' | 'read'> & { id?: string }) => void;
-  markAllRead: () => void;
-  markRead: (id: string) => void;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   clear: () => void;
 };
 
@@ -22,6 +23,7 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading] = useState(false);
 
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.read).length,
@@ -42,11 +44,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     ]);
   };
 
-  const markAllRead = () => {
+  const markAllAsRead: NotificationContextValue['markAllAsRead'] = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
-  const markRead = (id: string) => {
+  const markAsRead: NotificationContextValue['markAsRead'] = async (id: string) => {
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
   };
 
@@ -55,9 +57,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const value: NotificationContextValue = {
     notifications,
     unreadCount,
+    loading,
     addNotification,
-    markAllRead,
-    markRead,
+    markAsRead,
+    markAllAsRead,
     clear
   };
 
@@ -75,9 +78,10 @@ export function useNotifications(): NotificationContextValue {
     return {
       notifications: [],
       unreadCount: 0,
+      loading: false,
       addNotification: () => {},
-      markAllRead: () => {},
-      markRead: () => {},
+      markAsRead: async () => {},
+      markAllAsRead: async () => {},
       clear: () => {}
     };
   }

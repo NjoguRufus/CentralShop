@@ -450,7 +450,7 @@ const StockReports: React.FC = () => {
                 </Card>
               )}
               {!workerProgress && <SkeletonReport />}
-            </div>
+              </div>
           )}
 
           {/* Results */}

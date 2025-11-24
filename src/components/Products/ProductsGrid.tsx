@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Product } from '../../types';
 import GridProductCard from './GridProductCard';
 import ListProductCard from './ListProductCard';
@@ -29,12 +29,34 @@ const ProductsGrid: React.FC<ProductsGridProps> = ({
   onAddToCart,
   getStockStatus
 }) => {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.innerWidth < 640;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.innerWidth < 640);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const gridTemplateColumns = isMobile
+    ? 'repeat(2, minmax(0, 1fr))'
+    : 'repeat(auto-fill, minmax(170px, 1fr))';
+
   if (loading) {
     return (
       <div 
         className="grid gap-4"
         style={{ 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))'
+          gridTemplateColumns
         }}
       >
         {[...Array(10)].map((_, i) => (
@@ -70,7 +92,7 @@ const ProductsGrid: React.FC<ProductsGridProps> = ({
     <div 
       className="grid gap-4"
       style={{ 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))'
+        gridTemplateColumns
       }}
     >
       {products.map((product) => {

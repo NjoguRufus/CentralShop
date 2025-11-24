@@ -639,9 +639,172 @@ export class ReceiptService {
     }
   }
 
+  private static renderMobileReceiptPreview(html: string, receiptData: ReceiptData): void {
+    if (typeof document === 'undefined') return;
+
+    const fileName = this.generateFileName(receiptData);
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      z-index: 12000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: #ffffff;
+      color: #0f172a;
+      width: min(420px, 100%);
+      max-height: 90vh;
+      border-radius: 18px;
+      box-shadow: 0 25px 65px rgba(15, 23, 42, 0.35);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    `;
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      font-weight: 600;
+    `;
+    header.textContent = 'Receipt Preview';
+
+    const closeHeaderBtn = document.createElement('button');
+    closeHeaderBtn.textContent = 'Close';
+    closeHeaderBtn.style.cssText = `
+      font-size: 13px;
+      font-weight: 500;
+      color: #4A90A4;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    `;
+    header.appendChild(closeHeaderBtn);
+
+    const body = document.createElement('div');
+    body.style.cssText = `
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      background: #f8fafc;
+    `;
+
+    const helper = document.createElement('p');
+    helper.textContent = 'Long-press to share or tap download to keep a copy.';
+    helper.style.cssText = `
+      font-size: 12px;
+      color: #475569;
+      text-align: center;
+      margin-bottom: 12px;
+    `;
+
+    // Use iframe to render the complete receipt HTML with all styles
+    const receiptIframe = document.createElement('iframe');
+    receiptIframe.style.cssText = `
+      width: 100%;
+      min-height: 400px;
+      border: none;
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: 0 10px 35px rgba(15, 23, 42, 0.12);
+    `;
+    receiptIframe.srcdoc = html;
+
+    const actions = document.createElement('div');
+    actions.style.cssText = `
+      display: flex;
+      gap: 10px;
+      padding: 14px 18px;
+      border-top: 1px solid rgba(15, 23, 42, 0.08);
+      background: #ffffff;
+    `;
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = 'Download PDF';
+    downloadBtn.style.cssText = `
+      flex: 1;
+      background: #4A90A4;
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      padding: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    `;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText = `
+      flex: 1;
+      background: #e2e8f0;
+      color: #0f172a;
+      border: none;
+      border-radius: 12px;
+      padding: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    `;
+
+    const cleanup = () => {
+      if (document.body.contains(overlay)) {
+        document.body.removeChild(overlay);
+      }
+    };
+
+    closeHeaderBtn.addEventListener('click', cleanup);
+    closeBtn.addEventListener('click', cleanup);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) {
+        cleanup();
+      }
+    });
+
+    downloadBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      downloadBtn.disabled = true;
+      const originalText = downloadBtn.textContent;
+      downloadBtn.textContent = 'Preparing...';
+      await this.saveAsPDF(html, fileName);
+      downloadBtn.textContent = originalText || 'Download PDF';
+      downloadBtn.disabled = false;
+    });
+
+    body.appendChild(helper);
+    body.appendChild(receiptIframe);
+    dialog.appendChild(header);
+    dialog.appendChild(body);
+    actions.appendChild(downloadBtn);
+    actions.appendChild(closeBtn);
+    dialog.appendChild(actions);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+  }
+
   private static async printReceipt(receiptData: ReceiptData): Promise<boolean> {
     try {
       const html = this.buildReceiptHTML(receiptData);
+      const isMobile =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia !== 'undefined' &&
+        window.matchMedia('(max-width: 640px)').matches;
+
+      if (isMobile) {
+        this.renderMobileReceiptPreview(html, receiptData);
+        return true;
+      }
       
       // Create a hidden iframe for printing
       const iframe = document.createElement('iframe');

@@ -769,7 +769,7 @@ const POSSystem: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-2">
-              {/* View Mode Toggle */}
+          {/* View Mode Toggle */}
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setViewMode('grid')}

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
 
 interface NotificationsDropdownProps {
@@ -45,29 +45,32 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     await markAllAsRead();
   };
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationVisuals = (type?: string) => {
     switch (type) {
       case 'success':
-        return '✅';
+        return {
+          Icon: CheckCircle,
+          color: 'text-green-600 dark:text-green-300',
+          bg: 'bg-green-50 dark:bg-green-900/30'
+        };
       case 'warning':
-        return '⚠️';
+        return {
+          Icon: AlertTriangle,
+          color: 'text-yellow-600 dark:text-yellow-300',
+          bg: 'bg-yellow-50 dark:bg-yellow-900/30'
+        };
       case 'error':
-        return '❌';
+        return {
+          Icon: XCircle,
+          color: 'text-red-600 dark:text-red-300',
+          bg: 'bg-red-50 dark:bg-red-900/30'
+        };
       default:
-        return 'ℹ️';
-    }
-  };
-
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case 'success':
-        return 'text-green-600 dark:text-green-400';
-      case 'warning':
-        return 'text-yellow-600 dark:text-yellow-400';
-      case 'error':
-        return 'text-red-600 dark:text-red-400';
-      default:
-        return 'text-blue-600 dark:text-blue-400';
+        return {
+          Icon: Info,
+          color: 'text-blue-600 dark:text-blue-300',
+          bg: 'bg-blue-50 dark:bg-blue-900/30'
+        };
     }
   };
 
@@ -133,37 +136,54 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification.id, notification.read)}
-                    className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
-                      !notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 text-lg">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className={`text-sm font-medium ${getNotificationColor(notification.type)}`}>
-                            {notification.title}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatTime(notification.createdAt)}
-                          </p>
+                {notifications.map((notification) => {
+                  const { Icon, color, bg } = getNotificationVisuals(notification.type);
+                  return (
+                    <div
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification.id, notification.read)}
+                      className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
+                        !notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className={`flex-shrink-0 w-9 h-9 rounded-full ${bg} flex items-center justify-center`}>
+                          <Icon className={`w-4 h-4 ${color}`} />
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                          {notification.message}
-                        </p>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className={`text-sm font-medium ${color}`}>
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatTime(notification.createdAt)}
+                            </p>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                            {notification.message}
+                          </p>
+                          {!notification.read && (
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <span className="text-xs text-blue-600 dark:text-blue-400">Unread</span>
+                              </div>
+                              <button
+                                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                onClick={async (event) => {
+                                  event.stopPropagation();
+                                  await markAsRead(notification.id);
+                                }}
+                              >
+                                Mark as read
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
