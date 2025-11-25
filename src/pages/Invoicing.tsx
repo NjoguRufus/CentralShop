@@ -17,6 +17,7 @@ import LoadingSpinner from '../components/UI/LoadingSpinner';
 import Dropdown from '../components/UI/Dropdown';
 import { Plus, Trash2, Eye, MessageCircle, Download, Edit } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { getDefaultUnit } from '../constants/productUnits';
 // html2pdf.js import - using dynamic import for better compatibility
 const getHtml2Pdf = async () => {
   if (typeof window === 'undefined') return null;
@@ -28,6 +29,8 @@ const getHtml2Pdf = async () => {
     return null;
   }
 };
+
+const DEFAULT_UNIT = getDefaultUnit();
 
 const Invoicing: React.FC = () => {
   const { currentUser } = useAuth();
@@ -118,6 +121,7 @@ const Invoicing: React.FC = () => {
       const productsData = productsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
+        unit: doc.data().unit || DEFAULT_UNIT,
         createdAt: doc.data().createdAt?.toDate() || new Date(),
         updatedAt: doc.data().updatedAt?.toDate() || new Date()
       })) as Product[];

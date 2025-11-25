@@ -3,6 +3,7 @@ import { Product } from '../../types';
 import { Edit, Trash2 } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
+import { getUnitShortLabel } from '../../constants/productUnits';
 
 interface InventoryProductCardProps {
   product: Product;
@@ -58,12 +59,17 @@ const InventoryProductCard: React.FC<InventoryProductCardProps> = ({
         
         {/* Price */}
         <div className="font-extrabold text-[#4A90A4] text-base">
-          KSH {product.price.toLocaleString()}
+          KSH {product.price.toLocaleString()} / {getUnitShortLabel(product.unit)}
         </div>
+        {product.requireMeasurement && (
+          <p className="text-[11px] text-gray-500">Requires measurement at checkout</p>
+        )}
         
         {/* Stock Info */}
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-600 dark:text-gray-400">Stock: {product.stock}</span>
+          <span className="text-gray-600 dark:text-gray-400">
+            Stock: {product.stock} {getUnitShortLabel(product.unit)}
+          </span>
           <span className={`px-2 py-1 rounded text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
             {stockStatus.text}
           </span>

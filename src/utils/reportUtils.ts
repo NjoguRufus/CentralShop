@@ -21,6 +21,9 @@ import { Product, Order, PaginatedResponse } from '../types';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import html2pdf from 'html2pdf.js';
+import { getDefaultUnit } from '../constants/productUnits';
+
+const DEFAULT_UNIT = getDefaultUnit();
 
 /**
  * Fetch products with pagination
@@ -60,6 +63,7 @@ export async function fetchProducts({
     const products = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
+      unit: doc.data().unit || DEFAULT_UNIT,
       createdAt: doc.data().createdAt?.toDate() || new Date(),
       updatedAt: doc.data().updatedAt?.toDate() || new Date()
     })) as Product[];

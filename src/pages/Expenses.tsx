@@ -797,7 +797,7 @@ const Expenses: React.FC = () => {
               onChange={(e) => setEditingExpense(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
             />
             {editingExpense.expenseType === 'regular' && (
-              <div>
+            <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Supplier</label>
                 <Select
                   value={editingExpense.supplierId || ''}
@@ -983,7 +983,7 @@ const Expenses: React.FC = () => {
               onChange={(e) => setEditingExpense(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
             />
             {editingExpense.expenseType === 'regular' && (
-              <div>
+            <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Supplier</label>
                 <Select
                   value={editingExpense.supplierId || ''}
@@ -1045,11 +1045,11 @@ const Expenses: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color</label>
                 <input
-                  type="color"
-                  value={editingCategory.color || '#3B82F6'}
-                  onChange={(e) => setEditingCategory(prev => ({ ...prev, color: e.target.value }))}
+                type="color"
+                value={editingCategory.color || '#3B82F6'}
+                onChange={(e) => setEditingCategory(prev => ({ ...prev, color: e.target.value }))}
                   className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg"
-                />
+              />
               </div>
             </div>
             <Button onClick={handleCreateCategory} className="mt-2">

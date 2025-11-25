@@ -408,7 +408,7 @@ const Employees: React.FC = () => {
         try {
           // Step 1: Sign out the newly created user (if they're still signed in)
           if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
-            await signOut(auth);
+          await signOut(auth);
           }
           
           // Step 2: Immediately sign the admin back in (no delay, no await between operations)
@@ -701,15 +701,15 @@ const Employees: React.FC = () => {
           </div>
           {!editingEmployee && (
             <>
-              <FormInput
-                label="Password"
-                name="password"
-                type="password"
-                value={formData.password || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="Minimum 6 characters"
-              />
+            <FormInput
+              label="Password"
+              name="password"
+              type="password"
+              value={formData.password || ''}
+              onChange={handleInputChange}
+              required
+              placeholder="Minimum 6 characters"
+            />
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">
                   <strong>Required:</strong> Enter your admin password below to stay logged in after creating the employee. This is required to maintain your session.

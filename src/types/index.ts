@@ -6,6 +6,8 @@ export interface User {
   createdAt: Date;
 }
 
+export type ProductUnit = 'pieces' | 'meters' | 'litres';
+
 export interface Product {
   id: string;
   name: string;
@@ -14,6 +16,9 @@ export interface Product {
   image?: string;
   category: string;
   barcode?: string;
+  unit?: ProductUnit;
+  requireMeasurement?: boolean;
+  measurementLabel?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +37,8 @@ export interface OrderItem {
   product: Product;
   quantity: number;
   price: number;
+  unit?: ProductUnit;
+  measurementLabel?: string;
 }
 
 export interface Order {
@@ -151,6 +158,8 @@ export interface InvoiceItem {
   type: 'product' | 'service';
   productId?: string;
   serviceId?: string;
+  unit?: ProductUnit;
+  measurementLabel?: string;
 }
 
 export interface Expense {

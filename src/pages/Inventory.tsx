@@ -12,13 +12,16 @@ import ConfirmationModal from '../components/UI/ConfirmationModal';
 import Dropdown from '../components/UI/Dropdown';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ProductsGrid from '../components/Products/ProductsGrid';
-import { Product } from '../types';
+import { Product, ProductUnit } from '../types';
 import { toast } from 'react-toastify';
+import { PRODUCT_UNIT_OPTIONS, getDefaultUnit } from '../constants/productUnits';
 
 interface ProductCategory {
   id: string;
   name: string;
 }
+
+const DEFAULT_UNIT = getDefaultUnit();
 
 const Inventory: React.FC = () => {
   const { currentUser } = useAuth();
@@ -42,7 +45,10 @@ const Inventory: React.FC = () => {
     stock: '',
     category: '',
     barcode: '',
-    images: [] as string[] // Changed to array for multiple images (max 3)
+    images: [] as string[], // Changed to array for multiple images (max 3)
+    unit: DEFAULT_UNIT as ProductUnit,
+    requireMeasurement: false,
+    measurementLabel: ''
   });
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -69,6 +75,7 @@ const Inventory: React.FC = () => {
         productsData.push({ 
           id: doc.id, 
           ...data,
+          unit: data.unit || DEFAULT_UNIT,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
         } as Product);
@@ -162,6 +169,7 @@ const Inventory: React.FC = () => {
     
     setIsSubmitting(true);
     try {
+      const requiresMeasurement = (formData.unit === 'meters' || formData.unit === 'litres') ? formData.requireMeasurement : false;
       const productData = {
         name: formData.name,
         price: parseFloat(formData.price),
@@ -169,6 +177,9 @@ const Inventory: React.FC = () => {
         category: formData.category.trim(),
         barcode: formData.barcode || '',
         image: formData.images[0] || '', // Use first image as primary
+        unit: formData.unit || DEFAULT_UNIT,
+        requireMeasurement: requiresMeasurement,
+        measurementLabel: requiresMeasurement ? (formData.measurementLabel?.trim() || '') : '',
         updatedAt: new Date()
       };
 
@@ -200,7 +211,10 @@ const Inventory: React.FC = () => {
       stock: '',
       category: '',
       barcode: '',
-      images: []
+      images: [],
+      unit: DEFAULT_UNIT,
+      requireMeasurement: false,
+      measurementLabel: ''
     });
     setShowAddModal(false);
     setEditingProduct(null);
@@ -216,7 +230,10 @@ const Inventory: React.FC = () => {
       stock: product.stock.toString(),
       category: product.category,
       barcode: product.barcode || '',
-      images: product.image ? [product.image] : []
+      images: product.image ? [product.image] : [],
+      unit: product.unit || DEFAULT_UNIT,
+      requireMeasurement: product.requireMeasurement || false,
+      measurementLabel: product.measurementLabel || ''
     });
     setEditingProduct(product);
     setShowAddModal(true);
@@ -341,6 +358,36 @@ const Inventory: React.FC = () => {
             className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
             />
           </div>
+
+          {(formData.unit === 'meters' || formData.unit === 'litres') && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={formData.requireMeasurement}
+                  onChange={(e) => setFormData({ ...formData, requireMeasurement: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-[#4A90A4] focus:ring-[#4A90A4]"
+                />
+                Require entering {formData.unit === 'meters' ? 'meters' : 'litres'} at checkout
+              </label>
+              {formData.requireMeasurement && (
+                <FormInput
+                  label="Measurement Prompt (optional)"
+                  name="measurementLabel"
+                  type="text"
+                  placeholder={`e.g. Enter ${formData.unit}`}
+                  value={formData.measurementLabel}
+                  onChange={(e) => setFormData({ ...formData, measurementLabel: e.target.value })}
+                />
+              )}
+              {!formData.requireMeasurement && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Customers can buy in fractional {formData.unit}. Enable the option above if you want the POS to prompt for the exact
+                  {` ${formData.unit}`} length/volume during checkout.
+                </p>
+              )}
+            </div>
+          )}
         <div className="flex items-center gap-1.5">
             <button
               onClick={() => setViewMode('grid')}
@@ -418,6 +465,21 @@ const Inventory: React.FC = () => {
               value={formData.stock}
               onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
               required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Unit of Measure
+            </label>
+            <Dropdown
+              value={formData.unit}
+              onChange={(value) => setFormData({ ...formData, unit: value as ProductUnit })}
+              options={PRODUCT_UNIT_OPTIONS.map(option => ({
+                value: option.value,
+                label: option.label
+              }))}
+              placeholder="Select unit"
             />
           </div>
           

@@ -1,6 +1,6 @@
 // src/pages/Orders.tsx
-import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, where } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo } from 'react';
+import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, where, addDoc, Timestamp } from 'firebase/firestore';
 import Select from '../components/UI/Select';
 import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
@@ -25,6 +25,7 @@ interface Product {
   name: string;
   price: number;
   quantity: number;
+  category?: string;
 }
 
 interface OrderRecord {
@@ -41,6 +42,7 @@ interface OrderRecord {
     quantity: number;
     price: number;
     name?: string;
+    category?: string;
   }>;
   paymentMethod?: string;
   amountReceived?: number;
@@ -86,6 +88,7 @@ const Orders: React.FC = () => {
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [productsLoaded, setProductsLoaded] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -104,6 +107,16 @@ const Orders: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<{index: number, name: string} | null>(null);
   const [productDeletePassword, setProductDeletePassword] = useState<string>('');
   const [isDeletingProduct, setIsDeletingProduct] = useState<boolean>(false);
+
+  const productsMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    products.forEach((product) => {
+      if (product?.id) {
+        map[product.id] = product;
+      }
+    });
+    return map;
+  }, [products]);
   
   // Check if user can edit orders (not Cashier)
   const canEditOrders = currentUser?.role !== 'Cashier';
@@ -113,11 +126,18 @@ const Orders: React.FC = () => {
   const canDeleteProducts = currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin' || currentUser?.role === 'Stock Manager';
 
   useEffect(() => {
-    fetchOrders();
-    fetchCustomers();
-    fetchProducts();
-    fetchCategories();
-  }, []);
+    if (currentUser?.shopId) {
+      fetchCustomers();
+      fetchProducts();
+      fetchCategories();
+    }
+  }, [currentUser?.shopId]);
+
+  useEffect(() => {
+    if (currentUser?.shopId && productsLoaded) {
+      fetchOrders();
+    }
+  }, [currentUser?.shopId, productsLoaded]);
 
   const fetchOrders = async (): Promise<void> => {
     try {
@@ -148,18 +168,24 @@ const Orders: React.FC = () => {
         querySnapshot = await getDocs(q);
       }
       
-      const ordersData: OrderRecord[] = [];
+      let ordersData: OrderRecord[] = [];
       
       querySnapshot.forEach((orderDoc) => {
         const orderData = { id: orderDoc.id, ...orderDoc.data() } as OrderRecord;
         
-        // Auto-determine category if not set
-        if (!orderData.category) {
-          const autoCategory = determineOrderCategory(orderData);
-          orderData.category = autoCategory;
-          
-          // Update order in database with auto-determined category
-          updateDoc(doc(db, ordersCollectionName, orderDoc.id), { category: autoCategory }).catch(err => {
+        // Auto-determine category based on the products in the order
+        const { category: computedCategory, categoriesCount } = determineOrderCategory(orderData);
+        if (computedCategory) {
+          orderData.category = computedCategory;
+        }
+
+        if (
+          categoriesCount === 1 &&
+          computedCategory &&
+          computedCategory !== 'multiple' &&
+          orderDoc.data().category !== computedCategory
+        ) {
+          updateDoc(doc(db, ordersCollectionName, orderDoc.id), { category: computedCategory }).catch(err => {
             console.error('Error updating order category:', err);
           });
         }
@@ -213,7 +239,11 @@ const Orders: React.FC = () => {
 
   const fetchProducts = async (): Promise<void> => {
     try {
-      if (!currentUser?.shopId) return;
+      setProductsLoaded(false);
+      if (!currentUser?.shopId) {
+        setProductsLoaded(true);
+        return;
+      }
       const productsQuery = query(collection(db, getShopCollectionName('products')));
       const productsSnapshot = await getDocs(productsQuery);
       const productsData = productsSnapshot.docs.map(doc => ({
@@ -223,6 +253,8 @@ const Orders: React.FC = () => {
       setProducts(productsData);
     } catch (error) {
       console.error('Error fetching products:', error);
+    } finally {
+      setProductsLoaded(true);
     }
   };
 
@@ -240,31 +272,40 @@ const Orders: React.FC = () => {
   };
 
   // Auto-determine order category based on products
-  const determineOrderCategory = (order: OrderRecord): string => {
-    if (!order.items || order.items.length === 0) {
-      return 'multiple';
-    }
+  const determineOrderCategory = (order: OrderRecord): { category: string; categoriesCount: number } => {
+    const categorySet = new Set<string>();
+    const addCategory = (value?: string) => {
+      if (value && typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) {
+          categorySet.add(trimmed);
+        }
+      }
+    };
 
-    const productCategories: string[] = [];
-    
-    order.items.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      if (product && product.category) {
-        productCategories.push(product.category);
-    }
+    (order.products || []).forEach((product: any) => {
+      addCategory(product?.category || product?.productCategory);
     });
 
-    if (productCategories.length === 0) {
-      return 'multiple';
+    (order.items || []).forEach((item: any) => {
+      addCategory(item?.category);
+      if (!item?.category && item?.productId) {
+        const productRecord = productsMap[item.productId];
+        addCategory(productRecord?.category);
+      }
+    });
+
+    const categoriesArray = Array.from(categorySet);
+
+    if (categoriesArray.length === 1) {
+      return { category: categoriesArray[0], categoriesCount: 1 };
     }
 
-    // Check if all products have the same category
-    const uniqueCategories = [...new Set(productCategories)];
-    if (uniqueCategories.length === 1) {
-      return uniqueCategories[0];
+    if (categoriesArray.length > 1) {
+      return { category: 'multiple', categoriesCount: categoriesArray.length };
     }
 
-    return 'multiple';
+    return { category: order.category || 'multiple', categoriesCount: 0 };
   };
 
   const getCustomerName = (order: OrderRecord): string => {
@@ -312,8 +353,8 @@ const Orders: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     
     const matchesDate = !dateFilter || order.date === dateFilter;
-    const orderCategory = order.category || determineOrderCategory(order);
-    const matchesCategory = categoryFilter === 'all' || orderCategory.toLowerCase() === categoryFilter.toLowerCase();
+    const { category: derivedCategory } = determineOrderCategory(order);
+    const matchesCategory = categoryFilter === 'all' || derivedCategory.toLowerCase() === categoryFilter.toLowerCase();
     
     return matchesSearch && matchesStatus && matchesDate && matchesCategory;
   });
@@ -739,8 +780,12 @@ const Orders: React.FC = () => {
               },
               { header: 'Total', accessor: 'total', render: (row: OrderRecord) => `KSH ${row.total.toLocaleString()}` },
               { header: 'Category', accessor: 'category', render: (row: OrderRecord) => {
-                  const category = row.category || determineOrderCategory(row);
-                  return <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{category}</span>;
+                  const { category } = determineOrderCategory(row);
+                  return (
+                    <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      {category}
+                    </span>
+                  );
                 }
               },
               { 

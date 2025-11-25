@@ -1,10 +1,13 @@
 import React from 'react';
+import { ProductUnit } from '../types';
+import { getUnitShortLabel } from '../constants/productUnits';
 
 interface Product {
   id: string;
   name: string;
   price: number;
   quantity: number;
+  unit?: ProductUnit;
 }
 
 interface ReceiptData {
@@ -146,13 +149,16 @@ const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ data, onPrintComplete }
         </div>
 
         <div class="items">
-          ${data.items.map(item => `
+          ${data.items.map(item => {
+            const unitLabel = getUnitShortLabel(item.unit);
+            return `
             <div class="item">
               <div class="item-name">${item.name}</div>
-              <div class="item-qty">${item.quantity}x</div>
+              <div class="item-qty">${item.quantity} ${unitLabel}</div>
               <div class="item-price">${formatCurrency(item.price * item.quantity)}</div>
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
 
         <div class="totals">

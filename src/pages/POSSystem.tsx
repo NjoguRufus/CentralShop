@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Minus, Trash2, Search, ShoppingCart, Grid3x3, List } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -15,13 +15,18 @@ import ConfirmationModal from '../components/UI/ConfirmationModal';
 import ProductsGrid from '../components/Products/ProductsGrid';
 import { ReceiptService } from '../services/ReceiptService';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
-import { Product, OrderItem } from '../types';
+import { Product, OrderItem, ProductUnit } from '../types';
 import { toast } from 'react-toastify';
+import Modal from '../components/Modal';
+import FormInput from '../components/UI/FormInput';
+import { getUnitShortLabel, getDefaultUnit } from '../constants/productUnits';
 
 interface ProductCategory {
   id: string;
   name: string;
 }
+
+const DEFAULT_UNIT = getDefaultUnit();
 
 const POSSystem: React.FC = () => {
   const { currentUser } = useAuth();
@@ -39,7 +44,50 @@ const POSSystem: React.FC = () => {
   const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const cartItemCount = cart.reduce((total, item) => total + item.quantity, 0);
+  const [measurementModal, setMeasurementModal] = useState<{ open: boolean; product: Product | null; cartItemId?: string }>({
+    open: false,
+    product: null,
+    cartItemId: undefined
+  });
+  const [measurementValue, setMeasurementValue] = useState('');
+  const isMeasurementProduct = useCallback((product?: Product | null) => {
+    return Boolean(product?.requireMeasurement && (product.unit === 'meters' || product.unit === 'litres'));
+  }, []);
+  const cartItemCount = cart.reduce((total, item) => total + (isMeasurementProduct(item.product) ? 1 : item.quantity), 0);
+  const cartRef = useRef<OrderItem[]>(cart);
+
+  useEffect(() => {
+    cartRef.current = cart;
+  }, [cart]);
+
+  const getMeasurementLabel = useCallback((product?: Product | null) => {
+    if (!product) return 'measurement';
+    if (product.measurementLabel) return product.measurementLabel;
+    if (product.unit === 'litres') return 'Litres';
+    if (product.unit === 'meters') return 'Meters';
+    return 'measurement';
+  }, []);
+
+  const openMeasurementModal = useCallback(
+    (product: Product, options?: { cartItemId?: string; initialQuantity?: number }) => {
+      setMeasurementValue(
+        options?.initialQuantity !== undefined && options.initialQuantity !== null
+          ? options.initialQuantity.toString()
+          : ''
+      );
+      setMeasurementModal({
+        open: true,
+        product,
+        cartItemId: options?.cartItemId || product.id
+      });
+    },
+    []
+  );
+
+  const closeMeasurementModal = useCallback(() => {
+    setMeasurementModal({ open: false, product: null, cartItemId: undefined });
+    setMeasurementValue('');
+  }, []);
 
   useEffect(() => {
     fetchProducts();
@@ -57,6 +105,16 @@ const POSSystem: React.FC = () => {
           // Check if product is out of stock
           if (product.stock <= 0) {
             toast.error(`${product.name} is out of stock`);
+            return;
+          }
+
+          if (isMeasurementProduct(product)) {
+            const existingItem = cartRef.current.find(item => item.productId === product.id);
+            openMeasurementModal(product, {
+              cartItemId: existingItem?.productId,
+              initialQuantity: existingItem?.quantity
+            });
+            toast.info(`Enter ${getMeasurementLabel(product)} for ${product.name}`);
             return;
           }
           
@@ -77,7 +135,8 @@ const POSSystem: React.FC = () => {
                 productId: product.id,
                 product,
                 quantity: 1,
-                price: product.price
+                price: product.price,
+                unit: product.unit || DEFAULT_UNIT
               }];
             }
           });
@@ -93,7 +152,7 @@ const POSSystem: React.FC = () => {
     return () => {
       window.removeEventListener('barcode-scanned', handleBarcodeScanned as EventListener);
     };
-  }, [products]);
+  }, [products, isMeasurementProduct, openMeasurementModal, getMeasurementLabel]);
 
   const fetchCategories = async (): Promise<void> => {
     try {
@@ -143,6 +202,9 @@ const POSSystem: React.FC = () => {
         productsData.push({ 
           id: doc.id, 
           ...data,
+          unit: data.unit || DEFAULT_UNIT,
+          requireMeasurement: data.requireMeasurement || false,
+          measurementLabel: data.measurementLabel || '',
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
         } as Product);
@@ -156,10 +218,58 @@ const POSSystem: React.FC = () => {
     }
   };
 
+  const handleMeasurementConfirm = useCallback(() => {
+    if (!measurementModal.product) {
+      closeMeasurementModal();
+      return;
+    }
+    const parsedValue = parseFloat(measurementValue);
+    if (Number.isNaN(parsedValue) || parsedValue <= 0) {
+      toast.error('Enter a valid amount greater than zero');
+      return;
+    }
+    if (parsedValue > measurementModal.product.stock) {
+      toast.error(`Cannot dispense more than ${measurementModal.product.stock} ${getMeasurementLabel(measurementModal.product)}`);
+      return;
+    }
+
+    setCart(prevCart => {
+      const existingIndex = prevCart.findIndex(item => item.productId === measurementModal.cartItemId);
+      if (existingIndex >= 0) {
+        return prevCart.map(item =>
+          item.productId === measurementModal.cartItemId
+            ? { ...item, quantity: parsedValue }
+            : item
+        );
+      }
+      return [
+        ...prevCart,
+        {
+          productId: measurementModal.product!.id,
+          product: measurementModal.product!,
+          quantity: parsedValue,
+          price: measurementModal.product!.price,
+          unit: measurementModal.product!.unit || DEFAULT_UNIT
+        }
+      ];
+    });
+    toast.success(`${measurementModal.product.name} set to ${parsedValue} ${getMeasurementLabel(measurementModal.product)}`);
+    closeMeasurementModal();
+  }, [measurementModal, measurementValue, closeMeasurementModal, getMeasurementLabel]);
+
   const addToCart = (product: Product) => {
     // Check if product is out of stock
     if (product.stock <= 0) {
       toast.error(`${product.name} is out of stock and cannot be added to cart`);
+      return;
+    }
+
+    if (isMeasurementProduct(product)) {
+      const existingItem = cart.find(item => item.productId === product.id);
+      openMeasurementModal(product, {
+        cartItemId: existingItem?.productId,
+        initialQuantity: existingItem?.quantity
+      });
       return;
     }
 
@@ -182,7 +292,8 @@ const POSSystem: React.FC = () => {
         productId: product.id,
         product,
         quantity: 1,
-        price: product.price
+        price: product.price,
+        unit: product.unit || DEFAULT_UNIT
       }]);
     }
   };
@@ -190,6 +301,12 @@ const POSSystem: React.FC = () => {
   const updateQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(productId);
+      return;
+    }
+
+    const targetItem = cart.find(item => item.productId === productId);
+    if (targetItem && isMeasurementProduct(targetItem.product)) {
+      openMeasurementModal(targetItem.product, { cartItemId: targetItem.productId, initialQuantity: targetItem.quantity });
       return;
     }
 
@@ -472,6 +589,7 @@ const POSSystem: React.FC = () => {
     setIsCustomerInfoOpen(false);
     setPendingPaymentData(null);
     setIsCheckoutOpen(false);
+  
     
     // Clear cart immediately for instant UI response
     setCart([]);
@@ -521,7 +639,8 @@ const POSSystem: React.FC = () => {
         items: cartSnapshot.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
-          price: item.price
+          price: item.price,
+          unit: item.product.unit || DEFAULT_UNIT
         })),
         subtotal,
         tax,
@@ -644,7 +763,8 @@ const POSSystem: React.FC = () => {
           name: item.product.name,
           quantity: item.quantity,
           price: item.price,
-          total: item.price * item.quantity
+          total: item.price * item.quantity,
+          unit: item.product.unit || DEFAULT_UNIT
         })),
         subtotal,
         tax,
@@ -837,14 +957,18 @@ const POSSystem: React.FC = () => {
             ) : (
               <>
                 <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
-                  {cart.map(item => (
-                    <div key={item.productId} className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 dark:text-white">{item.product.name}</h4>
-                        <p className="text-sm text-gray-500">KSH {item.price.toLocaleString()} each</p>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
+                  {cart.map(item => {
+                    const unitLabel = getUnitShortLabel(item.product.unit);
+                    return (
+                      <div key={item.productId} className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white">{item.product.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            {item.quantity} {unitLabel} × KSH {item.price.toLocaleString()} / {unitLabel}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
                         <button
                           onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                           className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
@@ -867,9 +991,10 @@ const POSSystem: React.FC = () => {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Order Summary */}
@@ -919,7 +1044,8 @@ const POSSystem: React.FC = () => {
           id: item.productId,
           name: item.product.name,
           price: item.price,
-          quantity: item.quantity
+          quantity: item.quantity,
+          unit: item.product.unit || DEFAULT_UNIT
         }))}
         total={getFinalTotal()}
         isLoading={isProcessing}

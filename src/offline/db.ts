@@ -3,6 +3,7 @@
  * Provides offline storage for products, orders, customers, and settings
  */
 import Dexie, { Table } from 'dexie';
+import { ProductUnit } from '../types';
 
 export interface OfflineProduct {
   id?: string;
@@ -13,6 +14,7 @@ export interface OfflineProduct {
   image?: string;
   barcode?: string;
   description?: string;
+  unit?: ProductUnit;
   lastSynced?: Date;
   isDirty?: boolean;
 }

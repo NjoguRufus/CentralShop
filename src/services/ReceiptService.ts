@@ -1,6 +1,35 @@
 // src/services/ReceiptService.ts
 import { PaymentSettings } from '../types';
 
+type PrinterWidthPreset = { label: string; mm: number; px: number };
+
+const PRINTER_WIDTH_PRESETS: PrinterWidthPreset[] = [
+  { label: '80mm', mm: 80, px: 302 },
+  { label: '58mm', mm: 58, px: 227 }
+];
+
+const DEFAULT_PRINTER_WIDTH_PX = PRINTER_WIDTH_PRESETS[0].px;
+const PRINTER_WIDTH_TOLERANCE_PX = 24;
+
+const UNIT_SHORT_LABELS: Record<string, string> = {
+  pieces: 'pcs',
+  meters: 'm',
+  metres: 'm',
+  litres: 'L',
+  liters: 'L'
+};
+
+const formatUnitSuffix = (unit?: string) => {
+  if (!unit) return '';
+  const normalized = unit.toLowerCase();
+  const label = UNIT_SHORT_LABELS[normalized] || unit;
+  return ` ${label}`;
+};
+
+interface ReceiptFlowOptions {
+  autoDetectPrinter?: boolean;
+}
+
 export interface ReceiptData {
   orderId: string;
   items: Array<{
@@ -8,6 +37,7 @@ export interface ReceiptData {
     quantity: number;
     price: number;
     total: number;
+    unit?: string;
   }>;
   subtotal: number;
   tax: number;
@@ -41,12 +71,13 @@ export class ReceiptService {
     return `${productName}_${dateStr}_${timeStr}`;
   }
 
-  static buildReceiptHTML(receiptData: ReceiptData): string {
+  static buildReceiptHTML(receiptData: ReceiptData, widthPx: number = DEFAULT_PRINTER_WIDTH_PX): string {
     const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
     const accent = '#4A90A4';
     const brandName = receiptData.businessName || 'CENTRAL SHOP';
     const brandAddress = receiptData.businessAddress || '';
     const brandPhone = receiptData.businessPhone || '';
+    const safeWidthPx = Number.isFinite(widthPx) ? Math.max(200, Math.round(widthPx)) : DEFAULT_PRINTER_WIDTH_PX;
     
     return `
       <!DOCTYPE html>
@@ -58,23 +89,23 @@ export class ReceiptService {
           @media print {
             @page {
               margin: 0;
-              size: 80mm auto;
+              size: ${safeWidthPx}px auto;
             }
             body {
               margin: 0;
-                padding: 0;
-              }
+              padding: 0;
             }
-            * {
-              box-sizing: border-box;
+          }
+          * {
+            box-sizing: border-box;
           }
           body {
-              font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
-              background: #fff;
-              color: #111;
-            width: 80mm;
-              margin: 0 auto;
-              padding: 0;
+            font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
+            background: #fff;
+            color: #111;
+            width: ${safeWidthPx}px;
+            margin: 0 auto;
+            padding: 0;
           }
           .receipt {
               padding: 10px 12px 16px;
@@ -271,7 +302,7 @@ export class ReceiptService {
             ${receiptData.items.map(item => `
                 <div class="item-row">
                   <span class="item-name">${item.name}</span>
-                  <span class="item-qty">× ${item.quantity}</span>
+                  <span class="item-qty">× ${item.quantity}${formatUnitSuffix(item.unit)}</span>
                   <span class="item-total">${formatCurrency(item.total)}</span>
               </div>
             `).join('')}
@@ -353,7 +384,8 @@ export class ReceiptService {
   static async handleReceiptFlow(
     receiptData: ReceiptData,
     paymentSettings: PaymentSettings,
-    businessInfo: { name: string; address: string; phone: string }
+    businessInfo: { name: string; address: string; phone: string },
+    options?: ReceiptFlowOptions
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Add business info to receipt data
@@ -364,13 +396,24 @@ export class ReceiptService {
         businessPhone: businessInfo.phone || ''
       };
 
+      const shouldAutoDetect = options?.autoDetectPrinter ?? true;
+      let widthPx = DEFAULT_PRINTER_WIDTH_PX;
+      if (shouldAutoDetect) {
+        try {
+          widthPx = await this.detectPrinterWidthPx();
+        } catch (error) {
+          widthPx = DEFAULT_PRINTER_WIDTH_PX;
+        }
+      }
+      const receiptHtml = this.buildReceiptHTML(fullReceiptData, widthPx);
+
       if (paymentSettings.saveReceipt) {
         // Show save dialog only when saveReceipt is enabled
         const saveChoice = await this.showSaveDialog();
         
         if (saveChoice === 'save') {
           const fileName = this.generateFileName(fullReceiptData);
-          const success = await this.saveReceipt(fullReceiptData, fileName, paymentSettings.receiptFormat);
+          const success = await this.saveReceipt(fullReceiptData, fileName, paymentSettings.receiptFormat, widthPx, receiptHtml);
           
           if (success) {
             return { success: true, message: `Receipt saved as ${fileName}.${paymentSettings.receiptFormat.toLowerCase()}` };
@@ -379,7 +422,7 @@ export class ReceiptService {
           }
         } else {
           // User chose print only, so just print
-          const printSuccess = await this.printReceipt(fullReceiptData);
+          const printSuccess = await this.printReceipt(fullReceiptData, widthPx, receiptHtml);
           
           if (printSuccess) {
             return { success: true, message: 'Receipt sent to printer successfully' };
@@ -389,7 +432,7 @@ export class ReceiptService {
         }
       } else {
         // saveReceipt is disabled, just print in background
-        const printSuccess = await this.printReceipt(fullReceiptData);
+        const printSuccess = await this.printReceipt(fullReceiptData, widthPx, receiptHtml);
         
         if (printSuccess) {
           return { success: true, message: 'Receipt sent to printer successfully' };
@@ -489,17 +532,18 @@ export class ReceiptService {
   private static async saveReceipt(
     receiptData: ReceiptData,
     fileName: string,
-    format: 'PDF' | 'TXT' | 'Image'
+    format: 'PDF' | 'TXT' | 'Image',
+    widthPx: number,
+    prebuiltHtml?: string
   ): Promise<boolean> {
     try {
-      const html = this.buildReceiptHTML(receiptData);
-      
+      const html = prebuiltHtml ?? this.buildReceiptHTML(receiptData, widthPx);
       if (format === 'PDF') {
-        return await this.saveAsPDF(html, fileName);
+        return await this.saveAsPDF(html, fileName, widthPx);
       } else if (format === 'TXT') {
         return await this.saveAsTXT(receiptData, fileName);
       } else if (format === 'Image') {
-        return await this.saveAsImage(html, fileName);
+        return await this.saveAsImage(html, fileName, widthPx);
       }
       
       return false;
@@ -509,14 +553,14 @@ export class ReceiptService {
     }
   }
 
-  private static async saveAsPDF(html: string, fileName: string): Promise<boolean> {
+  private static async saveAsPDF(html: string, fileName: string, widthPx: number): Promise<boolean> {
     try {
       // Create a hidden iframe for PDF generation
       const iframe = document.createElement('iframe');
       iframe.style.position = 'absolute';
       iframe.style.left = '-9999px';
       iframe.style.top = '-9999px';
-      iframe.style.width = '300px';
+      iframe.style.width = `${Math.round(widthPx)}px`;
       iframe.style.height = '400px';
       document.body.appendChild(iframe);
 
@@ -524,6 +568,7 @@ export class ReceiptService {
       if (!iframeDoc) return false;
 
       iframeDoc.open();
+      iframeDoc.title = fileName;
       iframeDoc.write(html);
       iframeDoc.close();
 
@@ -562,7 +607,7 @@ export class ReceiptService {
       
       txtContent += `Items:\n`;
       receiptData.items.forEach(item => {
-        txtContent += `${item.name} x${item.quantity} = ${formatCurrency(item.total)}\n`;
+        txtContent += `${item.name} x${item.quantity}${formatUnitSuffix(item.unit)} = ${formatCurrency(item.total)}\n`;
       });
       
       txtContent += `\n${'='.repeat(30)}\n`;
@@ -615,7 +660,7 @@ export class ReceiptService {
     }
   }
 
-  private static async saveAsImage(html: string, fileName: string): Promise<boolean> {
+  private static async saveAsImage(html: string, fileName: string, widthPx: number): Promise<boolean> {
     try {
       // Create a temporary element with the receipt HTML
       const tempDiv = document.createElement('div');
@@ -623,6 +668,7 @@ export class ReceiptService {
       tempDiv.style.position = 'absolute';
       tempDiv.style.left = '-9999px';
       tempDiv.style.top = '-9999px';
+      tempDiv.style.width = `${Math.round(widthPx)}px`;
       document.body.appendChild(tempDiv);
 
       // Use html2canvas to convert to image (if available)
@@ -642,7 +688,7 @@ export class ReceiptService {
       } else {
         // Fallback to PDF if html2canvas is not available
         document.body.removeChild(tempDiv);
-        return await this.saveAsPDF(html, fileName);
+        return await this.saveAsPDF(html, fileName, widthPx);
       }
     } catch (error) {
       console.error('Image save error:', error);
@@ -650,7 +696,7 @@ export class ReceiptService {
     }
   }
 
-  private static renderMobileReceiptPreview(html: string, receiptData: ReceiptData): void {
+  private static renderMobileReceiptPreview(html: string, receiptData: ReceiptData, widthPx: number): void {
     if (typeof document === 'undefined') return;
 
     const fileName = this.generateFileName(receiptData);
@@ -723,7 +769,8 @@ export class ReceiptService {
     // Use iframe to render the complete receipt HTML with all styles
     const receiptIframe = document.createElement('iframe');
     receiptIframe.style.cssText = `
-      width: 100%;
+      width: ${Math.round(widthPx)}px;
+      max-width: 100%;
       min-height: 400px;
       border: none;
       border-radius: 14px;
@@ -788,7 +835,7 @@ export class ReceiptService {
       downloadBtn.disabled = true;
       const originalText = downloadBtn.textContent;
       downloadBtn.textContent = 'Preparing...';
-      await this.saveAsPDF(html, fileName);
+      await this.saveAsPDF(html, fileName, widthPx);
       downloadBtn.textContent = originalText || 'Download PDF';
       downloadBtn.disabled = false;
     });
@@ -804,16 +851,123 @@ export class ReceiptService {
     document.body.appendChild(overlay);
   }
 
-  private static async printReceipt(receiptData: ReceiptData): Promise<boolean> {
+  private static async detectPrinterWidthPx(): Promise<number> {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return DEFAULT_PRINTER_WIDTH_PX;
+    }
+
+    let bestWidth = DEFAULT_PRINTER_WIDTH_PX;
+    let smallestDiff = Number.POSITIVE_INFINITY;
+
+    for (const preset of PRINTER_WIDTH_PRESETS) {
+      try {
+        const measuredWidth = await this.measurePrinterWidth(preset.mm);
+        if (measuredWidth != null) {
+          const diff = Math.abs(measuredWidth - preset.px);
+          if (diff < smallestDiff) {
+            smallestDiff = diff;
+            bestWidth = preset.px;
+          }
+        }
+      } catch (error) {
+        // Ignore measurement errors and continue
+      }
+    }
+
+    if (smallestDiff === Number.POSITIVE_INFINITY || smallestDiff > PRINTER_WIDTH_TOLERANCE_PX) {
+      return DEFAULT_PRINTER_WIDTH_PX;
+    }
+
+    return bestWidth;
+  }
+
+  private static measurePrinterWidth(mm: number): Promise<number | null> {
+    return new Promise((resolve) => {
+      if (typeof document === 'undefined' || !document.body) {
+        resolve(null);
+        return;
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:absolute;left:-10000px;top:-10000px;width:0;height:0;border:none;opacity:0;';
+      document.body.appendChild(iframe);
+
+      const cleanup = () => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      };
+
+      const measure = () => {
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (!doc) {
+            cleanup();
+            resolve(null);
+            return;
+          }
+
+          doc.open();
+          doc.write(`
+            <html>
+              <head>
+                <style>
+                  @page { size: ${mm}mm auto; margin: 0; }
+                  html, body { margin: 0; padding: 0; }
+                  .probe {
+                    width: ${mm}mm;
+                    height: 10mm;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="probe"></div>
+              </body>
+            </html>
+          `);
+          doc.close();
+
+          setTimeout(() => {
+            try {
+              const probe = doc.querySelector('.probe') as HTMLElement | null;
+              const rect = probe?.getBoundingClientRect();
+              const measured = rect?.width ?? null;
+              cleanup();
+              resolve(measured);
+            } catch (error) {
+              cleanup();
+              resolve(null);
+            }
+          }, 60);
+        } catch (error) {
+          cleanup();
+          resolve(null);
+        }
+      };
+
+      if (iframe.contentDocument?.readyState === 'complete') {
+        measure();
+      } else {
+        iframe.onload = measure;
+        setTimeout(measure, 100);
+      }
+    });
+  }
+
+  private static async printReceipt(
+    receiptData: ReceiptData,
+    widthPx: number,
+    prebuiltHtml?: string
+  ): Promise<boolean> {
     try {
-      const html = this.buildReceiptHTML(receiptData);
+      const html = prebuiltHtml ?? this.buildReceiptHTML(receiptData, widthPx);
       const isMobile =
         typeof window !== 'undefined' &&
         typeof window.matchMedia !== 'undefined' &&
         window.matchMedia('(max-width: 640px)').matches;
 
       if (isMobile) {
-        this.renderMobileReceiptPreview(html, receiptData);
+        this.renderMobileReceiptPreview(html, receiptData, widthPx);
         return true;
       }
       
@@ -822,7 +976,7 @@ export class ReceiptService {
       iframe.style.position = 'fixed';
       iframe.style.right = '0';
       iframe.style.bottom = '0';
-      iframe.style.width = '80mm'; // Thermal printer width
+      iframe.style.width = `${Math.round(widthPx)}px`;
       iframe.style.height = '1px';
       iframe.style.border = 'none';
       iframe.style.opacity = '0';

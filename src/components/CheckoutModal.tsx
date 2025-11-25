@@ -10,12 +10,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getShopCollectionName } from '../config/shopConfig';
+import { ProductUnit } from '../types';
+import { getUnitShortLabel } from '../constants/productUnits';
 
-interface Product {
+interface CheckoutCartItem {
   id: string;
   name: string;
   price: number;
   quantity: number;
+  unit?: ProductUnit;
 }
 
 interface CheckoutModalProps {
@@ -23,7 +26,7 @@ interface CheckoutModalProps {
   onClose: () => void;
   onConfirm: (paymentData: PaymentData) => void;
   onContinue?: (paymentData: Partial<PaymentData>) => void;
-  cart: Product[];
+  cart: CheckoutCartItem[];
   total: number;
   isLoading?: boolean;
 }
@@ -428,7 +431,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </h3>
                 
                 <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-                {cart.map((item) => (
+                {cart.map((item) => {
+                  const unitLabel = getUnitShortLabel(item.unit);
+                  return (
                     <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
@@ -436,7 +441,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         {item.name}
                       </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {item.quantity} × KSH {item.price.toFixed(2)}
+                        {item.quantity} {unitLabel} × KSH {item.price.toFixed(2)} / {unitLabel}
                       </p>
                     </div>
                         <p className="text-sm font-semibold text-gray-900 dark:text-white ml-2">
@@ -444,7 +449,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </p>
                       </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">

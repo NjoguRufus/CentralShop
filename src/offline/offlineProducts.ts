@@ -6,6 +6,9 @@ import { db, OfflineProduct } from './db';
 import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 import { getShopCollectionName } from '../config/shopConfig';
+import { getDefaultUnit } from '../constants/productUnits';
+
+const DEFAULT_UNIT = getDefaultUnit();
 
 /**
  * Save product to IndexedDB cache
@@ -74,6 +77,7 @@ export async function syncProductsFromFirestore(): Promise<void> {
         image: data.image || '',
         barcode: data.barcode || '',
         description: data.description || '',
+        unit: data.unit || DEFAULT_UNIT,
         lastSynced: new Date(),
         isDirty: false
       });
@@ -115,6 +119,7 @@ export async function getProductById(productId: string): Promise<OfflineProduct 
           image: data.image || '',
           barcode: data.barcode || '',
           description: data.description || '',
+          unit: data.unit || DEFAULT_UNIT,
           lastSynced: new Date(),
           isDirty: false
         };

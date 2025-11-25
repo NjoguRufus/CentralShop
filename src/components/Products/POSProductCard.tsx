@@ -1,6 +1,7 @@
 import React from 'react';
 import { Product } from '../../types';
 import Card from '../UI/Card';
+import { getUnitShortLabel } from '../../constants/productUnits';
 
 interface POSProductCardProps {
   product: Product;
@@ -67,8 +68,16 @@ const POSProductCard: React.FC<POSProductCardProps> = ({ product, onAddToCart, s
           
           {/* Price */}
           <div className="font-extrabold text-[#4A90A4] text-base">
-            KSH {product.price.toLocaleString()}
+            KSH {product.price.toLocaleString()} / {getUnitShortLabel(product.unit)}
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray400">
+            Stock: {product.stock} {getUnitShortLabel(product.unit)}
+          </p>
+          {product.requireMeasurement && (
+            <p className="text-[11px] text-[#4A90A4]">
+              Requires entering {product.measurementLabel || getUnitShortLabel(product.unit)}
+            </p>
+          )}
         </div>
       </Card>
   );
