@@ -57,7 +57,7 @@ interface EmployeeStats {
 }
 
 const Employees: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, ignoreAuthStateChange, clearIgnoreAuthStateChange } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -75,6 +75,9 @@ const Employees: React.FC = () => {
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [showChatViewer, setShowChatViewer] = useState(false);
   const [adminPasswordForReauth, setAdminPasswordForReauth] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState<boolean>(false);
+  const [newEmployeeCredentials, setNewEmployeeCredentials] = useState<{ email: string; password: string } | null>(null);
   const [formData, setFormData] = useState<Omit<Employee, 'id'>>({
     name: '',
     email: '',
@@ -92,6 +95,7 @@ const Employees: React.FC = () => {
   useEffect(() => {
     fetchEmployees();
   }, []);
+
 
   // Fetch employee statistics
   const fetchEmployeeStats = async (employeeId: string) => {
@@ -280,6 +284,7 @@ const Employees: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       if (editingEmployee && editingEmployee.id) {
         // Update existing employee (don't create new auth user)
@@ -291,10 +296,26 @@ const Employees: React.FC = () => {
           updatedAt: new Date()
         });
         toast.success('Employee updated successfully');
+        setIsModalOpen(false);
+        setEditingEmployee(null);
+        setFormData({ 
+          name: '', 
+          email: '', 
+          password: '', 
+          role: 'mainAdmin', 
+          status: 'Active', 
+          avatar: '',
+          workingHours: {
+            startTime: '09:00',
+            endTime: '17:00',
+            workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+          }
+        });
       } else {
         // Create new employee with Firebase Auth
         if (!formData.password) {
           toast.error('Password is required for new employees');
+          setIsSubmitting(false);
           return;
         }
 
@@ -304,29 +325,47 @@ const Employees: React.FC = () => {
         
         if (!trimmedEmail) {
           toast.error('Email is required');
+          setIsSubmitting(false);
           return;
         }
         
         if (!emailRegex.test(trimmedEmail)) {
           toast.error('Please enter a valid email address');
+          setIsSubmitting(false);
           return;
         }
 
         // Validate password length
         if (formData.password.length < 6) {
           toast.error('Password must be at least 6 characters');
+          setIsSubmitting(false);
           return;
         }
 
         // Store current admin info before creating employee
         const currentAdminEmail = currentUser?.email;
         const currentAdminUid = currentUser?.uid;
+        const currentAdminPassword = adminPasswordForReauth;
+        
+        // Store the employee password before creating (we'll show it in modal)
+        const employeePassword = formData.password;
+        
+        // IMPORTANT: If admin password is not provided, require it to prevent logout
+        if (!currentAdminPassword) {
+          toast.error('Please enter your admin password to stay logged in after creating the employee');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // CRITICAL: Tell AuthContext to ignore temporary auth state changes during employee creation
+        // This prevents the logout that happens when createUserWithEmailAndPassword signs in the new user
+        ignoreAuthStateChange(10000); // Ignore for 10 seconds (should be enough)
         
         // Create Firebase Auth user (this will automatically sign in the new user)
         const userCredential = await createUserWithEmailAndPassword(
           auth, 
           trimmedEmail, 
-          formData.password
+          employeePassword
         );
         
         // Update the user's display name
@@ -363,37 +402,45 @@ const Employees: React.FC = () => {
         // Also save to employees collection for employee-specific features (optional, for backward compatibility)
         await addDoc(collection(db, getShopCollectionName('employees')), employeeData);
 
-        // Sign out the newly created user and sign admin back in
-        if (auth.currentUser && auth.currentUser.uid !== currentAdminUid) {
-          await signOut(auth);
+        // CRITICAL: Sign out the newly created user and immediately sign admin back in
+        // This must happen in rapid succession to prevent the auth state change from propagating
+        // We do this in a single try-catch to ensure atomicity
+        try {
+          // Step 1: Sign out the newly created user (if they're still signed in)
+          if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
+            await signOut(auth);
+          }
           
-          // Sign the admin back in (if we have their email, try to sign them back in)
-          // Note: We can't automatically sign them back in without their password
-          // The admin will need to sign in again manually
-          toast.success('Employee created successfully. Please sign back in.');
-        } else {
-          toast.success('Employee created successfully with login credentials');
+          // Step 2: Immediately sign the admin back in (no delay, no await between operations)
+          // This must happen right after signOut to minimize the auth state change window
+          await signInWithEmailAndPassword(auth, currentAdminEmail!, currentAdminPassword!);
+          
+          // Step 3: Clear the ignore flag so the admin's sign-in is properly processed
+          // This ensures the final auth state change (admin signing back in) is handled normally
+          clearIgnoreAuthStateChange();
+          
+          // Success - admin session restored
+          toast.success('Employee created successfully');
+          // Clear the password from state for security
+          setAdminPasswordForReauth(null);
+        } catch (reauthError: any) {
+          console.error('Error during auth restoration:', reauthError);
+          toast.error('Employee created, but failed to restore your session. Please sign back in.');
+          // Clear the password from state for security
+          setAdminPasswordForReauth(null);
+          setIsSubmitting(false);
+          return;
         }
+
+        // Store credentials to show in modal
+        setNewEmployeeCredentials({
+          email: trimmedEmail,
+          password: employeePassword
+        });
+        setShowCredentialsModal(true);
       }
       // Reset form but keep modal open (like add products)
       if (!editingEmployee) {
-        setFormData({ 
-          name: '', 
-          email: '', 
-          password: '', 
-          role: 'mainAdmin', 
-          status: 'Active', 
-          avatar: '',
-          workingHours: {
-            startTime: '09:00',
-            endTime: '17:00',
-            workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-          }
-        });
-        setAdminPasswordForReauth(null);
-      } else {
-        setIsModalOpen(false);
-        setEditingEmployee(null);
         setFormData({ 
           name: '', 
           email: '', 
@@ -423,6 +470,18 @@ const Employees: React.FC = () => {
       } else {
         toast.error(`Failed to save employee: ${error.message || 'Unknown error'}`);
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCopyCredentials = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      toast.error('Failed to copy to clipboard');
     }
   };
 
@@ -641,15 +700,31 @@ const Employees: React.FC = () => {
             />
           </div>
           {!editingEmployee && (
-            <FormInput
-              label="Password"
-              name="password"
-              type="password"
-              value={formData.password || ''}
-              onChange={handleInputChange}
-              required
-              placeholder="Minimum 6 characters"
-            />
+            <>
+              <FormInput
+                label="Password"
+                name="password"
+                type="password"
+                value={formData.password || ''}
+                onChange={handleInputChange}
+                required
+                placeholder="Minimum 6 characters"
+              />
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">
+                  <strong>Required:</strong> Enter your admin password below to stay logged in after creating the employee. This is required to maintain your session.
+                </p>
+                <FormInput
+                  label="Your Admin Password"
+                  name="adminPassword"
+                  type="password"
+                  value={adminPasswordForReauth || ''}
+                  onChange={(e) => setAdminPasswordForReauth(e.target.value)}
+                  placeholder="Enter your password to stay logged in"
+                  required
+                />
+              </div>
+            </>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -767,7 +842,19 @@ const Employees: React.FC = () => {
             >
               Cancel
             </Button>
-            <Button type="submit">{editingEmployee ? 'Update' : 'Add'} Employee</Button>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Adding Employee...</span>
+                </div>
+              ) : (
+                `${editingEmployee ? 'Update' : 'Add'} Employee`
+              )}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -1130,6 +1217,76 @@ const Employees: React.FC = () => {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Employee Credentials Modal */}
+      <Modal
+        open={showCredentialsModal}
+        onClose={() => {
+          setShowCredentialsModal(false);
+          setNewEmployeeCredentials(null);
+          setIsModalOpen(false);
+        }}
+        title="Employee Created Successfully"
+        size="md"
+      >
+        {newEmployeeCredentials && (
+          <div className="space-y-4">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-sm text-green-800 dark:text-green-200">
+                Employee has been created successfully. Please copy the login credentials below and provide them to the employee.
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Login Credentials (Copy All)
+              </label>
+              <div className="flex items-center space-x-2">
+                <textarea
+                  value={`Email: ${newEmployeeCredentials.email}\nPassword: ${newEmployeeCredentials.password}`}
+                  readOnly
+                  rows={3}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-sm resize-none"
+                  onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                />
+                <Button
+                  onClick={() => handleCopyCredentials(`Email: ${newEmployeeCredentials.email}\nPassword: ${newEmployeeCredentials.password}`)}
+                  variant="secondary"
+                  size="sm"
+                  className="whitespace-nowrap"
+                >
+                  Copy All
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-xs text-blue-800 dark:text-blue-200">
+                <strong>Tip:</strong> Click on the text above or use the "Copy All" button to copy both email and password at once.
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                <strong>Important:</strong> Make sure to securely share these credentials with the employee. They will need these to log in to the system.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button
+                onClick={() => {
+                  setShowCredentialsModal(false);
+                  setNewEmployeeCredentials(null);
+                  setIsModalOpen(false);
+                }}
+                variant="primary"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Chat Viewer Modal */}

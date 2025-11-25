@@ -167,6 +167,9 @@ export interface Expense {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+  expenseType?: 'regular' | 'salary'; // Type of expense
+  employeeId?: string; // For salary expenses
+  employeeName?: string; // For salary expenses
 }
 
 export interface ExpenseCategory {

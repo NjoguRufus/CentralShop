@@ -35,6 +35,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (requiredRole: string) => boolean;
+  ignoreAuthStateChange: (duration?: number) => void; // Temporarily ignore auth state changes
+  clearIgnoreAuthStateChange: () => void; // Clear the ignore flag immediately
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,9 +58,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastLoginTracked, setLastLoginTracked] = useState<string | null>(null);
+  const [ignoreAuthChanges, setIgnoreAuthChanges] = useState<boolean>(false);
+  const [storedAdminUser, setStoredAdminUser] = useState<{ firebaseUser: FirebaseUser | null; currentUser: User | null } | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // If we're ignoring auth state changes (during employee creation), restore the stored admin session
+      if (ignoreAuthChanges && storedAdminUser) {
+        console.log('Ignoring temporary auth state change, restoring admin session');
+        setUser(storedAdminUser.firebaseUser);
+        setCurrentUser(storedAdminUser.currentUser);
+        setLoading(false);
+        return;
+      }
+      
       if (firebaseUser) {
         setUser(firebaseUser);
         // Fetch user data from users collection or employees collection by UID field
@@ -158,7 +171,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     return unsubscribe;
-  }, []);
+  }, [ignoreAuthChanges, storedAdminUser]);
+
+  // Function to temporarily ignore auth state changes (for employee creation)
+  const ignoreAuthStateChange = (duration: number = 5000) => {
+    // Store current admin session before it gets changed
+    const currentFirebaseUser = auth.currentUser;
+    setStoredAdminUser({
+      firebaseUser: currentFirebaseUser,
+      currentUser: currentUser
+    });
+    
+    // Set flag to ignore auth changes
+    setIgnoreAuthChanges(true);
+    
+    // Clear the flag after duration
+    setTimeout(() => {
+      setIgnoreAuthChanges(false);
+      setStoredAdminUser(null);
+    }, duration);
+  };
+
+  // Function to clear the ignore flag immediately
+  const clearIgnoreAuthStateChange = () => {
+    setIgnoreAuthChanges(false);
+    setStoredAdminUser(null);
+  };
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
@@ -225,7 +263,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     login,
     logout,
-    hasPermission
+    hasPermission,
+    ignoreAuthStateChange,
+    clearIgnoreAuthStateChange
   };
 
   return (

@@ -20,6 +20,7 @@ const Expenses: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -37,7 +38,10 @@ const Expenses: React.FC = () => {
     status: 'pending',
     notes: '',
     supplierId: '',
-    supplierName: ''
+    supplierName: '',
+    expenseType: 'regular',
+    employeeId: '',
+    employeeName: ''
   });
   const [editingCategory, setEditingCategory] = useState<Partial<ExpenseCategory>>({
     name: '',
@@ -82,6 +86,7 @@ const Expenses: React.FC = () => {
       fetchExpenses();
       fetchCategories();
       fetchSuppliers();
+      fetchEmployees();
       fetchRevenueTotal();
     }
   }, [currentUser?.shopId]);
@@ -118,11 +123,36 @@ const Expenses: React.FC = () => {
     try {
       const q = query(collection(db, `shops/${currentUser.shopId}/expenseCategories`));
       const snapshot = await getDocs(q);
-      const categoriesData = snapshot.docs.map(doc => ({
+      let categoriesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate() || new Date()
       })) as ExpenseCategory[];
+      
+      // Check if Salary category exists, if not create it
+      const salaryCategoryExists = categoriesData.some(c => c.name.toLowerCase() === 'salary');
+      if (!salaryCategoryExists) {
+        try {
+          const salaryCategoryRef = await addDoc(collection(db, `shops/${currentUser.shopId}/expenseCategories`), {
+            name: 'Salary',
+            description: 'Employee salary payments',
+            color: '#9333EA', // Purple color for salary
+            isActive: true,
+            createdAt: Timestamp.now()
+          });
+          categoriesData.push({
+            id: salaryCategoryRef.id,
+            name: 'Salary',
+            description: 'Employee salary payments',
+            color: '#9333EA',
+            isActive: true,
+            createdAt: new Date()
+          });
+        } catch (error) {
+          console.error('Error creating Salary category:', error);
+        }
+      }
+      
       setCategories(categoriesData);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -157,6 +187,25 @@ const Expenses: React.FC = () => {
     }
   };
 
+  const fetchEmployees = async () => {
+    if (!currentUser?.shopId) return;
+    
+    try {
+      const employeesCollectionName = getShopCollectionName('employees');
+      const q = query(collection(db, employeesCollectionName), orderBy('name'));
+      const snapshot = await getDocs(q);
+      const employeesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        name: doc.data().name || 'Unknown',
+        email: doc.data().email || ''
+      }));
+      setEmployees(employeesData);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
+
   const fetchRevenueTotal = async () => {
     if (!currentUser?.shopId) return;
     try {
@@ -178,6 +227,8 @@ const Expenses: React.FC = () => {
   const buildExpensePayload = (includeCreatedMeta = false) => {
     const supplierId = editingExpense.supplierId || '';
     const supplier = supplierId ? suppliers.find((s) => s.id === supplierId) : null;
+    const employeeId = editingExpense.employeeId || '';
+    const employee = employeeId ? employees.find((e) => e.id === employeeId) : null;
 
     const payload: Record<string, any> = {
       description: editingExpense.description?.trim() || '',
@@ -186,8 +237,11 @@ const Expenses: React.FC = () => {
       status: editingExpense.status || 'pending',
       notes: editingExpense.notes?.trim() || '',
       category: editingExpense.category ?? null,
+      expenseType: editingExpense.expenseType || 'regular',
       supplierId: supplierId || null,
       supplierName: supplier?.name || editingExpense.supplierName || null,
+      employeeId: employeeId || null,
+      employeeName: employee?.name || editingExpense.employeeName || null,
       date: Timestamp.fromDate(editingExpense.date || new Date()),
       updatedAt: Timestamp.now()
     };
@@ -199,7 +253,7 @@ const Expenses: React.FC = () => {
     }
 
     Object.keys(payload).forEach((key) => {
-      if (payload[key] === undefined) {
+      if (payload[key] === undefined || payload[key] === null) {
         delete payload[key];
       }
     });
@@ -228,7 +282,10 @@ const Expenses: React.FC = () => {
         status: 'pending',
         notes: '',
         supplierId: '',
-        supplierName: ''
+        supplierName: '',
+        expenseType: 'regular',
+        employeeId: '',
+        employeeName: ''
       });
       fetchExpenses();
     } catch (error) {
@@ -546,7 +603,7 @@ const Expenses: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => setShowCategoryModal(true)}>
+          <Button variant="secondary" onClick={() => setShowCategoryModal(true)}>
             Manage Categories
           </Button>
           <Button onClick={() => setShowCreateModal(true)}>
@@ -593,9 +650,24 @@ const Expenses: React.FC = () => {
 
       <Card>
         <Table
-          headers={['Description', 'Category', 'Amount', 'Date', 'Payment Method', 'Status', 'Actions']}
+          headers={['Description', 'Type', 'Category', 'Amount', 'Date', 'Payment Method', 'Status', 'Actions']}
           data={expenses.map(expense => [
-            expense.description,
+            <div>
+              <div className="font-medium">{expense.description}</div>
+              {expense.expenseType === 'salary' && expense.employeeName && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">Employee: {expense.employeeName}</div>
+              )}
+              {expense.expenseType === 'regular' && expense.supplierName && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">Supplier: {expense.supplierName}</div>
+              )}
+            </div>,
+            <span className={`px-2 py-1 rounded-full text-xs ${
+              expense.expenseType === 'salary' 
+                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' 
+                : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+            }`}>
+              {expense.expenseType === 'salary' ? 'Salary' : 'Expense'}
+            </span>,
             <span className="flex items-center">
               <div 
                 className="w-3 h-3 rounded-full mr-2" 
@@ -639,19 +711,106 @@ const Expenses: React.FC = () => {
           <h2 className="text-xl font-bold mb-4">Add New Expense</h2>
           
           <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expense Type *</label>
+              <Select
+                value={editingExpense.expenseType || 'regular'}
+                onChange={async (v) => {
+                  const isSalary = v === 'salary';
+                  // Auto-select Salary category when expense type is salary
+                  let salaryCategory = categories.find(c => c.name.toLowerCase() === 'salary');
+                  
+                  // If salary category doesn't exist, create it
+                  if (isSalary && !salaryCategory && currentUser?.shopId) {
+                    try {
+                      const salaryCategoryRef = await addDoc(collection(db, `shops/${currentUser.shopId}/expenseCategories`), {
+                        name: 'Salary',
+                        description: 'Employee salary payments',
+                        color: '#9333EA',
+                        isActive: true,
+                        createdAt: Timestamp.now()
+                      });
+                      salaryCategory = {
+                        id: salaryCategoryRef.id,
+                        name: 'Salary',
+                        description: 'Employee salary payments',
+                        color: '#9333EA',
+                        isActive: true,
+                        createdAt: new Date()
+                      };
+                      setCategories(prev => [...prev, salaryCategory!]);
+                    } catch (error) {
+                      console.error('Error creating Salary category:', error);
+                    }
+                  }
+                  
+                  setEditingExpense(prev => ({ 
+                    ...prev, 
+                    expenseType: v as 'regular' | 'salary',
+                    // Auto-select salary category
+                    category: isSalary && salaryCategory ? salaryCategory : (isSalary ? undefined : prev.category),
+                    // Clear employee/supplier when switching types
+                    employeeId: isSalary ? prev.employeeId : '',
+                    employeeName: isSalary ? prev.employeeName : '',
+                    supplierId: !isSalary ? prev.supplierId : '',
+                    supplierName: !isSalary ? prev.supplierName : ''
+                  }));
+                }}
+                options={[
+                  { value: 'regular', label: 'Regular Expense' },
+                  { value: 'salary', label: 'Employee Salary' },
+                ]}
+              />
+            </div>
+            {editingExpense.expenseType === 'salary' && (
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employee *</label>
+                <Select
+                  value={editingExpense.employeeId || ''}
+                  onChange={(v) => {
+                    const employee = employees.find(e => e.id === v);
+                    setEditingExpense(prev => ({ 
+                      ...prev, 
+                      employeeId: v, 
+                      employeeName: employee?.name || '',
+                      description: employee ? `Salary - ${employee.name}` : prev.description
+                    }));
+                  }}
+                  options={[
+                    { value: '', label: 'Select Employee' },
+                    ...employees.map(e => ({ value: e.id, label: `${e.name} (${e.email})` }))
+                  ]}
+                />
+              </div>
+            )}
             <FormInput
+              name="description"
               label="Description *"
               value={editingExpense.description || ''}
               onChange={(e) => setEditingExpense(prev => ({ ...prev, description: e.target.value }))}
             />
             <FormInput
+              name="amount"
               label="Amount *"
               type="number"
-              value={editingExpense.amount || 0}
+              value={String(editingExpense.amount || 0)}
               onChange={(e) => setEditingExpense(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
             />
+            {editingExpense.expenseType === 'regular' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Supplier</label>
+                <Select
+                  value={editingExpense.supplierId || ''}
+                  onChange={(v) => {
+                    const supplier = suppliers.find(s => s.id === v);
+                    setEditingExpense(prev => ({ ...prev, supplierId: v, supplierName: supplier?.name }));
+                  }}
+                  options={[{ value: '', label: 'Select Supplier' }, ...suppliers.map(s => ({ value: s.id, label: s.name }))]}
+                />
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
               <Select
                 value={editingExpense.category?.id || ''}
                 onChange={(v) => {
@@ -669,8 +828,14 @@ const Expenses: React.FC = () => {
                 ] as SelectOption[]}
                 addNewLabel="+ Add new category"
                 onAddNew={() => setShowAddCategoryInline(true)}
+                disabled={editingExpense.expenseType === 'salary'} // Disable category selection for salary
               />
-              {showAddCategoryInline && (
+              {editingExpense.expenseType === 'salary' && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Category automatically set to "Salary"
+                </p>
+              )}
+              {showAddCategoryInline && editingExpense.expenseType !== 'salary' && (
                 <div className="mt-2 flex">
                   <input
                     type="text"
@@ -684,14 +849,14 @@ const Expenses: React.FC = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
               <DateInput
                 value={editingExpense.date?.toISOString().split('T')[0] || ''}
                 onChange={(v) => setEditingExpense(prev => ({ ...prev, date: new Date(v) }))}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
               <Select
                 value={editingExpense.paymentMethod || 'cash'}
                 onChange={(v) => setEditingExpense(prev => ({ ...prev, paymentMethod: v as any }))}
@@ -701,17 +866,6 @@ const Expenses: React.FC = () => {
                   { value: 'bank_transfer', label: 'Bank Transfer' },
                   { value: 'mobile_money', label: 'Mobile Money' },
                 ]}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-              <Select
-                value={editingExpense.supplierId || ''}
-                onChange={(v) => {
-                  const supplier = suppliers.find(s => s.id === v);
-                  setEditingExpense(prev => ({ ...prev, supplierId: v, supplierName: supplier?.name }));
-                }}
-                options={[{ value: '', label: 'Select Supplier' }, ...suppliers.map(s => ({ value: s.id, label: s.name }))]}
               />
             </div>
           </div>
@@ -727,7 +881,7 @@ const Expenses: React.FC = () => {
           </div>
 
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreateExpense}>
@@ -743,19 +897,106 @@ const Expenses: React.FC = () => {
           <h2 className="text-xl font-bold mb-4">Edit Expense</h2>
           
           <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expense Type *</label>
+              <Select
+                value={editingExpense.expenseType || 'regular'}
+                onChange={async (v) => {
+                  const isSalary = v === 'salary';
+                  // Auto-select Salary category when expense type is salary
+                  let salaryCategory = categories.find(c => c.name.toLowerCase() === 'salary');
+                  
+                  // If salary category doesn't exist, create it
+                  if (isSalary && !salaryCategory && currentUser?.shopId) {
+                    try {
+                      const salaryCategoryRef = await addDoc(collection(db, `shops/${currentUser.shopId}/expenseCategories`), {
+                        name: 'Salary',
+                        description: 'Employee salary payments',
+                        color: '#9333EA',
+                        isActive: true,
+                        createdAt: Timestamp.now()
+                      });
+                      salaryCategory = {
+                        id: salaryCategoryRef.id,
+                        name: 'Salary',
+                        description: 'Employee salary payments',
+                        color: '#9333EA',
+                        isActive: true,
+                        createdAt: new Date()
+                      };
+                      setCategories(prev => [...prev, salaryCategory!]);
+                    } catch (error) {
+                      console.error('Error creating Salary category:', error);
+                    }
+                  }
+                  
+                  setEditingExpense(prev => ({ 
+                    ...prev, 
+                    expenseType: v as 'regular' | 'salary',
+                    // Auto-select salary category
+                    category: isSalary && salaryCategory ? salaryCategory : (isSalary ? undefined : prev.category),
+                    // Clear employee/supplier when switching types
+                    employeeId: isSalary ? prev.employeeId : '',
+                    employeeName: isSalary ? prev.employeeName : '',
+                    supplierId: !isSalary ? prev.supplierId : '',
+                    supplierName: !isSalary ? prev.supplierName : ''
+                  }));
+                }}
+                options={[
+                  { value: 'regular', label: 'Regular Expense' },
+                  { value: 'salary', label: 'Employee Salary' },
+                ]}
+              />
+            </div>
+            {editingExpense.expenseType === 'salary' && (
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employee *</label>
+                <Select
+                  value={editingExpense.employeeId || ''}
+                  onChange={(v) => {
+                    const employee = employees.find(e => e.id === v);
+                    setEditingExpense(prev => ({ 
+                      ...prev, 
+                      employeeId: v, 
+                      employeeName: employee?.name || '',
+                      description: employee ? `Salary - ${employee.name}` : prev.description
+                    }));
+                  }}
+                  options={[
+                    { value: '', label: 'Select Employee' },
+                    ...employees.map(e => ({ value: e.id, label: `${e.name} (${e.email})` }))
+                  ]}
+                />
+              </div>
+            )}
             <FormInput
+              name="description"
               label="Description *"
               value={editingExpense.description || ''}
               onChange={(e) => setEditingExpense(prev => ({ ...prev, description: e.target.value }))}
             />
             <FormInput
+              name="amount"
               label="Amount *"
               type="number"
-              value={editingExpense.amount || 0}
+              value={String(editingExpense.amount || 0)}
               onChange={(e) => setEditingExpense(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
             />
+            {editingExpense.expenseType === 'regular' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Supplier</label>
+                <Select
+                  value={editingExpense.supplierId || ''}
+                  onChange={(v) => {
+                    const supplier = suppliers.find(s => s.id === v);
+                    setEditingExpense(prev => ({ ...prev, supplierId: v, supplierName: supplier?.name }));
+                  }}
+                  options={[{ value: '', label: 'Select Supplier' }, ...suppliers.map(s => ({ value: s.id, label: s.name }))]}
+                />
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
               <Dropdown
                 value={editingExpense.status || 'pending'}
                 onChange={(value) => setEditingExpense(prev => ({ ...prev, status: value as any }))}
@@ -768,16 +1009,16 @@ const Expenses: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
               <DateInput
-                value={editingExpense.date || new Date()}
-                onChange={(date) => setEditingExpense(prev => ({ ...prev, date }))}
+                value={editingExpense.date ? (editingExpense.date instanceof Date ? editingExpense.date.toISOString().split('T')[0] : String(editingExpense.date)) : new Date().toISOString().split('T')[0]}
+                onChange={(dateStr) => setEditingExpense(prev => ({ ...prev, date: new Date(dateStr) }))}
               />
             </div>
           </div>
 
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowEditModal(false)}>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
               Cancel
             </Button>
             <Button onClick={handleUpdateExpense}>
@@ -796,16 +1037,20 @@ const Expenses: React.FC = () => {
             <h3 className="text-lg font-medium mb-2">Add New Category</h3>
             <div className="grid grid-cols-2 gap-4">
               <FormInput
+                name="categoryName"
                 label="Category Name"
                 value={editingCategory.name || ''}
                 onChange={(e) => setEditingCategory(prev => ({ ...prev, name: e.target.value }))}
               />
-              <FormInput
-                label="Color"
-                type="color"
-                value={editingCategory.color || '#3B82F6'}
-                onChange={(e) => setEditingCategory(prev => ({ ...prev, color: e.target.value }))}
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color</label>
+                <input
+                  type="color"
+                  value={editingCategory.color || '#3B82F6'}
+                  onChange={(e) => setEditingCategory(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg"
+                />
+              </div>
             </div>
             <Button onClick={handleCreateCategory} className="mt-2">
               Add Category
@@ -846,7 +1091,7 @@ const Expenses: React.FC = () => {
           </div>
 
           <div className="flex justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowCategoryModal(false)}>
+            <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>
               Close
             </Button>
           </div>
