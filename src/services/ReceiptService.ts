@@ -73,7 +73,8 @@ export class ReceiptService {
 
   static buildReceiptHTML(receiptData: ReceiptData, widthPx: number = DEFAULT_PRINTER_WIDTH_PX): string {
     const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
-    const accent = '#4A90A4';
+    const accent = '#0F172A';
+    const accentMuted = '#1F2937';
     const brandName = receiptData.businessName || 'CENTRAL SHOP';
     const brandAddress = receiptData.businessAddress || '';
     const brandPhone = receiptData.businessPhone || '';
@@ -101,19 +102,19 @@ export class ReceiptService {
           }
           body {
             font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
-            background: #fff;
-            color: #111;
+            background: #ffffff;
+            color: ${accent};
             width: ${safeWidthPx}px;
             margin: 0 auto;
             padding: 0;
           }
           .receipt {
-              padding: 10px 12px 16px;
+            padding: 12px 14px 20px;
           }
             .brand {
             text-align: center;
-              padding-bottom: 10px;
-              border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(15,23,42,0.2);
             }
             .brand-logo {
               display: flex;
@@ -121,33 +122,33 @@ export class ReceiptService {
               margin-bottom: 6px;
           }
             .brand-logo img {
-              width: 42px;
-              height: 42px;
+              width: 64px;
+              height: 64px;
               object-fit: contain;
           }
             .brand-name {
-              font-size: 16px;
-              letter-spacing: 2px;
-              font-weight: 700;
-              color: ${accent};
+            font-size: 18px;
+            letter-spacing: 2px;
+            font-weight: 700;
+            color: ${accent};
           }
             .tagline {
-            font-size: 9px;
-              text-transform: uppercase;
-              letter-spacing: 3px;
-              color: #666;
-              margin-top: 2px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: ${accentMuted};
+            margin-top: 2px;
           }
             .meta {
-              margin: 10px 0 12px;
-              font-size: 10px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
+            margin: 12px 0 14px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
             .meta-row {
             display: flex;
             justify-content: space-between;
-              margin: 2px 0;
+            margin: 3px 0;
             }
 
             .badge {
@@ -161,14 +162,16 @@ export class ReceiptService {
               letter-spacing: 1px;
               border: 1px solid ${accent};
               color: ${accent};
+              background: rgba(15,23,42,0.08);
               margin-top: 4px;
             }
 
             .items {
               margin-top: 12px;
-              border: 1px solid rgba(0,0,0,0.08);
+              border: 1px solid rgba(15,23,42,0.15);
               border-radius: 10px;
-              padding: 8px;
+              padding: 10px;
+              background: #f8fafc;
             }
             .item-row {
               display: grid;
@@ -176,18 +179,18 @@ export class ReceiptService {
               gap: 6px;
             font-size: 10px;
               padding: 4px 0;
-              border-bottom: 1px dashed rgba(0,0,0,0.08);
+              border-bottom: 1px dashed rgba(15,23,42,0.15);
             }
             .item-row:last-child {
               border-bottom: none;
           }
           .item-name {
               font-weight: 600;
-              color: #222;
+              color: ${accent};
           }
           .item-qty {
               text-align: right;
-              color: #666;
+              color: ${accentMuted};
               min-width: 28px;
           }
             .item-total {
@@ -204,12 +207,13 @@ export class ReceiptService {
               font-size: 9.5px;
             }
             .stat-card {
-              border: 1px solid rgba(0,0,0,0.08);
+            border: 1px solid rgba(15,23,42,0.15);
               border-radius: 8px;
               padding: 6px;
+            background: #ffffff;
             }
             .stat-label {
-              color: #777;
+            color: ${accentMuted};
               text-transform: uppercase;
               letter-spacing: 1px;
               font-size: 8px;
@@ -221,7 +225,7 @@ export class ReceiptService {
 
           .totals {
               margin-top: 14px;
-              border-top: 1px dashed rgba(0,0,0,0.2);
+            border-top: 1px dashed rgba(15,23,42,0.3);
               padding-top: 10px;
           }
           .total-line {
@@ -240,16 +244,16 @@ export class ReceiptService {
             .signature-block {
               margin-top: 14px;
               padding: 10px;
-              border: 1px dashed rgba(0,0,0,0.2);
+            border: 1px dashed rgba(15,23,42,0.3);
               border-radius: 10px;
               text-align: center;
               font-size: 9px;
-              color: #555;
+            color: ${accentMuted};
           }
             .signature-label {
               text-transform: uppercase;
               letter-spacing: 2px;
-              color: #999;
+            color: ${accentMuted};
               font-size: 8px;
             }
 
@@ -257,12 +261,21 @@ export class ReceiptService {
               margin-top: 14px;
             text-align: center;
             font-size: 9px;
-              color: #777;
+            color: ${accentMuted};
           }
             .footer strong {
               display: block;
               margin-bottom: 3px;
               letter-spacing: 1px;
+          }
+          .cut-line {
+            border-top: 1px dashed rgba(15,23,42,0.5);
+            margin-top: 8px;
+            padding-top: 6px;
+            font-size: 10px;
+            color: ${accent};
+            text-align: center;
+            letter-spacing: 2px;
           }
         </style>
       </head>
@@ -374,6 +387,7 @@ export class ReceiptService {
               <strong>${brandAddress}</strong>
               ${brandPhone}<br/>
               Powered By Astraronix Solutions
+              <div class="cut-line">✂︎ --------------------------------------</div>
           </div>
         </div>
       </body>

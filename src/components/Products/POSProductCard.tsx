@@ -70,7 +70,7 @@ const POSProductCard: React.FC<POSProductCardProps> = ({ product, onAddToCart, s
           <div className="font-extrabold text-[#4A90A4] text-base">
             KSH {product.price.toLocaleString()} / {getUnitShortLabel(product.unit)}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray400">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Stock: {product.stock} {getUnitShortLabel(product.unit)}
           </p>
           {product.requireMeasurement && (

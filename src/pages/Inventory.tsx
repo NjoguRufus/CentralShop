@@ -347,7 +347,7 @@ const Inventory: React.FC = () => {
       </div>
 
       {/* Search, View Toggle, and Add Product */}
-      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <div className="flex-1 relative">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
@@ -358,36 +358,6 @@ const Inventory: React.FC = () => {
             className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#4A90A4] focus:border-transparent"
             />
           </div>
-
-          {(formData.unit === 'meters' || formData.unit === 'litres') && (
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={formData.requireMeasurement}
-                  onChange={(e) => setFormData({ ...formData, requireMeasurement: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-[#4A90A4] focus:ring-[#4A90A4]"
-                />
-                Require entering {formData.unit === 'meters' ? 'meters' : 'litres'} at checkout
-              </label>
-              {formData.requireMeasurement && (
-                <FormInput
-                  label="Measurement Prompt (optional)"
-                  name="measurementLabel"
-                  type="text"
-                  placeholder={`e.g. Enter ${formData.unit}`}
-                  value={formData.measurementLabel}
-                  onChange={(e) => setFormData({ ...formData, measurementLabel: e.target.value })}
-                />
-              )}
-              {!formData.requireMeasurement && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Customers can buy in fractional {formData.unit}. Enable the option above if you want the POS to prompt for the exact
-                  {` ${formData.unit}`} length/volume during checkout.
-                </p>
-              )}
-            </div>
-          )}
         <div className="flex items-center gap-1.5">
             <button
               onClick={() => setViewMode('grid')}
@@ -482,6 +452,36 @@ const Inventory: React.FC = () => {
               placeholder="Select unit"
             />
           </div>
+
+          {(formData.unit === 'meters' || formData.unit === 'litres') && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={formData.requireMeasurement}
+                  onChange={(e) => setFormData({ ...formData, requireMeasurement: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-[#4A90A4] focus:ring-[#4A90A4]"
+                />
+                Require entering {formData.unit === 'meters' ? 'meters' : 'litres'} at checkout
+              </label>
+              {formData.requireMeasurement && (
+                <FormInput
+                  label="Measurement Prompt (optional)"
+                  name="measurementLabel"
+                  type="text"
+                  placeholder={`e.g. Enter ${formData.unit}`}
+                  value={formData.measurementLabel}
+                  onChange={(e) => setFormData({ ...formData, measurementLabel: e.target.value })}
+                />
+              )}
+              {!formData.requireMeasurement && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Customers can buy in fractional {formData.unit}. Enable the option above if you want the POS to prompt for the exact
+                  {` ${formData.unit}`} length/volume during checkout.
+                </p>
+              )}
+            </div>
+          )}
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

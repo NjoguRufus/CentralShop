@@ -15,6 +15,8 @@ export interface OfflineProduct {
   barcode?: string;
   description?: string;
   unit?: ProductUnit;
+  requireMeasurement?: boolean;
+  measurementLabel?: string;
   lastSynced?: Date;
   isDirty?: boolean;
 }

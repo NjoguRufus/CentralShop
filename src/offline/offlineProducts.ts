@@ -78,6 +78,8 @@ export async function syncProductsFromFirestore(): Promise<void> {
         barcode: data.barcode || '',
         description: data.description || '',
         unit: data.unit || DEFAULT_UNIT,
+        requireMeasurement: data.requireMeasurement || false,
+        measurementLabel: data.measurementLabel || '',
         lastSynced: new Date(),
         isDirty: false
       });
@@ -120,6 +122,8 @@ export async function getProductById(productId: string): Promise<OfflineProduct 
           barcode: data.barcode || '',
           description: data.description || '',
           unit: data.unit || DEFAULT_UNIT,
+          requireMeasurement: data.requireMeasurement || false,
+          measurementLabel: data.measurementLabel || '',
           lastSynced: new Date(),
           isDirty: false
         };

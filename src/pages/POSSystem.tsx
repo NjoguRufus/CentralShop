@@ -15,10 +15,9 @@ import ConfirmationModal from '../components/UI/ConfirmationModal';
 import ProductsGrid from '../components/Products/ProductsGrid';
 import { ReceiptService } from '../services/ReceiptService';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
-import { Product, OrderItem, ProductUnit } from '../types';
+import { Product, OrderItem } from '../types';
 import { toast } from 'react-toastify';
 import Modal from '../components/Modal';
-import FormInput from '../components/UI/FormInput';
 import { getUnitShortLabel, getDefaultUnit } from '../constants/productUnits';
 
 interface ProductCategory {
@@ -61,11 +60,11 @@ const POSSystem: React.FC = () => {
   }, [cart]);
 
   const getMeasurementLabel = useCallback((product?: Product | null) => {
-    if (!product) return 'measurement';
+    if (!product) return 'amount';
     if (product.measurementLabel) return product.measurementLabel;
     if (product.unit === 'litres') return 'Litres';
     if (product.unit === 'meters') return 'Meters';
-    return 'measurement';
+    return getUnitShortLabel(product.unit);
   }, []);
 
   const openMeasurementModal = useCallback(
@@ -640,7 +639,8 @@ const POSSystem: React.FC = () => {
           productId: item.productId,
           quantity: item.quantity,
           price: item.price,
-          unit: item.product.unit || DEFAULT_UNIT
+          unit: item.product.unit || DEFAULT_UNIT,
+          measurementLabel: item.product.measurementLabel || ''
         })),
         subtotal,
         tax,
@@ -958,7 +958,8 @@ const POSSystem: React.FC = () => {
               <>
                 <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
                   {cart.map(item => {
-                    const unitLabel = getUnitShortLabel(item.product.unit);
+                    const measurementItem = isMeasurementProduct(item.product);
+                    const unitLabel = measurementItem ? getMeasurementLabel(item.product) : getUnitShortLabel(item.product.unit);
                     return (
                       <div key={item.productId} className="flex items-center justify-between">
                         <div className="flex-1">
@@ -968,30 +969,47 @@ const POSSystem: React.FC = () => {
                           </p>
                         </div>
                         
-                        <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                          className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        
-                        <span className="w-8 text-center font-medium">{item.quantity}</span>
-                        
-                        <button
-                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                          className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                        
-                        <button
-                          onClick={() => removeFromCart(item.productId)}
-                          className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        </div>
+                        {measurementItem ? (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => openMeasurementModal(item.product, { cartItemId: item.productId, initialQuantity: item.quantity })}
+                              className="px-3 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
+                            >
+                              Edit Qty
+                            </button>
+                            <button
+                              onClick={() => removeFromCart(item.productId)}
+                              className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800 text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                              className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            
+                            <span className="w-8 text-center font-medium">{item.quantity}</span>
+                            
+                            <button
+                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                              className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                            
+                            <button
+                              onClick={() => removeFromCart(item.productId)}
+                              className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800 text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1029,6 +1047,53 @@ const POSSystem: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Measurement Modal */}
+      <Modal
+        open={measurementModal.open}
+        onClose={closeMeasurementModal}
+        title={`Enter ${getMeasurementLabel(measurementModal.product)}`}
+      >
+        {measurementModal.product && (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleMeasurementConfirm();
+            }}
+          >
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Specify the exact {getMeasurementLabel(measurementModal.product)} for <strong>{measurementModal.product.name}</strong>.
+            </p>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Amount in {getMeasurementLabel(measurementModal.product)}
+              </label>
+              <input
+                type="number"
+                name="measurementValue"
+                min="0"
+                step="0.01"
+                value={measurementValue}
+                onChange={(e) => setMeasurementValue(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#4A90A4]"
+                required
+              />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Available: {measurementModal.product.stock} {getMeasurementLabel(measurementModal.product)}
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="secondary" onClick={closeMeasurementModal}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary">
+                Save
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Checkout Modal */}
       <CheckoutModal
