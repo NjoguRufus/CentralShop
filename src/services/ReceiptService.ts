@@ -73,8 +73,6 @@ export class ReceiptService {
 
   static buildReceiptHTML(receiptData: ReceiptData, widthPx: number = DEFAULT_PRINTER_WIDTH_PX): string {
     const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
-    const accent = '#0F172A';
-    const accentMuted = '#1F2937';
     const brandName = receiptData.businessName || 'CENTRAL SHOP';
     const brandAddress = receiptData.businessAddress || '';
     const brandPhone = receiptData.businessPhone || '';
@@ -94,19 +92,19 @@ export class ReceiptService {
             }
             body {
               margin: 0;
-              padding: 0;
+                padding: 0;
+              }
             }
-          }
-          * {
-            box-sizing: border-box;
+            * {
+              box-sizing: border-box;
           }
           body {
-            font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
+              font-family: 'Space Grotesk', 'Inter', 'Courier New', monospace;
             background: #ffffff;
-            color: ${accent};
+            color: #000000;
             width: ${safeWidthPx}px;
-            margin: 0 auto;
-            padding: 0;
+              margin: 0 auto;
+              padding: 0;
           }
           .receipt {
             padding: 12px 14px 20px;
@@ -114,7 +112,7 @@ export class ReceiptService {
             .brand {
             text-align: center;
             padding-bottom: 12px;
-            border-bottom: 1px solid rgba(15,23,42,0.2);
+            border-bottom: 2px solid #000000;
             }
             .brand-logo {
               display: flex;
@@ -128,27 +126,29 @@ export class ReceiptService {
           }
             .brand-name {
             font-size: 18px;
-            letter-spacing: 2px;
-            font-weight: 700;
-            color: ${accent};
+              letter-spacing: 2px;
+              font-weight: 700;
+              color: #000000;
           }
             .tagline {
             font-size: 10px;
-            text-transform: uppercase;
+              text-transform: uppercase;
             letter-spacing: 2px;
-            color: ${accentMuted};
-            margin-top: 2px;
+            color: #000000;
+              margin-top: 2px;
           }
             .meta {
             margin: 12px 0 14px;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #000000;
           }
             .meta-row {
             display: flex;
             justify-content: space-between;
             margin: 3px 0;
+            color: #000000;
             }
 
             .badge {
@@ -160,18 +160,18 @@ export class ReceiptService {
               border-radius: 999px;
               text-transform: uppercase;
               letter-spacing: 1px;
-              border: 1px solid ${accent};
-              color: ${accent};
-              background: rgba(15,23,42,0.08);
+              border: 2px solid #000000;
+              color: #000000;
+              background: #ffffff;
               margin-top: 4px;
             }
 
             .items {
               margin-top: 12px;
-              border: 1px solid rgba(15,23,42,0.15);
+              border: 2px solid #000000;
               border-radius: 10px;
               padding: 10px;
-              background: #f8fafc;
+              background: #ffffff;
             }
             .item-row {
               display: grid;
@@ -179,24 +179,25 @@ export class ReceiptService {
               gap: 6px;
             font-size: 10px;
               padding: 4px 0;
-              border-bottom: 1px dashed rgba(15,23,42,0.15);
+              border-bottom: 1px solid #000000;
             }
             .item-row:last-child {
               border-bottom: none;
           }
           .item-name {
               font-weight: 600;
-              color: ${accent};
+              color: #000000;
           }
           .item-qty {
               text-align: right;
-              color: ${accentMuted};
+              color: #000000;
               min-width: 28px;
           }
             .item-total {
             text-align: right;
               font-weight: 600;
             min-width: 55px;
+              color: #000000;
           }
 
             .stat-grid {
@@ -207,25 +208,27 @@ export class ReceiptService {
               font-size: 9.5px;
             }
             .stat-card {
-            border: 1px solid rgba(15,23,42,0.15);
+            border: 2px solid #000000;
               border-radius: 8px;
               padding: 6px;
             background: #ffffff;
             }
             .stat-label {
-            color: ${accentMuted};
+            color: #000000;
               text-transform: uppercase;
               letter-spacing: 1px;
               font-size: 8px;
               margin-bottom: 2px;
+              font-weight: 600;
             }
             .stat-value {
-              font-weight: 600;
+              font-weight: 700;
+              color: #000000;
           }
 
           .totals {
               margin-top: 14px;
-            border-top: 1px dashed rgba(15,23,42,0.3);
+            border-top: 2px solid #000000;
               padding-top: 10px;
           }
           .total-line {
@@ -233,47 +236,50 @@ export class ReceiptService {
             justify-content: space-between;
             font-size: 10px;
               margin: 2px 0;
+              color: #000000;
             }
             .grand-total {
               font-size: 12px;
               font-weight: 700;
-              color: #111;
+              color: #000000;
               margin-top: 6px;
           }
 
             .signature-block {
               margin-top: 14px;
               padding: 10px;
-            border: 1px dashed rgba(15,23,42,0.3);
+            border: 2px solid #000000;
               border-radius: 10px;
               text-align: center;
               font-size: 9px;
-            color: ${accentMuted};
+            color: #000000;
           }
             .signature-label {
               text-transform: uppercase;
               letter-spacing: 2px;
-            color: ${accentMuted};
+            color: #000000;
               font-size: 8px;
+              font-weight: 600;
             }
 
           .footer {
               margin-top: 14px;
             text-align: center;
             font-size: 9px;
-            color: ${accentMuted};
+            color: #000000;
           }
             .footer strong {
               display: block;
               margin-bottom: 3px;
               letter-spacing: 1px;
+              font-weight: 700;
           }
           .cut-line {
-            border-top: 1px dashed rgba(15,23,42,0.5);
+            border-top: 2px solid #000000;
             margin-top: 8px;
             padding-top: 6px;
             font-size: 10px;
-            color: ${accent};
+            color: #000000;
             text-align: center;
             letter-spacing: 2px;
           }
@@ -802,11 +808,25 @@ export class ReceiptService {
       background: #ffffff;
     `;
 
+    const printBtn = document.createElement('button');
+    printBtn.textContent = 'Print';
+    printBtn.style.cssText = `
+      flex: 1;
+      background: #4A90A4;
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      padding: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    `;
+
     const downloadBtn = document.createElement('button');
     downloadBtn.textContent = 'Download PDF';
     downloadBtn.style.cssText = `
       flex: 1;
-      background: #4A90A4;
+      background: #64748b;
       color: #ffffff;
       border: none;
       border-radius: 12px;
@@ -844,6 +864,68 @@ export class ReceiptService {
       }
     });
 
+    printBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      printBtn.disabled = true;
+      const originalText = printBtn.textContent;
+      printBtn.textContent = 'Printing...';
+      
+      // Create a hidden iframe for printing
+      const printIframe = document.createElement('iframe');
+      printIframe.style.cssText = `
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        width: ${Math.round(widthPx)}px;
+        height: 1px;
+        border: none;
+        opacity: 0;
+        pointer-events: none;
+      `;
+      document.body.appendChild(printIframe);
+      
+      const printIframeDoc = printIframe.contentDocument || printIframe.contentWindow?.document;
+      if (printIframeDoc) {
+        printIframeDoc.open();
+        printIframeDoc.write(html);
+        printIframeDoc.close();
+        
+        // Wait for content to load
+        await new Promise(resolve => {
+          const checkReady = () => {
+            if (printIframeDoc.readyState === 'complete') {
+              resolve(true);
+            } else {
+              setTimeout(checkReady, 50);
+            }
+          };
+          checkReady();
+        });
+        
+        // Small delay for images
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Trigger print
+        const printWindow = printIframe.contentWindow;
+        if (printWindow) {
+          printWindow.focus();
+          requestAnimationFrame(() => {
+            printWindow.print();
+          });
+        }
+        
+        // Clean up after print dialog appears
+        setTimeout(() => {
+          if (document.body.contains(printIframe)) {
+            document.body.removeChild(printIframe);
+          }
+        }, 1000);
+      }
+      
+      printBtn.textContent = originalText || 'Print';
+      printBtn.disabled = false;
+    });
+
     downloadBtn.addEventListener('click', async (event) => {
       event.stopPropagation();
       downloadBtn.disabled = true;
@@ -858,6 +940,7 @@ export class ReceiptService {
     body.appendChild(receiptIframe);
     dialog.appendChild(header);
     dialog.appendChild(body);
+    actions.appendChild(printBtn);
     actions.appendChild(downloadBtn);
     actions.appendChild(closeBtn);
     dialog.appendChild(actions);

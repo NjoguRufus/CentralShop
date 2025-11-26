@@ -19,6 +19,8 @@ export interface Product {
   unit?: ProductUnit;
   requireMeasurement?: boolean;
   measurementLabel?: string;
+  capital?: number;
+  buyingPrice?: number;
   createdAt: Date;
   updatedAt: Date;
 }

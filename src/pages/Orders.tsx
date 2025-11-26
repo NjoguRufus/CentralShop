@@ -8,7 +8,7 @@ import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
 import { useNotifications } from '../contexts/NotificationContext';
 import Card from '../components/UI/Card';
 import FormInput from '../components/UI/FormInput';
@@ -95,6 +95,8 @@ const Orders: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
   const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
@@ -127,9 +129,9 @@ const Orders: React.FC = () => {
 
   useEffect(() => {
     if (currentUser?.shopId) {
-      fetchCustomers();
-      fetchProducts();
-      fetchCategories();
+    fetchCustomers();
+    fetchProducts();
+    fetchCategories();
     }
   }, [currentUser?.shopId]);
 
@@ -137,7 +139,7 @@ const Orders: React.FC = () => {
     if (currentUser?.shopId && productsLoaded) {
       fetchOrders();
     }
-  }, [currentUser?.shopId, productsLoaded]);
+  }, [currentUser?.shopId, productsLoaded, selectedBranch]);
 
   const fetchOrders = async (): Promise<void> => {
     try {
@@ -149,7 +151,7 @@ const Orders: React.FC = () => {
         return;
       }
 
-      const ordersCollectionName = getShopCollectionName('orders');
+      const ordersCollectionName = getShopCollectionName('orders', selectedBranch as BranchName);
       
       // If user is a cashier, only fetch their own orders
       // Managers, mainAdmin, and Admin roles see all orders
@@ -226,7 +228,7 @@ const Orders: React.FC = () => {
         return;
       }
 
-      const querySnapshot = await getDocs(collection(db, getShopCollectionName('customers')));
+      const querySnapshot = await getDocs(collection(db, getShopCollectionName('customers', selectedBranch as BranchName)));
       const customersData: Customer[] = [];
       querySnapshot.forEach((doc) => {
         customersData.push({ id: doc.id, ...doc.data() } as Customer);
@@ -292,7 +294,7 @@ const Orders: React.FC = () => {
       if (!item?.category && item?.productId) {
         const productRecord = productsMap[item.productId];
         addCategory(productRecord?.category);
-      }
+    }
     });
 
     const categoriesArray = Array.from(categorySet);
@@ -352,11 +354,41 @@ const Orders: React.FC = () => {
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     
-    const matchesDate = !dateFilter || order.date === dateFilter;
+    // Date filter: support "today" or specific date
+    let matchesDate = true;
+    if (dateFilter) {
+      if (dateFilter === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : (order.date ? new Date(order.date) : null);
+        if (orderDate) {
+          orderDate.setHours(0, 0, 0, 0);
+          matchesDate = orderDate.getTime() === today.getTime();
+        } else {
+          matchesDate = false;
+        }
+      } else {
+        matchesDate = order.date === dateFilter;
+      }
+    }
+    
     const { category: derivedCategory } = determineOrderCategory(order);
     const matchesCategory = categoryFilter === 'all' || derivedCategory.toLowerCase() === categoryFilter.toLowerCase();
     
-    return matchesSearch && matchesStatus && matchesDate && matchesCategory;
+    // Payment method filter
+    let matchesPaymentMethod = true;
+    if (paymentMethodFilter !== 'all') {
+      const orderPaymentMethod = order.paymentMethod?.toLowerCase() || '';
+      if (paymentMethodFilter === 'cash') {
+        matchesPaymentMethod = orderPaymentMethod === 'cash';
+      } else if (paymentMethodFilter === 'mpesa') {
+        matchesPaymentMethod = orderPaymentMethod === 'mpesa' || orderPaymentMethod === 'm-pesa';
+      } else if (paymentMethodFilter === 'debt') {
+        matchesPaymentMethod = orderPaymentMethod === 'debt' || !!order.debtAmount;
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate && matchesCategory && matchesPaymentMethod;
   });
 
   const viewOrderDetails = (order: OrderRecord): void => {
@@ -704,7 +736,18 @@ const Orders: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">Orders</h1>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop Orders' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Orders' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
           <Button
             variant="secondary"
             onClick={() => navigate('/deleted-items')}
@@ -722,7 +765,7 @@ const Orders: React.FC = () => {
       </div>
 
       <Card className="p-3 md:p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <FormInput
             name="search"
             type="text"
@@ -744,11 +787,37 @@ const Orders: React.FC = () => {
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-            <DateInput value={dateFilter} onChange={setDateFilter} />
+            <Dropdown
+              value={dateFilter}
+              onChange={setDateFilter}
+              options={[
+                { value: '', label: 'All Dates' },
+                { value: 'today', label: 'Today' }
+              ]}
+              placeholder="Filter by date"
+            />
+            {dateFilter !== 'today' && (
+              <DateInput 
+                value={dateFilter || ''} 
+                onChange={(value) => setDateFilter(value || '')} 
+                className="mt-2"
+              />
+            )}
           </div>
-            <Select
-              value={categoryFilter}
-              onChange={setCategoryFilter}
+          <Dropdown
+            value={paymentMethodFilter}
+            onChange={setPaymentMethodFilter}
+            options={[
+              { value: 'all', label: 'All Payment Methods' },
+              { value: 'cash', label: 'Cash' },
+              { value: 'mpesa', label: 'Mpesa' },
+              { value: 'debt', label: 'Debt' }
+            ]}
+            placeholder="Filter by payment"
+          />
+          <Select
+            value={categoryFilter}
+            onChange={setCategoryFilter}
             options={[
               { value: 'all', label: 'All Categories' }, 
               ...categories.map(c => ({ value: c, label: c })),

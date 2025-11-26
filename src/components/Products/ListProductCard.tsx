@@ -92,10 +92,24 @@ const ListProductCard: React.FC<ListProductCardProps> = ({
               Requires entering {product.measurementLabel || getUnitShortLabel(product.unit)}
             </p>
           )}
+          {mode === 'inventory' && (product.capital || product.buyingPrice) && (
+            <div className="space-y-1 text-xs mt-1">
+              {product.capital && (
+                <p className="text-gray-600 dark:text-gray-400">
+                  Capital: <span className="font-semibold">KSH {product.capital.toLocaleString()}</span>
+                </p>
+              )}
+              {product.buyingPrice && (
+                <p className="text-gray-600 dark:text-gray-400">
+                  Buying Price: <span className="font-semibold">KSH {product.buyingPrice.toLocaleString()}</span>
+                </p>
+              )}
+          </div>
+          )}
           {mode === 'inventory' && (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-600 dark:text-gray-400">
-                Stock: {product.stock} {getUnitShortLabel(product.unit)}
+                {product.unit === 'pieces' ? 'Stock' : getUnitShortLabel(product.unit)}: {product.stock} {getUnitShortLabel(product.unit)}
               </span>
               {stockStatus && (
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>

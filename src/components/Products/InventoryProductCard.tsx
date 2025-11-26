@@ -65,10 +65,26 @@ const InventoryProductCard: React.FC<InventoryProductCardProps> = ({
           <p className="text-[11px] text-gray-500">Requires measurement at checkout</p>
         )}
         
+        {/* Capital & Buying Price */}
+        {(product.capital || product.buyingPrice) && (
+          <div className="space-y-1 text-xs">
+            {product.capital && (
+              <p className="text-gray-600 dark:text-gray-400">
+                Capital: <span className="font-semibold">KSH {product.capital.toLocaleString()}</span>
+              </p>
+            )}
+            {product.buyingPrice && (
+              <p className="text-gray-600 dark:text-gray-400">
+                Buying Price: <span className="font-semibold">KSH {product.buyingPrice.toLocaleString()}</span>
+              </p>
+            )}
+        </div>
+        )}
+        
         {/* Stock Info */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-600 dark:text-gray-400">
-            Stock: {product.stock} {getUnitShortLabel(product.unit)}
+            {product.unit === 'pieces' ? 'Stock' : getUnitShortLabel(product.unit)}: {product.stock} {getUnitShortLabel(product.unit)}
           </span>
           <span className={`px-2 py-1 rounded text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
             {stockStatus.text}

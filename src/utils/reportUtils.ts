@@ -16,7 +16,7 @@ import {
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BranchName } from '../config/shopConfig';
 import { Product, Order, PaginatedResponse } from '../types';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -33,16 +33,18 @@ export async function fetchProducts({
   shopId,
   pageSize = 500,
   cursor,
-  categories
+  categories,
+  branch
 }: {
   shopId: string;
   pageSize?: number;
   cursor?: DocumentSnapshot;
   categories?: string[];
+  branch?: BranchName;
 }): Promise<PaginatedResponse<Product>> {
   try {
     let q = query(
-      collection(db, getShopCollectionName('products')),
+      collection(db, getShopCollectionName('products', branch)),
       orderBy('name'),
       limit(pageSize)
     );
@@ -86,13 +88,13 @@ export async function fetchProducts({
  * Fetch all products (for smaller datasets)
  * For large datasets (>5000 items), use fetchProducts with pagination
  */
-export async function fetchAllProducts(shopId: string): Promise<Product[]> {
+export async function fetchAllProducts(shopId: string, branch?: BranchName): Promise<Product[]> {
   const allProducts: Product[] = [];
   let cursor: DocumentSnapshot | undefined;
   let hasMore = true;
 
   while (hasMore) {
-    const result = await fetchProducts({ shopId, pageSize: 500, cursor });
+    const result = await fetchProducts({ shopId, pageSize: 500, cursor, branch });
     allProducts.push(...result.data);
     hasMore = result.hasMore;
     cursor = result.lastDoc;
@@ -159,14 +161,15 @@ export async function fetchOrders({
 export async function fetchAllOrders(
   shopId: string,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  branch?: BranchName
 ): Promise<Order[]> {
   const allOrders: Order[] = [];
   let cursor: DocumentSnapshot | undefined;
   let hasMore = true;
 
   while (hasMore) {
-    const result = await fetchOrders({ shopId, startDate, endDate, pageSize: 500, cursor });
+    const result = await fetchOrders({ shopId, startDate, endDate, pageSize: 500, cursor, branch });
     allOrders.push(...result.data);
     hasMore = result.hasMore;
     cursor = result.lastDoc;

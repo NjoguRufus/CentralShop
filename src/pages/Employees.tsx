@@ -4,7 +4,8 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy,
 import { createUserWithEmailAndPassword, updateProfile, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName, getUserCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, getUserCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
+import Dropdown from '../components/UI/Dropdown';
 import Modal from '../components/Modal';
 import Card from '../components/UI/Card';
 import Table from '../components/UI/Table';
@@ -27,6 +28,7 @@ interface Employee {
   customId?: string; // Custom employee ID (CSH-00-001, MNG-00-001, ADM-00, etc.)
   shopId?: string; // For multi-tenant support
   shopName?: string; // For display purposes
+  assignedShops?: string[]; // Shops the user can access (CentralShop, KamweneShop, or both)
   createdAt?: Date;
   updatedAt?: Date;
   workingHours?: {
@@ -78,6 +80,7 @@ const Employees: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState<boolean>(false);
   const [newEmployeeCredentials, setNewEmployeeCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
   const [formData, setFormData] = useState<Omit<Employee, 'id'>>({
     name: '',
     email: '',
@@ -94,7 +97,7 @@ const Employees: React.FC = () => {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [selectedBranch]);
 
 
   // Fetch employee statistics
@@ -248,16 +251,30 @@ const Employees: React.FC = () => {
       }
 
       // Fetch from shop-prefixed employees collection
-      const employeesCollectionName = getShopCollectionName('employees');
+      const employeesCollectionName = getShopCollectionName('employees', selectedBranch as BranchName);
       const q = query(collection(db, employeesCollectionName), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const employeesData: Employee[] = [];
       querySnapshot.forEach((doc) => {
         const userData = doc.data() as Employee;
-        // Filter out astraronix users
-        if (userData.role !== 'astraronix') {
-          employeesData.push({ 
-            id: doc.id, 
+        // Normalize shop name for comparison (handle legacy records)
+        const recordShopName = (userData.shopName || '').replace(/\s+/g, '');
+        const selectedShopName = selectedBranch.replace(/\s+/g, '');
+
+        // Filter out astraronix users and ensure employees belong to the selected branch
+        const isAstraronix = userData.role === 'astraronix';
+        const isInSelectedBranch =
+          !recordShopName // legacy records without shopName – treat as CentralShop
+            ? selectedShopName === BRANCHES.CENTRAL
+            : recordShopName === selectedShopName ||
+              (Array.isArray(userData.assignedShops) &&
+                userData.assignedShops
+                  .map(s => s.replace(/\s+/g, ''))
+                  .includes(selectedShopName));
+
+        if (!isAstraronix && isInSelectedBranch) {
+          employeesData.push({
+            id: doc.id,
             ...userData,
             createdAt: userData.createdAt || new Date(),
             updatedAt: userData.updatedAt || new Date()
@@ -287,14 +304,54 @@ const Employees: React.FC = () => {
     setIsSubmitting(true);
     try {
       if (editingEmployee && editingEmployee.id) {
-        // Update existing employee (don't create new auth user)
+        // Update existing employee and move them between shops if needed
         const { password, ...updateData } = formData;
-        // Store password if provided for admin visibility
+
+        // Preserve existing fields like uid, customId, createdAt, etc.
+        const { id: _ignoreId, ...existingData } = editingEmployee;
+
+        // Determine assigned shops and primary shop
+        const assignedShops =
+          (updateData.assignedShops && updateData.assignedShops.length > 0
+            ? updateData.assignedShops
+            : [selectedBranch]) as string[];
+
+        const previousPrimaryShop = (editingEmployee.shopName || BRANCHES.CENTRAL) as BranchName;
+        const primaryFromAssigned =
+          assignedShops.length === 1 ? (assignedShops[0] as BranchName) : previousPrimaryShop;
+        const newPrimaryShop = primaryFromAssigned;
+
+        // Build final data to store
         const updateDataWithPassword = password ? { ...updateData, password } : updateData;
-        await updateDoc(doc(db, getShopCollectionName('employees'), editingEmployee.id), {
+        const mergedData = {
+          ...existingData,
           ...updateDataWithPassword,
-          updatedAt: new Date()
-        });
+          assignedShops,
+          shopName: newPrimaryShop,
+          updatedAt: new Date(),
+        };
+
+        // If primary shop did not change, just update the existing document in its collection
+        if (newPrimaryShop === previousPrimaryShop) {
+          await updateDoc(
+            doc(db, getShopCollectionName('employees', previousPrimaryShop), editingEmployee.id),
+            mergedData as any
+          );
+        } else {
+          // Primary shop changed: move employee document between shop collections
+          const oldCollectionName = getShopCollectionName('employees', previousPrimaryShop);
+          const newCollectionName = getShopCollectionName('employees', newPrimaryShop);
+
+          // Remove from old collection
+          await deleteDoc(doc(db, oldCollectionName, editingEmployee.id));
+
+          // Add to new collection (new document id)
+          await addDoc(collection(db, newCollectionName), {
+            ...mergedData,
+            createdAt: editingEmployee.createdAt || new Date(),
+          } as any);
+        }
+
         toast.success('Employee updated successfully');
         setIsModalOpen(false);
         setEditingEmployee(null);
@@ -374,7 +431,7 @@ const Employees: React.FC = () => {
         });
 
         // Generate custom employee ID based on role
-        const employeesCollectionName = getShopCollectionName('employees');
+        const employeesCollectionName = getShopCollectionName('employees', selectedBranch as BranchName);
         const existingEmployeesQuery = query(collection(db, employeesCollectionName));
         const existingEmployeesSnapshot = await getDocs(existingEmployeesQuery);
         const existingCustomIds = existingEmployeesSnapshot.docs
@@ -383,24 +440,26 @@ const Employees: React.FC = () => {
         
         const { customId } = generateEmployeeId(formData.role, existingCustomIds);
 
-        // Save employee data to dynamic user collection (e.g., CentralShopUsers)
-        const userCollectionName = getUserCollectionName(currentUser?.shopId, currentUser?.shopName);
+        // Save employee data to dynamic user collection (e.g., CentralShopUsers, KamweneShopUsers)
+        // Use selectedBranch to determine which shop's user collection to save to
+        const userCollectionName = getUserCollectionName(currentUser?.shopId, selectedBranch);
         const employeeData = {
           ...formData,
           email: trimmedEmail, // Use trimmed email
           uid: userCredential.user.uid,
           customId: customId, // Add custom ID
           shopId: currentUser?.shopId,
-          shopName: currentUser?.shopName,
+          shopName: selectedBranch, // Use selected branch instead of currentUser shopName
+          assignedShops: formData.assignedShops || [selectedBranch as any],
           createdAt: new Date(),
           updatedAt: new Date()
         };
         
-        // Save to dynamic user collection
+        // Save to dynamic user collection (branch-specific)
         await addDoc(collection(db, userCollectionName), employeeData);
         
         // Also save to employees collection for employee-specific features (optional, for backward compatibility)
-        await addDoc(collection(db, getShopCollectionName('employees')), employeeData);
+        await addDoc(collection(db, getShopCollectionName('employees', selectedBranch as BranchName)), employeeData);
 
         // CRITICAL: Sign out the newly created user and immediately sign admin back in
         // This must happen in rapid succession to prevent the auth state change from propagating
@@ -494,7 +553,7 @@ const Employees: React.FC = () => {
     if (!employeeToDelete) return;
 
     try {
-      await deleteDoc(doc(db, getShopCollectionName('employees'), employeeToDelete));
+      await deleteDoc(doc(db, getShopCollectionName('employees', selectedBranch as BranchName), employeeToDelete));
       toast.success('Employee deleted successfully');
       fetchEmployees();
       setShowDeleteModal(false);
@@ -510,9 +569,16 @@ const Employees: React.FC = () => {
     setFormData({
       name: employee.name,
       email: employee.email,
+      password: '', // Don't pre-fill password
       role: employee.role,
       status: employee.status,
-      avatar: employee.avatar || ''
+      avatar: employee.avatar || '',
+      assignedShops: employee.assignedShops || [BRANCHES.CENTRAL],
+      workingHours: employee.workingHours || {
+        startTime: '09:00',
+        endTime: '17:00',
+        workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+      }
     });
     setIsModalOpen(true);
   };
@@ -554,14 +620,27 @@ const Employees: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">Employees</h1>
-        <div className="flex space-x-3">
-          <Button 
-            variant="secondary" 
-            onClick={() => setShowManageModal(true)}
-          >
-            Manage Employees
-          </Button>
-          <Button onClick={() => setIsModalOpen(true)}>Add Employee</Button>
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
+          <div className="flex space-x-3">
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowManageModal(true)}
+            >
+              Manage Employees
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)}>Add Employee</Button>
+          </div>
         </div>
       </div>
 
@@ -649,6 +728,7 @@ const Employees: React.FC = () => {
         role: 'mainAdmin', 
         status: 'Active', 
         avatar: '',
+        assignedShops: [BRANCHES.CENTRAL],
         workingHours: {
           startTime: '09:00',
           endTime: '17:00',
@@ -752,6 +832,46 @@ const Employees: React.FC = () => {
               />
             </div>
           </div>
+          
+          {/* Shop Assignment - Only for Central Shop admins */}
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Assigned Shops
+              </label>
+              <div className="space-y-2">
+                {Object.values(BRANCHES).map((shop) => (
+                  <label key={shop} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.assignedShops?.includes(shop) || false}
+                      onChange={(e) => {
+                        const currentShops = formData.assignedShops || [];
+                        if (e.target.checked) {
+                          setFormData(prev => ({
+                            ...prev,
+                            assignedShops: [...currentShops, shop]
+                          }));
+                        } else {
+                          setFormData(prev => ({
+                            ...prev,
+                            assignedShops: currentShops.filter(s => s !== shop)
+                          }));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-[#4A90A4] focus:ring-[#4A90A4]"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {shop === BRANCHES.CENTRAL ? 'Central Shop' : 'Kamwene Shop'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Select which shop(s) this user can access. Users with both shops selected can switch between them.
+              </p>
+            </div>
+          )}
           
           {/* Working Hours Section */}
           <div className="col-span-2">

@@ -25,6 +25,8 @@ import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { StockReport, StockReportData } from '../types';
+import { BRANCHES, BranchName } from '../config/shopConfig';
+import Dropdown from '../components/UI/Dropdown';
 import { 
   fetchAllProducts, 
   fetchAllOrders, 
@@ -71,6 +73,7 @@ const StockReports: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [lowStockThreshold, setLowStockThreshold] = useState(5);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
 
   // Initialize date range
   useEffect(() => {
@@ -174,7 +177,7 @@ const StockReports: React.FC = () => {
       const { start, end } = getDateRange();
 
       // Check if dataset is too large
-      const estimatedOrders = await fetchAllOrders(currentUser.shopId, start, end);
+      const estimatedOrders = await fetchAllOrders(currentUser.shopId, start, end, selectedBranch as BranchName);
       if (estimatedOrders.length > 2000) {
         const proceed = window.confirm(
           `Large dataset detected (${estimatedOrders.length} orders). ` +
@@ -188,10 +191,10 @@ const StockReports: React.FC = () => {
       }
 
       setWorkerProgress({ pct: 20, message: 'Loading products...' });
-      const allProducts = await fetchAllProducts(currentUser.shopId);
+      const allProducts = await fetchAllProducts(currentUser.shopId, selectedBranch as BranchName);
 
       setWorkerProgress({ pct: 40, message: 'Loading orders...' });
-      const allOrders = await fetchAllOrders(currentUser.shopId, start, end);
+      const allOrders = await fetchAllOrders(currentUser.shopId, start, end, selectedBranch as BranchName);
 
       // Filter products by category and search
       let filteredProducts = allProducts;
@@ -377,8 +380,19 @@ const StockReports: React.FC = () => {
             Enterprise-level inventory analysis and reporting
           </p>
         </div>
-        {generatedReport && reportData && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
+          {generatedReport && reportData && (
             <Button
               variant="secondary"
               onClick={handleSaveSnapshot}
@@ -386,9 +400,9 @@ const StockReports: React.FC = () => {
             >
               <Save className="w-4 h-4" />
               Save Snapshot
-          </Button>
-          </div>
-        )}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Two-column layout */}

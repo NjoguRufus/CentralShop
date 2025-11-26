@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getUserCollectionName } from '../config/shopConfig';
+import { getUserCollectionName, BRANCHES } from '../config/shopConfig';
+import Dropdown from '../components/UI/Dropdown';
 
 // Role color mapping with glassmorphism
 const roleColors: Record<string, string> = {
@@ -18,7 +19,8 @@ const roleColors: Record<string, string> = {
 const Login: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
+    password: '',
+    selectedShop: BRANCHES.CENTRAL
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ const Login: React.FC = () => {
   }, [user, authLoading, navigate]);
 
   // Handle email lookup to detect role (called immediately on email input)
-  const handleEmailLookup = async (email: string) => {
+  const handleEmailLookup = async (email: string, shop?: string) => {
     if (!email || !email.includes("@")) {
       setDetectedRole(null);
       return;
@@ -45,78 +47,69 @@ const Login: React.FC = () => {
     setIsLookingUp(true);
     try {
       const normalizedEmail = email.toLowerCase().trim();
-      console.log('Looking up role for email:', normalizedEmail);
+      const shopToCheck = shop || formData.selectedShop;
       
-      // Try dynamic user collection first (e.g., CentralShopUsers)
-      const userCollectionName = getUserCollectionName();
-      console.log('Checking collection:', userCollectionName);
+      // Try both shops if no specific shop is selected
+      const shopsToCheck = shopToCheck === BRANCHES.CENTRAL 
+        ? [BRANCHES.CENTRAL, BRANCHES.KAMWENE] 
+        : [shopToCheck];
       
-      const dynamicUsersQuery = query(
-        collection(db, userCollectionName),
-        where('email', '==', normalizedEmail)
-      );
-      const dynamicUsersSnapshot = await getDocs(dynamicUsersQuery);
-      console.log(`Found ${dynamicUsersSnapshot.size} documents in ${userCollectionName}`);
-      
-      if (!dynamicUsersSnapshot.empty) {
-        const userData = dynamicUsersSnapshot.docs[0].data();
-        console.log('User data found:', userData);
-        if (userData.role) {
-          console.log('Role detected:', userData.role);
-          setDetectedRole(userData.role);
-          setIsLookingUp(false);
-          return;
+      for (const shopName of shopsToCheck) {
+        // Try dynamic user collection first (e.g., CentralShopUsers, KamweneShopUsers)
+        const userCollectionName = getUserCollectionName(undefined, shopName);
+        
+        const dynamicUsersQuery = query(
+          collection(db, userCollectionName),
+          where('email', '==', normalizedEmail)
+        );
+        const dynamicUsersSnapshot = await getDocs(dynamicUsersQuery);
+        
+        if (!dynamicUsersSnapshot.empty) {
+          const userData = dynamicUsersSnapshot.docs[0].data();
+          if (userData.role) {
+            setDetectedRole(userData.role);
+            setIsLookingUp(false);
+            return;
+          }
+        }
+
+        // Try employees collection as fallback
+        const employeesCollectionName = `${shopName}Employees`;
+        const employeesQuery = query(
+          collection(db, employeesCollectionName),
+          where('email', '==', normalizedEmail)
+        );
+        const employeesSnapshot = await getDocs(employeesQuery);
+        
+        if (!employeesSnapshot.empty) {
+          const userData = employeesSnapshot.docs[0].data();
+          if (userData.role) {
+            setDetectedRole(userData.role);
+            setIsLookingUp(false);
+            return;
+          }
         }
       }
 
       // Try old users collection for backward compatibility
-      console.log('Checking users collection');
       const usersQuery = query(
         collection(db, 'users'),
         where('email', '==', normalizedEmail)
       );
       const usersSnapshot = await getDocs(usersQuery);
-      console.log(`Found ${usersSnapshot.size} documents in users collection`);
       
       if (!usersSnapshot.empty) {
         const userData = usersSnapshot.docs[0].data();
-        console.log('User data found in users collection:', userData);
         if (userData.role) {
-          console.log('Role detected:', userData.role);
           setDetectedRole(userData.role);
           setIsLookingUp(false);
           return;
         }
       }
 
-      // Try employees collection as fallback
-      const employeesCollectionName = `${userCollectionName.replace('Users', 'Employees')}`;
-      console.log('Checking employees collection:', employeesCollectionName);
-      const employeesQuery = query(
-        collection(db, employeesCollectionName),
-        where('email', '==', normalizedEmail)
-      );
-      const employeesSnapshot = await getDocs(employeesQuery);
-      console.log(`Found ${employeesSnapshot.size} documents in ${employeesCollectionName}`);
-      
-      if (!employeesSnapshot.empty) {
-        const userData = employeesSnapshot.docs[0].data();
-        console.log('User data found in employees collection:', userData);
-        if (userData.role) {
-          console.log('Role detected:', userData.role);
-          setDetectedRole(userData.role);
-          setIsLookingUp(false);
-          return;
-        }
-      }
-
-      // No user found
-      console.log('No user found with email:', normalizedEmail);
       setDetectedRole(null);
     } catch (error: any) {
       console.error('Error looking up user role:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
       setDetectedRole(null);
     } finally {
       setIsLookingUp(false);
@@ -136,8 +129,13 @@ const Login: React.FC = () => {
         setDetectedRole(null);
       } else {
         // Lookup immediately
-        handleEmailLookup(value);
+        handleEmailLookup(value, formData.selectedShop);
       }
+    }
+    
+    // Re-lookup when shop changes
+    if (name === 'selectedShop' && formData.email && formData.email.includes("@")) {
+      handleEmailLookup(formData.email, value);
     }
   };
 
@@ -146,7 +144,7 @@ const Login: React.FC = () => {
     setLoading(true);
     
     try {
-      await login(formData.email, formData.password);
+      await login(formData.email, formData.password, formData.selectedShop);
       // After successful login, redirect to home
       // RoleBasedRedirect will handle routing to the correct page once currentUser is loaded
       navigate('/', { replace: true });
@@ -214,6 +212,22 @@ const Login: React.FC = () => {
 
         {/* FORM */}
         <form onSubmit={handleSubmit} className="space-y-5">
+
+          {/* SHOP SELECTION */}
+          <div>
+            <label className="block text-gray-200 text-sm font-medium mb-1">
+              Shop
+            </label>
+            <Dropdown
+              value={formData.selectedShop}
+              onChange={(value) => setFormData({ ...formData, selectedShop: value })}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Shop"
+            />
+          </div>
 
           {/* EMAIL */}
           <div>

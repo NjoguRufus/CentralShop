@@ -3,7 +3,8 @@ import { DollarSign, ShoppingCart, Users, Package, TrendingUp, AlertTriangle, Re
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
+import Dropdown from '../components/UI/Dropdown';
 import StatsCard from '../components/Dashboard/StatsCard';
 import SalesChart from '../components/Dashboard/SalesChart';
 import Card from '../components/UI/Card';
@@ -78,6 +79,7 @@ const Dashboard: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<string>('');
   const [isFiltering, setIsFiltering] = useState<boolean>(false);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
 
   const formatSelectedDayInfo = (dateStr: string): string => {
     if (!dateStr) return '';
@@ -148,7 +150,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [selectedBranch]);
 
   // Debounced filtering effect
   useEffect(() => {
@@ -188,9 +190,9 @@ const Dashboard: React.FC = () => {
       // Get date range based on filter
       const { start, end } = dateRange;
 
-      const ordersPath = getShopCollectionName('orders');
-      const customersPath = getShopCollectionName('customers');
-      const productsPath = getShopCollectionName('products');
+      const ordersPath = getShopCollectionName('orders', selectedBranch as BranchName);
+      const customersPath = getShopCollectionName('customers', selectedBranch as BranchName);
+      const productsPath = getShopCollectionName('products', selectedBranch as BranchName);
 
       // Fetch all data in parallel
       const [ordersSnapshot, customersSnapshot, productsSnapshot] = await Promise.all([
@@ -271,12 +273,12 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  }, [dateRange, dateFilter, currentUser?.shopId]);
+  }, [dateRange, dateFilter, selectedBranch, currentUser?.shopId]);
 
   const fetchTopProducts = useCallback(async (): Promise<void> => {
     try {
-      const ordersPath = getShopCollectionName('orders');
-      const productsPath = getShopCollectionName('products');
+      const ordersPath = getShopCollectionName('orders', selectedBranch as BranchName);
+      const productsPath = getShopCollectionName('products', selectedBranch as BranchName);
 
       // Get date range based on filter
       const { start, end } = dateRange;
@@ -337,12 +339,12 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching top products:', error);
     }
-  }, [dateRange, currentUser?.shopId]);
+  }, [dateRange, selectedBranch, currentUser?.shopId]);
 
   const fetchLowStockItems = async (): Promise<void> => {
     try {
       // Use shop-prefixed collection name
-      const productsPath = getShopCollectionName('products');
+      const productsPath = getShopCollectionName('products', selectedBranch as BranchName);
 
       const productsQuery = query(collection(db, productsPath));
       const productsSnapshot = await getDocs(productsQuery);
@@ -375,7 +377,7 @@ const Dashboard: React.FC = () => {
 
   const fetchSalesData = async (period: 'today' | 'week' | 'month' = salesPeriod): Promise<void> => {
     try {
-      const ordersPath = getShopCollectionName('orders');
+      const ordersPath = getShopCollectionName('orders', selectedBranch as BranchName);
       const now = new Date();
       let startDate = new Date();
       const endDate = new Date();
@@ -548,7 +550,7 @@ const Dashboard: React.FC = () => {
       setRevenueLoading(true);
       setRevenueResult(null);
 
-      const ordersPath = getShopCollectionName('orders');
+      const ordersPath = getShopCollectionName('orders', selectedBranch as BranchName);
 
       const { start, end } = computeDateRange(revenueRange, revenueSelectedDate);
       const qRef = query(
@@ -603,7 +605,7 @@ const Dashboard: React.FC = () => {
         if (currentUser?.shopId && currentUser.role !== 'astraronix') {
           expensesPath = `shops/${currentUser.shopId}/expenses`;
         }
-        const ordersPath = getShopCollectionName('orders');
+        const ordersPath = getShopCollectionName('orders', selectedBranch as BranchName);
         
         const { start, end } = getDateRange(dateFilter, customDate);
         
@@ -628,7 +630,7 @@ const Dashboard: React.FC = () => {
       }
     };
     computePeriodData();
-  }, [currentUser?.shopId, dateFilter, customDate]);
+  }, [currentUser?.shopId, dateFilter, customDate, selectedBranch]);
 
   if (loading) {
     return (
@@ -661,14 +663,27 @@ const Dashboard: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           <p className="text-gray-600 dark:text-gray-300">Overview of your business performance</p>
         </div>
-        <button
-          onClick={fetchDashboardData}
-          disabled={loading}
-          className="flex items-center space-x-2 px-4 py-2 bg-[#4A90A4] text-white rounded-lg hover:bg-[#3a7a8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
+          <button
+            onClick={fetchDashboardData}
+            disabled={loading}
+            className="flex items-center space-x-2 px-4 py-2 bg-[#4A90A4] text-white rounded-lg hover:bg-[#3a7a8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}

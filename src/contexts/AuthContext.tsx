@@ -11,7 +11,7 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { auth, db } from '../firebase';
 import { toast } from 'react-toastify';
 import { EmployeeActivityService } from '../services/EmployeeActivityService';
-import { getShopCollectionName, getUserCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, getUserCollectionName, BRANCHES } from '../config/shopConfig';
 
 interface User {
   id: string;
@@ -32,7 +32,7 @@ interface AuthContextType {
   user: User | null;
   currentUser: User | null; // Firebase Auth user
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, selectedShop?: string) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (requiredRole: string) => boolean;
   ignoreAuthStateChange: (duration?: number) => void; // Temporarily ignore auth state changes
@@ -198,8 +198,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setStoredAdminUser(null);
   };
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = async (email: string, password: string, selectedShop?: string): Promise<void> => {
     try {
+      // Store selected shop in localStorage for use during user data fetch
+      if (selectedShop) {
+        localStorage.setItem('selectedShop', selectedShop);
+      }
       await signInWithEmailAndPassword(auth, email, password);
       toast.success('Login successful');
     } catch (error: any) {

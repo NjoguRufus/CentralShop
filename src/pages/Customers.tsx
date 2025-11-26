@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
+import Dropdown from '../components/UI/Dropdown';
 import Card from '../components/UI/Card';
 import Table from '../components/UI/Table';
 import Modal from '../components/Modal';
@@ -55,6 +56,7 @@ const Customers: React.FC = () => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
   const [formData, setFormData] = useState<Omit<Customer, 'id'>>({
     name: '',
     email: '',
@@ -66,14 +68,14 @@ const Customers: React.FC = () => {
   useEffect(() => {
     fetchCustomers();
     fetchOrders();
-  }, []);
+  }, [selectedBranch]);
 
   const fetchOrders = async (): Promise<void> => {
     try {
       if (!currentUser?.shopId) return;
 
-      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
-      const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser.shopId);
+      // Use branch-specific orders collection
+      const ordersCollectionName = getShopCollectionName('orders', selectedBranch as BranchName);
       const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
       const ordersData: Order[] = [];
@@ -96,7 +98,7 @@ const Customers: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, getShopCollectionName('customers')), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('customers', selectedBranch as BranchName)), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const customersData: Customer[] = [];
       querySnapshot.forEach((doc) => {
@@ -152,10 +154,10 @@ const Customers: React.FC = () => {
     
     try {
       if (editingCustomer && editingCustomer.id) {
-        await updateDoc(doc(db, getShopCollectionName('customers'), editingCustomer.id), formData);
+        await updateDoc(doc(db, getShopCollectionName('customers', selectedBranch as BranchName), editingCustomer.id), formData);
         toast.success('Customer updated successfully');
       } else {
-        await addDoc(collection(db, getShopCollectionName('customers')), formData);
+        await addDoc(collection(db, getShopCollectionName('customers', selectedBranch as BranchName)), formData);
         toast.success('Customer added successfully');
       }
       setIsModalOpen(false);
@@ -180,7 +182,7 @@ const Customers: React.FC = () => {
     }
 
     try {
-      await deleteDoc(doc(db, getShopCollectionName('customers'), customerToDelete));
+      await deleteDoc(doc(db, getShopCollectionName('customers', selectedBranch as BranchName), customerToDelete));
       toast.success('Customer deleted successfully');
       fetchCustomers();
       setShowDeleteModal(false);
@@ -255,7 +257,20 @@ const Customers: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage customers and view their purchase history</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>Add Customer</Button>
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
+          <Button onClick={() => setIsModalOpen(true)}>Add Customer</Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

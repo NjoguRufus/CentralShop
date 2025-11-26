@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
 import { Supplier } from '../types';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import FormInput from '../components/UI/FormInput';
 import Table from '../components/UI/Table';
 import Select from '../components/UI/Select';
+import Dropdown from '../components/UI/Dropdown';
 import Modal from '../components/Modal';
 import ConfirmationModal from '../components/UI/ConfirmationModal';
 import LoadingSpinner from '../components/UI/LoadingSpinner';
@@ -45,6 +46,7 @@ const Suppliers: React.FC = () => {
   const [selectedSupply, setSelectedSupply] = useState<Supply | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
   const [editingSupplier, setEditingSupplier] = useState<Partial<Supplier>>({
     name: '',
     email: '',
@@ -72,12 +74,12 @@ const Suppliers: React.FC = () => {
       fetchSuppliers();
       fetchProducts();
     }
-  }, [currentUser?.shopId]);
+  }, [currentUser?.shopId, selectedBranch]);
 
   const fetchProducts = async () => {
     if (!currentUser?.shopId) return;
     try {
-      const q = query(collection(db, getShopCollectionName('products')), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('products', selectedBranch as BranchName)), orderBy('name'));
       const snapshot = await getDocs(q);
       const productsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -93,7 +95,7 @@ const Suppliers: React.FC = () => {
     if (!currentUser?.shopId) return;
     
     try {
-      const suppliersCollectionName = getShopCollectionName('suppliers');
+      const suppliersCollectionName = getShopCollectionName('suppliers', selectedBranch as BranchName);
       const q = query(
         collection(db, suppliersCollectionName),
         orderBy('createdAt', 'desc')
@@ -156,7 +158,7 @@ const Suppliers: React.FC = () => {
         updatedAt: Timestamp.now()
       };
 
-      await addDoc(collection(db, getShopCollectionName('suppliers')), supplierData);
+      await addDoc(collection(db, getShopCollectionName('suppliers', selectedBranch as BranchName)), supplierData);
       
       toast.success('Supplier created successfully');
       setShowCreateModal(false);
@@ -179,7 +181,7 @@ const Suppliers: React.FC = () => {
     if (!currentUser?.shopId || !selectedSupplier) return;
 
     try {
-      const supplierRef = doc(db, getShopCollectionName('suppliers'), selectedSupplier.id);
+      const supplierRef = doc(db, getShopCollectionName('suppliers', selectedBranch as BranchName), selectedSupplier.id);
       await updateDoc(supplierRef, {
         ...editingSupplier,
         updatedAt: Timestamp.now()
@@ -211,7 +213,7 @@ const Suppliers: React.FC = () => {
         createdAt: Timestamp.now()
       };
 
-      await addDoc(collection(db, `${getShopCollectionName('suppliers')}/${selectedSupplier.id}/supplies`), supplyData);
+      await addDoc(collection(db, `${getShopCollectionName('suppliers', selectedBranch as BranchName)}/${selectedSupplier.id}/supplies`), supplyData);
       
       toast.success('Supply added successfully');
       setShowSupplyModal(false);
@@ -238,7 +240,7 @@ const Suppliers: React.FC = () => {
     if (!currentUser?.shopId) return;
 
     try {
-      const supplyRef = doc(db, `${getShopCollectionName('suppliers')}/${supplierId}/supplies`, supplyId);
+      const supplyRef = doc(db, `${getShopCollectionName('suppliers', selectedBranch as BranchName)}/${supplierId}/supplies`, supplyId);
       await updateDoc(supplyRef, {
         isCleared: !currentStatus,
         updatedAt: Timestamp.now()
@@ -261,7 +263,7 @@ const Suppliers: React.FC = () => {
     if (!currentUser?.shopId || !supplierToDelete) return;
 
     try {
-      await deleteDoc(doc(db, getShopCollectionName('suppliers'), supplierToDelete));
+      await deleteDoc(doc(db, getShopCollectionName('suppliers', selectedBranch as BranchName), supplierToDelete));
       toast.success('Supplier deleted successfully');
       fetchSuppliers();
       setShowDeleteModal(false);
@@ -327,10 +329,23 @@ const Suppliers: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Suppliers</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage suppliers and their supplies</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Supplier
-        </Button>
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Supplier
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

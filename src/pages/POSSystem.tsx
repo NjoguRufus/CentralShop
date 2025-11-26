@@ -3,7 +3,7 @@ import { Plus, Minus, Trash2, Search, ShoppingCart, Grid3x3, List } from 'lucide
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
 import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import { useNotifications } from '../contexts/NotificationContext';
 import Card from '../components/UI/Card';
@@ -48,6 +48,7 @@ const POSSystem: React.FC = () => {
     product: null,
     cartItemId: undefined
   });
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
   const [measurementValue, setMeasurementValue] = useState('');
   const isMeasurementProduct = useCallback((product?: Product | null) => {
     return Boolean(product?.requireMeasurement && (product.unit === 'meters' || product.unit === 'litres'));
@@ -91,7 +92,7 @@ const POSSystem: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
-  }, []);
+  }, [selectedBranch]);
 
   // Listen for barcode scanned events
   useEffect(() => {
@@ -157,7 +158,7 @@ const POSSystem: React.FC = () => {
     try {
       if (!currentUser?.shopId) return;
 
-      const q = query(collection(db, getShopCollectionName('productCategories')), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('productCategories', selectedBranch as BranchName)), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const categoriesData: ProductCategory[] = [];
       querySnapshot.forEach((doc) => {
@@ -193,7 +194,7 @@ const POSSystem: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, getShopCollectionName('products')), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('products', selectedBranch as BranchName)), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const productsData: Product[] = [];
       querySnapshot.forEach((doc) => {
@@ -204,6 +205,8 @@ const POSSystem: React.FC = () => {
           unit: data.unit || DEFAULT_UNIT,
           requireMeasurement: data.requireMeasurement || false,
           measurementLabel: data.measurementLabel || '',
+          capital: data.capital,
+          buyingPrice: data.buyingPrice,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
         } as Product);
@@ -311,14 +314,27 @@ const POSSystem: React.FC = () => {
 
     // Find the product to check stock
     const product = products.find(p => p.id === productId);
-    if (product && quantity > product.stock) {
-      toast.error(`Cannot add more ${product.name}. Only ${product.stock} items available in stock`);
+    if (!product) {
+      return;
+    }
+    
+    // Round to 2 decimal places for meters/litres, whole numbers for pieces
+    const roundedQuantity = product.unit === 'pieces' ? Math.floor(quantity) : Math.round(quantity * 100) / 100;
+    
+    if (roundedQuantity > product.stock) {
+      toast.error(`Cannot add more ${product.name}. Only ${product.stock} ${getUnitShortLabel(product.unit)} available in stock`);
+      // Set to max available stock
+    setCart(cart.map(item => 
+      item.productId === productId 
+          ? { ...item, quantity: product.stock }
+          : item
+      ));
       return;
     }
     
     setCart(cart.map(item => 
       item.productId === productId 
-        ? { ...item, quantity }
+        ? { ...item, quantity: roundedQuantity }
         : item
     ));
   };
@@ -349,7 +365,7 @@ const POSSystem: React.FC = () => {
         return null;
       }
 
-      const customersCollectionName = getShopCollectionName('customers');
+      const customersCollectionName = getShopCollectionName('customers', selectedBranch as BranchName);
       const customersRef = collection(db, customersCollectionName);
 
       let customerRef = paymentData.customerId
@@ -731,7 +747,7 @@ const POSSystem: React.FC = () => {
               : `Auto-generated from POS checkout - Order debt`
           };
 
-          await addDoc(collection(db, getShopCollectionName('invoices')), invoiceData);
+          await addDoc(collection(db, getShopCollectionName('invoices', selectedBranch as BranchName)), invoiceData);
           
           const paymentType = paymentData.partialAmount ? 'Partial payment' : 'Debt';
           toast.success(`${paymentType} invoice ${invoiceNumber} created and customer saved!`);
@@ -749,7 +765,7 @@ const POSSystem: React.FC = () => {
         const product = products.find(p => p.id === item.productId);
         if (product) {
           const newStock = product.stock - item.quantity;
-          await updateDoc(doc(db, getShopCollectionName('products'), item.productId), {
+          await updateDoc(doc(db, getShopCollectionName('products', selectedBranch as BranchName), item.productId), {
             stock: newStock,
             updatedAt: new Date()
           });
@@ -854,9 +870,22 @@ const POSSystem: React.FC = () => {
   return (
     <div className="space-y-3 md:space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
-        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Process customer orders and payments</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Process customer orders and payments</p>
+        </div>
+        {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          <Dropdown
+            value={selectedBranch}
+            onChange={setSelectedBranch}
+            options={[
+              { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+              { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+            ]}
+            placeholder="Select Branch"
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
@@ -961,14 +990,14 @@ const POSSystem: React.FC = () => {
                     const measurementItem = isMeasurementProduct(item.product);
                     const unitLabel = measurementItem ? getMeasurementLabel(item.product) : getUnitShortLabel(item.product.unit);
                     return (
-                      <div key={item.productId} className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white">{item.product.name}</h4>
+                    <div key={item.productId} className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white">{item.product.name}</h4>
                           <p className="text-sm text-gray-500">
                             {item.quantity} {unitLabel} × KSH {item.price.toLocaleString()} / {unitLabel}
                           </p>
-                        </div>
-                        
+                      </div>
+                      
                         {measurementItem ? (
                           <div className="flex items-center space-x-2">
                             <button
@@ -985,32 +1014,50 @@ const POSSystem: React.FC = () => {
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                              className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </button>
-                            
-                            <span className="w-8 text-center font-medium">{item.quantity}</span>
-                            
-                            <button
-                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                              className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                            
-                            <button
-                              onClick={() => removeFromCart(item.productId)}
-                              className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800 text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        
+                        <input
+                          type="number"
+                          min="0.01"
+                          step={item.product.unit === 'pieces' ? '1' : '0.01'}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const newValue = parseFloat(e.target.value);
+                            if (!isNaN(newValue) && newValue >= 0) {
+                              updateQuantity(item.productId, newValue);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const newValue = parseFloat(e.target.value);
+                            if (isNaN(newValue) || newValue <= 0) {
+                              updateQuantity(item.productId, 1);
+                            }
+                          }}
+                          className="w-16 text-center font-medium border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A90A4]"
+                        />
+                        
+                        <button
+                          onClick={() => updateQuantity(item.productId, item.quantity + (item.product.unit === 'pieces' ? 1 : 0.01))}
+                          className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => removeFromCart(item.productId)}
+                          className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
+                        )}
+                    </div>
                     );
                   })}
                 </div>
@@ -1044,6 +1091,11 @@ const POSSystem: React.FC = () => {
                 </div>
               </>
             )}
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                Powered By Astraronix Solutions
+              </p>
+            </div>
           </Card>
         </div>
       </div>

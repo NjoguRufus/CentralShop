@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, where, Timestamp, DocumentData, QuerySnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BRANCHES } from '../config/shopConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { Expense, ExpenseCategory, Supplier } from '../types';
 import Card from '../components/UI/Card';
@@ -30,6 +30,7 @@ const Expenses: React.FC = () => {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
   const [editingExpense, setEditingExpense] = useState<Partial<Expense>>({
     description: '',
     amount: 0,
@@ -602,13 +603,26 @@ const Expenses: React.FC = () => {
       </Card>
       <div className="flex justify-between items-center">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
-        <div className="flex space-x-2">
-          <Button variant="secondary" onClick={() => setShowCategoryModal(true)}>
-            Manage Categories
-          </Button>
-          <Button onClick={() => setShowCreateModal(true)}>
-            Add Expense
-          </Button>
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
+          <div className="flex space-x-2">
+            <Button variant="secondary" onClick={() => setShowCategoryModal(true)}>
+              Manage Categories
+            </Button>
+            <Button onClick={() => setShowCreateModal(true)}>
+              Add Expense
+            </Button>
+          </div>
         </div>
       </div>
 

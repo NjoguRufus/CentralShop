@@ -19,7 +19,14 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
   };
   
   return (
-    <div className="fixed inset-0 z-[12000] flex items-start justify-center bg-black/50 p-4 overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-[12000] flex items-start justify-center bg-black/50 p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div
         className={`
           w-full ${sizeClasses[size]}
@@ -27,12 +34,14 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
           p-3 md:p-4 transform transition-all
           max-h-[90vh] overflow-y-auto
         `}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-2 md:mb-3">
           <h3 className="text-base md:text-lg font-semibold">{title}</h3>
           <button 
             onClick={onClose} 
             className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+            type="button"
           >
             Close
           </button>

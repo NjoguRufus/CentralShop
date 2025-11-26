@@ -13,21 +13,33 @@
 // Change this to your shop name (e.g., "CentralShop", "AnotherShop", "MyShop")
 export const SHOP_NAME = 'CentralShop';
 
+// Branch configuration
+export const BRANCHES = {
+  CENTRAL: 'CentralShop',
+  KAMWENE: 'KamweneShop'
+} as const;
+
+export type BranchName = typeof BRANCHES[keyof typeof BRANCHES];
+
 /**
  * Gets the shop-specific collection name with shop prefix
  * Converts: customers -> CentralShopCustomers, products -> CentralShopProducts, etc.
+ * @param collectionName - The collection name (e.g., 'orders', 'products')
+ * @param branch - Optional branch name. If not provided, uses SHOP_NAME
  */
-export const getShopCollectionName = (collectionName: string): string => {
+export const getShopCollectionName = (collectionName: string, branch?: BranchName): string => {
+  const shopPrefix = branch || SHOP_NAME;
+  
   // Handle special cases for proper capitalization
   const specialCases: { [key: string]: string } = {
-    'orders': `${SHOP_NAME}Orders`,
-    'customers': `${SHOP_NAME}Customers`,
-    'products': `${SHOP_NAME}Products`,
-    'invoices': `${SHOP_NAME}Invoices`,
-    'settings': `${SHOP_NAME}Settings`,
-    'employees': `${SHOP_NAME}Employees`,
-    'productCategories': `${SHOP_NAME}ProductCategories`,
-    'users': `${SHOP_NAME}Users` // Dynamic user collection
+    'orders': `${shopPrefix}Orders`,
+    'customers': `${shopPrefix}Customers`,
+    'products': `${shopPrefix}Products`,
+    'invoices': `${shopPrefix}Invoices`,
+    'settings': `${shopPrefix}Settings`,
+    'employees': `${shopPrefix}Employees`,
+    'productCategories': `${shopPrefix}ProductCategories`,
+    'users': `${shopPrefix}Users` // Dynamic user collection
   };
   
   if (specialCases[collectionName]) {
@@ -35,7 +47,7 @@ export const getShopCollectionName = (collectionName: string): string => {
   }
   
   // Default: capitalize first letter and add shop prefix
-  return `${SHOP_NAME}${collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}`;
+  return `${shopPrefix}${collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}`;
 };
 
 /**

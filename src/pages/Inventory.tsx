@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Package, Camera, X, Grid3x3, List, Loader2 } from 'lucide-react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { Plus, Search, Edit, Trash2, Package, Camera, X, Grid3x3, List, Loader2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName } from '../config/shopConfig';
@@ -15,6 +15,7 @@ import ProductsGrid from '../components/Products/ProductsGrid';
 import { Product, ProductUnit } from '../types';
 import { toast } from 'react-toastify';
 import { PRODUCT_UNIT_OPTIONS, getDefaultUnit } from '../constants/productUnits';
+import { BRANCHES, BranchName } from '../config/shopConfig';
 
 interface ProductCategory {
   id: string;
@@ -38,6 +39,11 @@ const Inventory: React.FC = () => {
   const [showBarcodeScanner, setShowBarcodeScanner] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showCapitalModal, setShowCapitalModal] = useState<boolean>(false);
+  const [capitalReport, setCapitalReport] = useState<any[]>([]);
+  const [loadingCapitalReport, setLoadingCapitalReport] = useState<boolean>(false);
+  const [selectedProductsForReport, setSelectedProductsForReport] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,14 +54,16 @@ const Inventory: React.FC = () => {
     images: [] as string[], // Changed to array for multiple images (max 3)
     unit: DEFAULT_UNIT as ProductUnit,
     requireMeasurement: false,
-    measurementLabel: ''
+    measurementLabel: '',
+    capital: '',
+    buyingPrice: ''
   });
   const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
-  }, []);
+  }, [selectedBranch]);
 
   const fetchProducts = async (): Promise<void> => {
     try {
@@ -67,7 +75,7 @@ const Inventory: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, getShopCollectionName('products')), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('products', selectedBranch as BranchName)), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const productsData: Product[] = [];
       querySnapshot.forEach((doc) => {
@@ -93,7 +101,7 @@ const Inventory: React.FC = () => {
     try {
       if (!currentUser?.shopId) return;
 
-      const q = query(collection(db, getShopCollectionName('productCategories')), orderBy('name'));
+      const q = query(collection(db, getShopCollectionName('productCategories', selectedBranch as BranchName)), orderBy('name'));
       const querySnapshot = await getDocs(q);
       const categoriesData: ProductCategory[] = [];
       querySnapshot.forEach((doc) => {
@@ -129,7 +137,7 @@ const Inventory: React.FC = () => {
         return;
       }
 
-      const categoryRef = await addDoc(collection(db, getShopCollectionName('productCategories')), {
+      const categoryRef = await addDoc(collection(db, getShopCollectionName('productCategories', selectedBranch as BranchName)), {
         name: newCategoryName.trim()
       });
 
@@ -180,14 +188,16 @@ const Inventory: React.FC = () => {
         unit: formData.unit || DEFAULT_UNIT,
         requireMeasurement: requiresMeasurement,
         measurementLabel: requiresMeasurement ? (formData.measurementLabel?.trim() || '') : '',
+        capital: formData.capital ? parseFloat(formData.capital) : undefined,
+        buyingPrice: formData.buyingPrice ? parseFloat(formData.buyingPrice) : undefined,
         updatedAt: new Date()
       };
 
       if (editingProduct) {
-        await updateDoc(doc(db, getShopCollectionName('products'), editingProduct.id), productData);
+        await updateDoc(doc(db, getShopCollectionName('products', selectedBranch as BranchName), editingProduct.id), productData);
         toast.success('Product updated successfully');
       } else {
-        await addDoc(collection(db, getShopCollectionName('products')), {
+        await addDoc(collection(db, getShopCollectionName('products', selectedBranch as BranchName)), {
           ...productData,
           createdAt: new Date()
         });
@@ -214,7 +224,9 @@ const Inventory: React.FC = () => {
       images: [],
       unit: DEFAULT_UNIT,
       requireMeasurement: false,
-      measurementLabel: ''
+      measurementLabel: '',
+      capital: '',
+      buyingPrice: ''
     });
     setShowAddModal(false);
     setEditingProduct(null);
@@ -232,8 +244,10 @@ const Inventory: React.FC = () => {
       barcode: product.barcode || '',
       images: product.image ? [product.image] : [],
       unit: product.unit || DEFAULT_UNIT,
+      capital: product.capital?.toString() || '',
       requireMeasurement: product.requireMeasurement || false,
-      measurementLabel: product.measurementLabel || ''
+      measurementLabel: product.measurementLabel || '',
+      buyingPrice: product.buyingPrice?.toString() || ''
     });
     setEditingProduct(product);
     setShowAddModal(true);
@@ -251,7 +265,7 @@ const Inventory: React.FC = () => {
     }
 
     try {
-      await deleteDoc(doc(db, getShopCollectionName('products'), productToDelete.id!));
+      await deleteDoc(doc(db, getShopCollectionName('products', selectedBranch as BranchName), productToDelete.id!));
       toast.success('Product deleted successfully');
       fetchProducts();
       setIsDeleteModalOpen(false);
@@ -338,16 +352,120 @@ const Inventory: React.FC = () => {
     return { text: 'In Stock', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900' };
   };
 
+  const generateCapitalReport = async () => {
+    if (!currentUser?.shopId) {
+      toast.error('No shop assigned to your account');
+      return;
+    }
+
+    setLoadingCapitalReport(true);
+    try {
+      // Fetch all orders
+      const ordersQuery = query(
+        collection(db, getShopCollectionName('orders', selectedBranch as BranchName)),
+        where('status', '==', 'completed')
+      );
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      // Calculate sales for each product
+      const productSales = new Map<string, { quantity: number; revenue: number }>();
+      
+      ordersSnapshot.forEach((doc) => {
+        const order = doc.data();
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const productId = item.productId;
+            if (productId) {
+              const existing = productSales.get(productId) || { quantity: 0, revenue: 0 };
+              productSales.set(productId, {
+                quantity: existing.quantity + (item.quantity || 0),
+                revenue: existing.revenue + ((item.quantity || 0) * (item.price || 0))
+              });
+            }
+          });
+        }
+      });
+
+      // Generate report for products
+      const reportData = products
+        .filter(product => {
+          // Filter by selected products if any are selected
+          if (selectedProductsForReport.length > 0) {
+            return selectedProductsForReport.includes(product.id);
+          }
+          // Only show products with capital or buying price
+          return product.capital || product.buyingPrice;
+        })
+        .map(product => {
+          const sales = productSales.get(product.id) || { quantity: 0, revenue: 0 };
+          
+          // Calculate capital
+          let capital = 0;
+          if (product.capital) {
+            capital = product.capital;
+          } else if (product.buyingPrice) {
+            // Estimate capital based on buying price and current stock
+            // Note: This is an estimate since we don't track initial stock
+            capital = product.buyingPrice * (product.stock + sales.quantity);
+          }
+
+          const profit = sales.revenue - capital;
+          const profitPercentage = capital > 0 ? ((profit / capital) * 100) : 0;
+
+          return {
+            productId: product.id,
+            productName: product.name,
+            category: product.category,
+            capital: capital,
+            quantitySold: sales.quantity,
+            salesRevenue: sales.revenue,
+            profit: profit,
+            profitPercentage: profitPercentage,
+            isProfit: profit >= 0
+          };
+        })
+        .sort((a, b) => b.salesRevenue - a.salesRevenue);
+
+      setCapitalReport(reportData);
+    } catch (error) {
+      toast.error('Failed to generate capital report');
+      console.error('Error generating capital report:', error);
+    } finally {
+      setLoadingCapitalReport(false);
+    }
+  };
+
+  const handleOpenCapitalModal = () => {
+    setShowCapitalModal(true);
+    // Reset selection when opening
+    setSelectedProductsForReport([]);
+    setCapitalReport([]);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
-        <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
+          <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
+        </div>
+        {/* Branch Selector for Central Shop */}
+        {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          <Dropdown
+            value={selectedBranch}
+            onChange={setSelectedBranch}
+            options={[
+              { value: BRANCHES.CENTRAL, label: 'Central Shop Inventory' },
+              { value: BRANCHES.KAMWENE, label: 'Kamwene Inventory' }
+            ]}
+            placeholder="Select Branch"
+          />
+        )}
       </div>
 
       {/* Search, View Toggle, and Add Product */}
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
           <div className="flex-1 relative">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
@@ -382,13 +500,23 @@ const Inventory: React.FC = () => {
             <List className="w-4 h-4" />
             </button>
           </div>
-          <Button 
-            onClick={() => setShowAddModal(true)} 
-          className="flex items-center whitespace-nowrap shrink-0 text-sm py-1.5 px-3"
-          >
-          <Plus className="w-3.5 h-3.5 mr-1.5" />
-            Add Product
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={handleOpenCapitalModal}
+              variant="secondary"
+              className="flex items-center whitespace-nowrap shrink-0 text-sm py-1.5 px-3"
+            >
+              <DollarSign className="w-3.5 h-3.5 mr-1.5" />
+              View Capital
+            </Button>
+            <Button 
+              onClick={() => setShowAddModal(true)} 
+              className="flex items-center whitespace-nowrap shrink-0 text-sm py-1.5 px-3"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Add Product
+            </Button>
+          </div>
         </div>
 
       {/* Products Grid */}
@@ -420,7 +548,7 @@ const Inventory: React.FC = () => {
           
           <div className="grid grid-cols-2 gap-4">
             <FormInput
-              label="Price ($)"
+              label="Selling Price (KSH)"
               name="price"
               type="number"
               value={formData.price}
@@ -433,10 +561,73 @@ const Inventory: React.FC = () => {
               name="stock"
               type="number"
               value={formData.stock}
-              onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+              onChange={(e) => {
+                const stock = e.target.value;
+                const buyingPrice = parseFloat(formData.buyingPrice) || 0;
+                const capital = parseFloat(formData.capital) || 0;
+                let updatedData = { ...formData, stock };
+                
+                // If buying price is set, recalculate capital
+                if (buyingPrice > 0 && stock) {
+                  updatedData.capital = (buyingPrice * parseFloat(stock)).toFixed(2);
+                }
+                // If capital is set but no buying price, recalculate buying price
+                else if (capital > 0 && stock) {
+                  updatedData.buyingPrice = (capital / parseFloat(stock)).toFixed(2);
+                }
+                
+                setFormData(updatedData);
+              }}
               required
             />
           </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput
+              label="Buying Price (KSH)"
+              name="buyingPrice"
+              type="number"
+              step="0.01"
+              value={formData.buyingPrice}
+              onChange={(e) => {
+                const buyingPrice = e.target.value;
+                const stock = parseFloat(formData.stock) || 0;
+                const calculatedCapital = buyingPrice && stock > 0 
+                  ? (parseFloat(buyingPrice) * stock).toFixed(2) 
+                  : '';
+                setFormData({ 
+                  ...formData, 
+                  buyingPrice,
+                  capital: calculatedCapital || formData.capital
+                });
+              }}
+              placeholder="Cost per unit"
+            />
+            
+            <FormInput
+              label="Capital (KSH)"
+              name="capital"
+              type="number"
+              step="0.01"
+              value={formData.capital}
+              onChange={(e) => {
+                const capital = e.target.value;
+                const stock = parseFloat(formData.stock) || 0;
+                const calculatedBuyingPrice = capital && stock > 0 
+                  ? (parseFloat(capital) / stock).toFixed(2) 
+                  : '';
+                setFormData({ 
+                  ...formData, 
+                  capital,
+                  buyingPrice: calculatedBuyingPrice || formData.buyingPrice
+                });
+              }}
+              placeholder="Total investment (auto-calculated)"
+            />
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Enter either Buying Price (per unit) or Capital (total). The other will be calculated automatically: Capital = Buying Price × Stock
+          </p>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -464,16 +655,6 @@ const Inventory: React.FC = () => {
                 />
                 Require entering {formData.unit === 'meters' ? 'meters' : 'litres'} at checkout
               </label>
-              {formData.requireMeasurement && (
-                <FormInput
-                  label="Measurement Prompt (optional)"
-                  name="measurementLabel"
-                  type="text"
-                  placeholder={`e.g. Enter ${formData.unit}`}
-                  value={formData.measurementLabel}
-                  onChange={(e) => setFormData({ ...formData, measurementLabel: e.target.value })}
-                />
-              )}
               {!formData.requireMeasurement && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Customers can buy in fractional {formData.unit}. Enable the option above if you want the POS to prompt for the exact
@@ -673,6 +854,152 @@ const Inventory: React.FC = () => {
         confirmText="Delete"
         cancelText="Cancel"
       />
+
+      {/* Capital Report Modal */}
+      <Modal
+        open={showCapitalModal}
+        onClose={() => {
+          setShowCapitalModal(false);
+          setSelectedProductsForReport([]);
+        }}
+        title="Capital & Profit Report"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Filter Section */}
+          <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Filter Products (Leave empty for all products)
+            </label>
+            <div className="max-h-40 overflow-y-auto space-y-2">
+              {products
+                .filter(p => p.capital || p.buyingPrice)
+                .map(product => (
+                  <label key={product.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedProductsForReport.includes(product.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProductsForReport([...selectedProductsForReport, product.id]);
+                        } else {
+                          setSelectedProductsForReport(selectedProductsForReport.filter(id => id !== product.id));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-[#4A90A4] focus:ring-[#4A90A4]"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">{product.name}</span>
+                  </label>
+                ))}
+            </div>
+            <Button
+              onClick={generateCapitalReport}
+              variant="primary"
+              className="mt-3"
+              disabled={loadingCapitalReport}
+            >
+              {loadingCapitalReport ? 'Generating...' : 'Generate Report'}
+            </Button>
+          </div>
+
+          {/* Report Table */}
+          {capitalReport.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Product</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Capital</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Qty Sold</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Sales</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Profit/Loss</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {capitalReport.map((item) => (
+                    <tr key={item.productId} className="border-b border-gray-100 dark:border-gray-800">
+                      <td className="py-2 px-3 text-gray-900 dark:text-white">{item.productName}</td>
+                      <td className="py-2 px-3 text-right text-gray-700 dark:text-gray-300">
+                        KSH {item.capital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2 px-3 text-right text-gray-700 dark:text-gray-300">{item.quantitySold}</td>
+                      <td className="py-2 px-3 text-right text-gray-700 dark:text-gray-300">
+                        KSH {item.salesRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`py-2 px-3 text-right font-semibold ${
+                        item.isProfit 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        <div className="flex items-center justify-end gap-1">
+                          {item.isProfit ? (
+                            <TrendingUp className="w-4 h-4" />
+                          ) : (
+                            <TrendingDown className="w-4 h-4" />
+                          )}
+                          KSH {item.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </td>
+                      <td className={`py-2 px-3 text-right font-semibold ${
+                        item.isProfit 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {item.profitPercentage >= 0 ? '+' : ''}{item.profitPercentage.toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-300 dark:border-gray-600 font-bold">
+                    <td className="py-3 px-3 text-gray-900 dark:text-white">Total</td>
+                    <td className="py-3 px-3 text-right text-gray-900 dark:text-white">
+                      KSH {capitalReport.reduce((sum, item) => sum + item.capital, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-3 text-right text-gray-900 dark:text-white">
+                      {capitalReport.reduce((sum, item) => sum + item.quantitySold, 0)}
+                    </td>
+                    <td className="py-3 px-3 text-right text-gray-900 dark:text-white">
+                      KSH {capitalReport.reduce((sum, item) => sum + item.salesRevenue, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className={`py-3 px-3 text-right ${
+                      capitalReport.reduce((sum, item) => sum + item.profit, 0) >= 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      <div className="flex items-center justify-end gap-1">
+                        {capitalReport.reduce((sum, item) => sum + item.profit, 0) >= 0 ? (
+                          <TrendingUp className="w-4 h-4" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4" />
+                        )}
+                        KSH {capitalReport.reduce((sum, item) => sum + item.profit, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </td>
+                    <td className={`py-3 px-3 text-right ${
+                      capitalReport.reduce((sum, item) => sum + item.profit, 0) >= 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {(() => {
+                        const totalCapital = capitalReport.reduce((sum, item) => sum + item.capital, 0);
+                        const totalProfit = capitalReport.reduce((sum, item) => sum + item.profit, 0);
+                        const totalPercentage = totalCapital > 0 ? ((totalProfit / totalCapital) * 100) : 0;
+                        return `${totalProfit >= 0 ? '+' : ''}${totalPercentage.toFixed(2)}%`;
+                      })()}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              {loadingCapitalReport ? 'Generating report...' : 'No data available. Click "Generate Report" to view capital analysis.'}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

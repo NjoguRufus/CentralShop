@@ -3,7 +3,7 @@ import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy,
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { getShopCollectionName } from '../config/shopConfig';
+import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
 import { Invoice, InvoiceItem, Customer, Product } from '../types';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
 import Card from '../components/UI/Card';
@@ -48,6 +48,7 @@ const Invoicing: React.FC = () => {
   const [showSendModal, setShowSendModal] = useState(false);
   const [newlyCreatedInvoice, setNewlyCreatedInvoice] = useState<Invoice | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
   const [editingInvoice, setEditingInvoice] = useState<Partial<Invoice & { customerPhone?: string }>>({
     invoiceNumber: '',
     customerId: '',
@@ -73,7 +74,7 @@ const Invoicing: React.FC = () => {
       fetchData();
       fetchBusinessInfo();
     }
-  }, [currentUser?.shopId]);
+  }, [currentUser?.shopId, selectedBranch]);
 
   const fetchBusinessInfo = async () => {
     if (!currentUser?.shopId) return;
@@ -91,7 +92,7 @@ const Invoicing: React.FC = () => {
     try {
       // Fetch invoices
       const invoicesQuery = query(
-        collection(db, getShopCollectionName('invoices')),
+        collection(db, getShopCollectionName('invoices', selectedBranch as BranchName)),
         orderBy('createdAt', 'desc')
       );
       const invoicesSnapshot = await getDocs(invoicesQuery);
@@ -106,7 +107,7 @@ const Invoicing: React.FC = () => {
       setInvoices(invoicesData);
 
       // Fetch customers
-      const customersQuery = query(collection(db, getShopCollectionName('customers')));
+      const customersQuery = query(collection(db, getShopCollectionName('customers', selectedBranch as BranchName)));
       const customersSnapshot = await getDocs(customersQuery);
       const customersData = customersSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -116,7 +117,7 @@ const Invoicing: React.FC = () => {
       setCustomers(customersData);
 
       // Fetch products
-      const productsQuery = query(collection(db, getShopCollectionName('products')), orderBy('name'));
+      const productsQuery = query(collection(db, getShopCollectionName('products', selectedBranch as BranchName)), orderBy('name'));
       const productsSnapshot = await getDocs(productsQuery);
       const productsData = productsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -232,7 +233,7 @@ const Invoicing: React.FC = () => {
         invoiceData.notes = editingInvoice.notes;
       }
 
-      const docRef = await addDoc(collection(db, getShopCollectionName('invoices')), invoiceData);
+      const docRef = await addDoc(collection(db, getShopCollectionName('invoices', selectedBranch as BranchName)), invoiceData);
       
       // Fetch the created invoice to show in send modal
       const createdInvoice = {
@@ -259,7 +260,7 @@ const Invoicing: React.FC = () => {
     if (!currentUser?.shopId || !selectedInvoice?.id) return;
 
     try {
-      const invoiceRef = doc(db, getShopCollectionName('invoices'), selectedInvoice.id);
+      const invoiceRef = doc(db, getShopCollectionName('invoices', selectedBranch as BranchName), selectedInvoice.id);
       
       // Filter out undefined values and prepare update data
       const updateData: any = {
@@ -916,14 +917,27 @@ const Invoicing: React.FC = () => {
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Invoicing</h1>
           <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Create and manage invoices</p>
         </div>
-        <Button onClick={() => {
-          resetInvoiceForm();
-          setEditingInvoice(prev => ({ ...prev, invoiceNumber: generateInvoiceNumber() }));
-          setShowCreateModal(true);
-        }}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Invoice
-        </Button>
+        <div className="flex items-center gap-3">
+          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+            <Dropdown
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              options={[
+                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+              ]}
+              placeholder="Select Branch"
+            />
+          )}
+          <Button onClick={() => {
+            resetInvoiceForm();
+            setEditingInvoice(prev => ({ ...prev, invoiceNumber: generateInvoiceNumber() }));
+            setShowCreateModal(true);
+          }}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Invoice
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
