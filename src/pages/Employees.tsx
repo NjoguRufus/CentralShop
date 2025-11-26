@@ -295,8 +295,8 @@ const Employees: React.FC = () => {
                   .includes(selectedShopName));
 
         if (!isAstraronix && isInSelectedBranch) {
-          employeesData.push({
-            id: doc.id,
+          employeesData.push({ 
+            id: doc.id, 
             ...userData,
             createdAt: userData.createdAt || new Date(),
             updatedAt: userData.updatedAt || new Date()
@@ -736,14 +736,14 @@ const Employees: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
-          <div className="flex space-x-3">
-            <Button 
-              variant="secondary" 
-              onClick={() => setShowManageModal(true)}
-            >
-              Manage Employees
-            </Button>
-            <Button onClick={() => setIsModalOpen(true)}>Add Employee</Button>
+        <div className="flex space-x-3">
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowManageModal(true)}
+          >
+            Manage Employees
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)}>Add Employee</Button>
           </div>
         </div>
       </div>

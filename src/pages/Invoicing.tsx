@@ -929,14 +929,14 @@ const Invoicing: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
-          <Button onClick={() => {
-            resetInvoiceForm();
-            setEditingInvoice(prev => ({ ...prev, invoiceNumber: generateInvoiceNumber() }));
-            setShowCreateModal(true);
-          }}>
-            <Plus className="w-4 h-4 mr-2" />
-            Create Invoice
-          </Button>
+        <Button onClick={() => {
+          resetInvoiceForm();
+          setEditingInvoice(prev => ({ ...prev, invoiceNumber: generateInvoiceNumber() }));
+          setShowCreateModal(true);
+        }}>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Invoice
+        </Button>
         </div>
       </div>
 

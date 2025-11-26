@@ -291,7 +291,7 @@ const Customers: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
-          <Button onClick={() => setIsModalOpen(true)}>Add Customer</Button>
+        <Button onClick={() => setIsModalOpen(true)}>Add Customer</Button>
         </div>
       </div>
 

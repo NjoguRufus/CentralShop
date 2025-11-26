@@ -468,9 +468,9 @@ const Inventory: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
-          <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
+        <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
         </div>
         {/* Branch Selector (only for users allowed to access both shops) */}
         {canSwitchBranches && (
@@ -531,13 +531,13 @@ const Inventory: React.FC = () => {
               <DollarSign className="w-3.5 h-3.5 mr-1.5" />
               View Capital
             </Button>
-            <Button 
-              onClick={() => setShowAddModal(true)} 
-              className="flex items-center whitespace-nowrap shrink-0 text-sm py-1.5 px-3"
-            >
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
-              Add Product
-            </Button>
+          <Button 
+            onClick={() => setShowAddModal(true)} 
+          className="flex items-center whitespace-nowrap shrink-0 text-sm py-1.5 px-3"
+          >
+          <Plus className="w-3.5 h-3.5 mr-1.5" />
+            Add Product
+          </Button>
           </div>
         </div>
 

@@ -685,14 +685,14 @@ const Dashboard: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
-          <button
-            onClick={fetchDashboardData}
-            disabled={loading}
-            className="flex items-center space-x-2 px-4 py-2 bg-[#4A90A4] text-white rounded-lg hover:bg-[#3a7a8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
+        <button
+          onClick={fetchDashboardData}
+          disabled={loading}
+          className="flex items-center space-x-2 px-4 py-2 bg-[#4A90A4] text-white rounded-lg hover:bg-[#3a7a8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span>Refresh</span>
+        </button>
         </div>
       </div>
 

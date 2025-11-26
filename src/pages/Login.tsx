@@ -59,13 +59,13 @@ const Login: React.FC = () => {
       for (const shopName of shopsToCheck) {
         // Try dynamic user collection first (e.g., CentralShopUsers, KamweneShopUsers)
         const userCollectionName = getUserCollectionName(undefined, shopName);
-        const dynamicUsersQuery = query(
-          collection(db, userCollectionName),
-          where('email', '==', normalizedEmail)
-        );
-        const dynamicUsersSnapshot = await getDocs(dynamicUsersQuery);
-
-        if (!dynamicUsersSnapshot.empty) {
+      const dynamicUsersQuery = query(
+        collection(db, userCollectionName),
+        where('email', '==', normalizedEmail)
+      );
+      const dynamicUsersSnapshot = await getDocs(dynamicUsersQuery);
+      
+      if (!dynamicUsersSnapshot.empty) {
           const userData: any = dynamicUsersSnapshot.docs[0].data();
           if (userData.role) {
             foundRole = userData.role;
@@ -93,7 +93,7 @@ const Login: React.FC = () => {
 
         if (!employeesSnapshot.empty) {
           const userData: any = employeesSnapshot.docs[0].data();
-          if (userData.role) {
+        if (userData.role) {
             foundRole = foundRole || userData.role;
           }
           const assigned = Array.isArray(userData.assignedShops)
@@ -112,14 +112,14 @@ const Login: React.FC = () => {
 
       // Fallback: legacy "users" collection (no branches, assume CentralShop)
       if (!foundRole) {
-        const usersQuery = query(
-          collection(db, 'users'),
-          where('email', '==', normalizedEmail)
-        );
-        const usersSnapshot = await getDocs(usersQuery);
-        if (!usersSnapshot.empty) {
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('email', '==', normalizedEmail)
+      );
+      const usersSnapshot = await getDocs(usersQuery);
+      if (!usersSnapshot.empty) {
           const userData: any = usersSnapshot.docs[0].data();
-          if (userData.role) {
+        if (userData.role) {
             foundRole = userData.role;
           }
           const assigned = Array.isArray(userData.assignedShops)

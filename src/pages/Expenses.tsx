@@ -637,13 +637,13 @@ const Expenses: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
-          <div className="flex space-x-2">
+        <div className="flex space-x-2">
             <Button variant="secondary" onClick={() => setShowCategoryModal(true)}>
-              Manage Categories
-            </Button>
-            <Button onClick={() => setShowCreateModal(true)}>
-              Add Expense
-            </Button>
+            Manage Categories
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            Add Expense
+          </Button>
           </div>
         </div>
       </div>

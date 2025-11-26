@@ -402,7 +402,7 @@ const StockReports: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
-          {generatedReport && reportData && (
+        {generatedReport && reportData && (
             <Button
               variant="secondary"
               onClick={handleSaveSnapshot}
@@ -410,9 +410,9 @@ const StockReports: React.FC = () => {
             >
               <Save className="w-4 h-4" />
               Save Snapshot
-            </Button>
+          </Button>
           )}
-        </div>
+          </div>
       </div>
 
       {/* Two-column layout */}

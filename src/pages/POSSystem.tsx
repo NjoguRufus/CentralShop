@@ -671,6 +671,14 @@ const POSSystem: React.FC = () => {
 
       const customerIdForStats = await upsertCustomerProfile(paymentData, total);
 
+      // Normalize the shop that processed the order (employee's home shop)
+      const normalizeBranch = (value: string | undefined): BranchName => {
+        const key = (value || '').toLowerCase().replace(/\s+/g, '');
+        if (key.includes('kamwene')) return BRANCHES.KAMWENE;
+        return BRANCHES.CENTRAL;
+      };
+      const processedByShopName = normalizeBranch(currentUser?.shopName as string);
+
       // Create order - filter out undefined values
       const orderData: any = {
         items: cartSnapshot.map(item => ({
@@ -686,6 +694,11 @@ const POSSystem: React.FC = () => {
         status: orderStatus,
         paymentMethod: paymentData.paymentMethod,
         createdAt: new Date(),
+        shopId: currentUser.shopId || '',
+        // The shop the order belongs to (destination shop in POS)
+        shopName: selectedBranch as BranchName,
+        // The shop that processed the order (employee's home shop)
+        processedByShopName,
         employeeId: currentUser.customId || currentUser.uid,
         employeeName: currentUser.name || 'Cashier',
         ...(paymentData.amountReceived && { amountReceived: paymentData.amountReceived }),
@@ -718,9 +731,12 @@ const POSSystem: React.FC = () => {
         orderData.customerId = customerIdForStats;
       }
 
-      // Save order to Firebase - use shop-specific collection
+      // Save order to Firebase - use shop-specific collection (respect selectedBranch)
       const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
-      const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser.shopId!);
+      const ordersCollectionName = await getShopOrdersCollectionNameCached(
+        currentUser.shopId!,
+        selectedBranch as BranchName
+      );
       await addDoc(collection(db, ordersCollectionName), orderData);
 
       // If debt or partial payment, create invoice
@@ -893,9 +909,9 @@ const POSSystem: React.FC = () => {
     <div className="space-y-3 md:space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
-          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Process customer orders and payments</p>
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
+        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Process customer orders and payments</p>
         </div>
         {canSwitchBranches && (
           <Dropdown

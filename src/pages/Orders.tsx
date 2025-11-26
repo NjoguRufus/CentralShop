@@ -60,6 +60,9 @@ interface OrderRecord {
   dueDate?: string;
   debtIssuedBy?: string;
   debtIssuedById?: string;
+  shopId?: string;
+  shopName?: string;
+  processedByShopName?: string;
   refundedItems?: Array<{
     productName: string;
     removedBy: string;
@@ -837,9 +840,9 @@ const Orders: React.FC = () => {
             ]}
             placeholder="Filter by payment"
           />
-          <Select
-            value={categoryFilter}
-            onChange={setCategoryFilter}
+            <Select
+              value={categoryFilter}
+              onChange={setCategoryFilter}
             options={[
               { value: 'all', label: 'All Categories' }, 
               ...categories.map(c => ({ value: c, label: c })),
@@ -877,6 +880,29 @@ const Orders: React.FC = () => {
                       {category}
                     </span>
                   );
+                }
+              },
+              {
+                header: 'Shop',
+                accessor: 'shopName',
+                render: (row: OrderRecord) => {
+                  const raw = (row.shopName as string) || '';
+                  const key = raw.toString().toLowerCase().replace(/\s+/g, '');
+                  if (key.includes('kamwene')) return 'Kamwene Shop';
+                  if (key.includes('central')) return 'Central Shop';
+                  // Fallback for very old orders without shopName
+                  return 'Central Shop';
+                }
+              },
+              {
+                header: 'Processed By',
+                accessor: 'processedByShopName',
+                render: (row: OrderRecord) => {
+                  const raw = (row.processedByShopName as string) || (row.shopName as string) || '';
+                  const key = raw.toString().toLowerCase().replace(/\s+/g, '');
+                  if (key.includes('kamwene')) return 'Kamwene Shop';
+                  if (key.includes('central')) return 'Central Shop';
+                  return 'Central Shop';
                 }
               },
               { 

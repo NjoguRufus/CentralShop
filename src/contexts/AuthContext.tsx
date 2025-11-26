@@ -78,10 +78,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Fetch user data from users collection or employees collection by UID field
         try {
           console.log('Fetching user data for UID:', firebaseUser.uid);
-
+          
           let userDoc = null;
           let userData: User | null = null;
-
+          
           // Prefer previously selected shop if stored
           const savedShop = (typeof window !== 'undefined'
             ? (localStorage.getItem('selectedShop') as BranchName | null)
@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               where('uid', '==', firebaseUser.uid)
             );
             const branchUsersSnapshot = await getDocs(branchUsersQuery);
-
+          
             if (!branchUsersSnapshot.empty) {
               userDoc = branchUsersSnapshot.docs[0];
               userData = {
@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const usersQuery = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
             const usersSnapshot = await getDocs(usersQuery);
             console.log('User documents found in users collection:', usersSnapshot.size);
-
+            
             if (!usersSnapshot.empty) {
               userDoc = usersSnapshot.docs[0];
               userData = userDoc.data() as User;
@@ -133,14 +133,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   collection(db, employeesCollectionName),
                   where('uid', '==', firebaseUser.uid)
                 );
-                const employeesSnapshot = await getDocs(employeesQuery);
+              const employeesSnapshot = await getDocs(employeesQuery);
                 console.log(
                   `User documents found in ${employeesCollectionName} employees collection:`,
                   employeesSnapshot.size
                 );
-
-                if (!employeesSnapshot.empty) {
-                  userDoc = employeesSnapshot.docs[0];
+              
+              if (!employeesSnapshot.empty) {
+                userDoc = employeesSnapshot.docs[0];
                   userData = {
                     ...(userDoc.data() as User),
                     shopName: (userDoc.data() as any).shopName || branch,
@@ -172,8 +172,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
 
             const user: User = {
-              ...userData,
-              id: userDoc.id,
+              ...userData, 
+              id: userDoc.id, 
               uid: firebaseUser.uid,
               shopName: normalizedShopName,
               createdAt: (userData as any).createdAt?.toDate?.() || new Date(),

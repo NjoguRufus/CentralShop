@@ -350,10 +350,10 @@ const Suppliers: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Supplier
-          </Button>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Supplier
+        </Button>
         </div>
       </div>
 
