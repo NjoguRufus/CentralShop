@@ -25,6 +25,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Setup = lazy(() => import('./pages/Setup'));
 const DeveloperDashboard = lazy(() => import('./pages/DeveloperDashboard'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Sales = lazy(() => import('./pages/Sales'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const POSSystem = lazy(() => import('./pages/POSSystem'));
 const Customers = lazy(() => import('./pages/Customers'));
@@ -136,6 +137,13 @@ const AppContent: React.FC = () => {
                   <ProtectedRoute requiredRole="Admin">
                     <Suspense fallback={<PageSkeleton />}>
                     <Dashboard />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="sales" element={
+                  <ProtectedRoute requiredRole="Admin">
+                    <Suspense fallback={<PageSkeleton />}>
+                      <Sales />
                     </Suspense>
                   </ProtectedRoute>
                 } />

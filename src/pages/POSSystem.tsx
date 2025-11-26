@@ -711,12 +711,18 @@ const POSSystem: React.FC = () => {
         ...(paymentData.partialAmount && { partialAmount: paymentData.partialAmount }),
         ...(paymentData.remainingAmount && { remainingAmount: paymentData.remainingAmount }),
         ...(paymentData.dueDate && { dueDate: paymentData.dueDate }),
-        // Split payment fields
+        // Split / single payment fields
         ...(paymentData.paymentMethod === 'split' && {
           cashAmount: paymentData.cashAmount,
           mpesaAmount: paymentData.mpesaAmount,
           amountReceived: (paymentData.cashAmount || 0) + (paymentData.mpesaAmount || 0),
-          change: Math.max(0, ((paymentData.cashAmount || 0) + (paymentData.mpesaAmount || 0)) - total)
+          change: Math.max(0, ((paymentData.cashAmount || 0) + (paymentData.mpesaAmount || 0)) - total),
+        }),
+        ...(paymentData.paymentMethod === 'cash' && {
+          cashAmount: paymentData.amountReceived || total,
+        }),
+        ...(paymentData.paymentMethod === 'mpesa' && {
+          mpesaAmount: paymentData.amountReceived || total,
         }),
         // Track who issued debt/partial payment
         ...((paymentData.paymentMethod === 'debt' || paymentData.paymentMethod === 'partial') && {

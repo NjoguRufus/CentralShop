@@ -20,6 +20,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 const menuItems = [
   { path: '/developer', label: 'Developer Dashboard', icon: Building2, requiredRole: 'astraronix' },
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, requiredRole: 'Admin' },
+  { path: '/sales', label: 'Sales', icon: BarChart3, requiredRole: 'Admin' },
   { path: '/inventory', label: 'Inventory', icon: Package, requiredRole: 'Stock Manager' },
   { path: '/pos', label: 'POS', icon: ShoppingCart, requiredRole: 'Cashier' },
   { path: '/customers', label: 'Customers', icon: Users, requiredRole: 'Admin' },
@@ -69,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 const routeMap: Record<string, () => Promise<any>> = {
                   '/developer': () => import('../../pages/DeveloperDashboard'),
                   '/dashboard': () => import('../../pages/Dashboard'),
+                  '/sales': () => import('../../pages/Sales'),
                   '/inventory': () => import('../../pages/Inventory'),
                   '/pos': () => import('../../pages/POSSystem'),
                   '/customers': () => import('../../pages/Customers'),

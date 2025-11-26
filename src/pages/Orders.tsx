@@ -47,6 +47,8 @@ interface OrderRecord {
   paymentMethod?: string;
   amountReceived?: number;
   change?: number;
+  cashAmount?: number;
+  mpesaAmount?: number;
   customerName?: string;
   customerPhone?: string;
   mpesaCode?: string;
