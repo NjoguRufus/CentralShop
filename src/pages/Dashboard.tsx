@@ -81,6 +81,16 @@ const Dashboard: React.FC = () => {
   const [isFiltering, setIsFiltering] = useState<boolean>(false);
   const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
 
+  // Determine if user can switch between shops (must have access to both or be admin/mainAdmin/astraronix)
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
+
   const formatSelectedDayInfo = (dateStr: string): string => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -664,7 +674,7 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300">Overview of your business performance</p>
         </div>
         <div className="flex items-center gap-3">
-          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
               onChange={setSelectedBranch}

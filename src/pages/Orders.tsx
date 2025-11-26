@@ -110,6 +110,28 @@ const Orders: React.FC = () => {
   const [productDeletePassword, setProductDeletePassword] = useState<string>('');
   const [isDeletingProduct, setIsDeletingProduct] = useState<boolean>(false);
 
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
+
+  // Auto-select the current user's shop as the active branch
+  useEffect(() => {
+    if (currentUser?.shopName) {
+      setSelectedBranch(currentUser.shopName);
+    } else if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedShop');
+      if (saved) {
+        setSelectedBranch(saved);
+      }
+    }
+  }, [currentUser?.shopName]);
+
   const productsMap = useMemo(() => {
     const map: Record<string, any> = {};
     products.forEach((product) => {
@@ -737,7 +759,7 @@ const Orders: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">Orders</h1>
         <div className="flex items-center gap-3">
-          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
               onChange={setSelectedBranch}

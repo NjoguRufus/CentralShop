@@ -81,6 +81,16 @@ const Employees: React.FC = () => {
   const [showCredentialsModal, setShowCredentialsModal] = useState<boolean>(false);
   const [newEmployeeCredentials, setNewEmployeeCredentials] = useState<{ email: string; password: string } | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
+
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
   const [formData, setFormData] = useState<Omit<Employee, 'id'>>({
     name: '',
     email: '',
@@ -94,6 +104,18 @@ const Employees: React.FC = () => {
       workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     }
   });
+
+  // Auto-select the current user's shop as the active branch
+  useEffect(() => {
+    if (currentUser?.shopName) {
+      setSelectedBranch(currentUser.shopName);
+    } else if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedShop');
+      if (saved) {
+        setSelectedBranch(saved);
+      }
+    }
+  }, [currentUser?.shopName]);
 
   useEffect(() => {
     fetchEmployees();
@@ -310,20 +332,28 @@ const Employees: React.FC = () => {
         // Preserve existing fields like uid, customId, createdAt, etc.
         const { id: _ignoreId, ...existingData } = editingEmployee;
 
-        // Determine assigned shops and primary shop
+        // Determine updated assigned shops
         const assignedShops =
-          (updateData.assignedShops && updateData.assignedShops.length > 0
+          updateData.assignedShops && updateData.assignedShops.length > 0
             ? updateData.assignedShops
-            : [selectedBranch]) as string[];
+            : [selectedBranch];
 
-        const previousPrimaryShop = (editingEmployee.shopName || BRANCHES.CENTRAL) as BranchName;
-        const primaryFromAssigned =
-          assignedShops.length === 1 ? (assignedShops[0] as BranchName) : previousPrimaryShop;
+        // Normalize previous and new primary shop to known branches
+        const normalizeBranch = (value: string | undefined): BranchName => {
+          const key = (value || '').toLowerCase().replace(/\s+/g, '');
+          if (key.includes('kamwene')) return BRANCHES.KAMWENE;
+          return BRANCHES.CENTRAL;
+        };
+
+        const previousPrimaryShop = normalizeBranch(editingEmployee.shopName);
+        const primaryFromAssigned = normalizeBranch(
+          assignedShops.length > 0 ? assignedShops[0] : previousPrimaryShop
+        );
         const newPrimaryShop = primaryFromAssigned;
 
-        // Build final data to store
+        // Build final data to store on employee docs
         const updateDataWithPassword = password ? { ...updateData, password } : updateData;
-        const mergedData = {
+        const mergedEmployeeData = {
           ...existingData,
           ...updateDataWithPassword,
           assignedShops,
@@ -331,25 +361,99 @@ const Employees: React.FC = () => {
           updatedAt: new Date(),
         };
 
-        // If primary shop did not change, just update the existing document in its collection
+        // === Sync EMPLOYEES collection (one doc per shop) ===
         if (newPrimaryShop === previousPrimaryShop) {
+          // Just update existing employee document in its current shop collection
           await updateDoc(
             doc(db, getShopCollectionName('employees', previousPrimaryShop), editingEmployee.id),
-            mergedData as any
+            mergedEmployeeData as any
           );
         } else {
-          // Primary shop changed: move employee document between shop collections
-          const oldCollectionName = getShopCollectionName('employees', previousPrimaryShop);
-          const newCollectionName = getShopCollectionName('employees', newPrimaryShop);
+          // Move employee document between shop collections
+          const oldEmployeesCollection = getShopCollectionName('employees', previousPrimaryShop);
+          const newEmployeesCollection = getShopCollectionName('employees', newPrimaryShop);
 
           // Remove from old collection
-          await deleteDoc(doc(db, oldCollectionName, editingEmployee.id));
+          await deleteDoc(doc(db, oldEmployeesCollection, editingEmployee.id));
 
-          // Add to new collection (new document id)
-          await addDoc(collection(db, newCollectionName), {
-            ...mergedData,
+          // Add to new collection with same core data
+          await addDoc(collection(db, newEmployeesCollection), {
+            ...mergedEmployeeData,
             createdAt: editingEmployee.createdAt || new Date(),
           } as any);
+        }
+
+        // === Sync USERS collection (auth profile used at login) ===
+        if (editingEmployee.uid) {
+          const branchesToCheck: BranchName[] = [BRANCHES.CENTRAL, BRANCHES.KAMWENE];
+          let existingUserDoc:
+            | { branch: BranchName; id: string; data: any }
+            | null = null;
+
+          // Find existing user document for this UID in any branch's Users collection
+          for (const branch of branchesToCheck) {
+            const userCollectionName = getUserCollectionName(undefined, branch);
+            const usersQuery = query(
+              collection(db, userCollectionName),
+              where('uid', '==', editingEmployee.uid)
+            );
+            const snap = await getDocs(usersQuery);
+            if (!snap.empty) {
+              const docSnap = snap.docs[0];
+              existingUserDoc = {
+                branch,
+                id: docSnap.id,
+                data: docSnap.data(),
+              };
+              break;
+            }
+          }
+
+          // Build data for user profile (used by AuthContext)
+          const mergedUserData = {
+            ...(existingUserDoc?.data || {}),
+            ...mergedEmployeeData,
+            // Ensure canonical auth fields
+            uid: editingEmployee.uid,
+            name: mergedEmployeeData.name,
+            email: mergedEmployeeData.email,
+            role: mergedEmployeeData.role,
+            status: mergedEmployeeData.status,
+            shopName: newPrimaryShop,
+            assignedShops,
+            updatedAt: new Date(),
+          };
+
+          if (existingUserDoc) {
+            if (existingUserDoc.branch === newPrimaryShop) {
+              // Same branch: just update user profile
+              const userCollectionName = getUserCollectionName(undefined, existingUserDoc.branch);
+              await updateDoc(
+                doc(db, userCollectionName, existingUserDoc.id),
+                mergedUserData as any
+              );
+            } else {
+              // Branch changed: move user profile between Users collections
+              const oldUserCollection = getUserCollectionName(undefined, existingUserDoc.branch);
+              const newUserCollection = getUserCollectionName(undefined, newPrimaryShop);
+
+              await deleteDoc(doc(db, oldUserCollection, existingUserDoc.id));
+              await addDoc(collection(db, newUserCollection), {
+                ...mergedUserData,
+                createdAt:
+                  existingUserDoc.data?.createdAt?.toDate?.() ||
+                  editingEmployee.createdAt ||
+                  new Date(),
+              } as any);
+            }
+          } else {
+            // No existing user doc (legacy user) – create one in the new primary shop collection
+            const newUserCollection = getUserCollectionName(undefined, newPrimaryShop);
+            await addDoc(collection(db, newUserCollection), {
+              ...mergedUserData,
+              createdAt: editingEmployee.createdAt || new Date(),
+            } as any);
+          }
         }
 
         toast.success('Employee updated successfully');
@@ -621,7 +725,7 @@ const Employees: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">Employees</h1>
         <div className="flex items-center gap-3">
-          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
               onChange={setSelectedBranch}

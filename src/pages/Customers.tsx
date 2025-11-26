@@ -65,6 +65,28 @@ const Customers: React.FC = () => {
     avatar: ''
   });
 
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
+
+  // Auto-select the current user's shop as the active branch
+  useEffect(() => {
+    if (currentUser?.shopName) {
+      setSelectedBranch(currentUser.shopName);
+    } else if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedShop');
+      if (saved) {
+        setSelectedBranch(saved);
+      }
+    }
+  }, [currentUser?.shopName]);
+
   useEffect(() => {
     fetchCustomers();
     fetchOrders();
@@ -258,7 +280,7 @@ const Customers: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300">Manage customers and view their purchase history</p>
         </div>
         <div className="flex items-center gap-3">
-          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
               onChange={setSelectedBranch}

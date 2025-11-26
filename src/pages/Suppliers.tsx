@@ -69,6 +69,15 @@ const Suppliers: React.FC = () => {
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
   useEffect(() => {
     if (currentUser?.shopId) {
       fetchSuppliers();
@@ -330,7 +339,7 @@ const Suppliers: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300">Manage suppliers and their supplies</p>
         </div>
         <div className="flex items-center gap-3">
-          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
               onChange={setSelectedBranch}

@@ -26,6 +26,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [detectedRole, setDetectedRole] = useState<string | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [allowedShops, setAllowedShops] = useState<string[]>([]);
 
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ const Login: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Handle email lookup to detect role (called immediately on email input)
+  // Handle email lookup to detect role and allowed shops (called immediately on email input)
   const handleEmailLookup = async (email: string, shop?: string) => {
     if (!email || !email.includes("@")) {
       setDetectedRole(null);
@@ -48,66 +49,117 @@ const Login: React.FC = () => {
     try {
       const normalizedEmail = email.toLowerCase().trim();
       const shopToCheck = shop || formData.selectedShop;
-      
-      // Try both shops if no specific shop is selected
-      const shopsToCheck = shopToCheck === BRANCHES.CENTRAL 
-        ? [BRANCHES.CENTRAL, BRANCHES.KAMWENE] 
-        : [shopToCheck];
-      
+
+      // We will collect all shops this email has access to
+      const foundShops: string[] = [];
+      let foundRole: string | null = null;
+
+      const shopsToCheck = [BRANCHES.CENTRAL, BRANCHES.KAMWENE];
+
       for (const shopName of shopsToCheck) {
         // Try dynamic user collection first (e.g., CentralShopUsers, KamweneShopUsers)
         const userCollectionName = getUserCollectionName(undefined, shopName);
-        
         const dynamicUsersQuery = query(
           collection(db, userCollectionName),
           where('email', '==', normalizedEmail)
         );
         const dynamicUsersSnapshot = await getDocs(dynamicUsersQuery);
-        
+
         if (!dynamicUsersSnapshot.empty) {
-          const userData = dynamicUsersSnapshot.docs[0].data();
+          const userData: any = dynamicUsersSnapshot.docs[0].data();
           if (userData.role) {
-            setDetectedRole(userData.role);
-            setIsLookingUp(false);
-            return;
+            foundRole = userData.role;
           }
+          const assigned = Array.isArray(userData.assignedShops)
+            ? (userData.assignedShops as string[])
+            : [userData.shopName || shopName];
+          assigned.forEach((s) => {
+            const key = s.replace(/\s+/g, '');
+            if (key === BRANCHES.CENTRAL || key === BRANCHES.KAMWENE) {
+              if (!foundShops.includes(key)) {
+                foundShops.push(key);
+              }
+            }
+          });
         }
 
         // Try employees collection as fallback
         const employeesCollectionName = `${shopName}Employees`;
-        const employeesQuery = query(
+        const employeesQueryRef = query(
           collection(db, employeesCollectionName),
           where('email', '==', normalizedEmail)
         );
-        const employeesSnapshot = await getDocs(employeesQuery);
-        
+        const employeesSnapshot = await getDocs(employeesQueryRef);
+
         if (!employeesSnapshot.empty) {
-          const userData = employeesSnapshot.docs[0].data();
+          const userData: any = employeesSnapshot.docs[0].data();
           if (userData.role) {
-            setDetectedRole(userData.role);
-            setIsLookingUp(false);
-            return;
+            foundRole = foundRole || userData.role;
           }
+          const assigned = Array.isArray(userData.assignedShops)
+            ? (userData.assignedShops as string[])
+            : [userData.shopName || shopName];
+          assigned.forEach((s) => {
+            const key = s.replace(/\s+/g, '');
+            if (key === BRANCHES.CENTRAL || key === BRANCHES.KAMWENE) {
+              if (!foundShops.includes(key)) {
+                foundShops.push(key);
+              }
+            }
+          });
         }
       }
 
-      // Try old users collection for backward compatibility
-      const usersQuery = query(
-        collection(db, 'users'),
-        where('email', '==', normalizedEmail)
-      );
-      const usersSnapshot = await getDocs(usersQuery);
-      
-      if (!usersSnapshot.empty) {
-        const userData = usersSnapshot.docs[0].data();
-        if (userData.role) {
-          setDetectedRole(userData.role);
-          setIsLookingUp(false);
-          return;
+      // Fallback: legacy "users" collection (no branches, assume CentralShop)
+      if (!foundRole) {
+        const usersQuery = query(
+          collection(db, 'users'),
+          where('email', '==', normalizedEmail)
+        );
+        const usersSnapshot = await getDocs(usersQuery);
+        if (!usersSnapshot.empty) {
+          const userData: any = usersSnapshot.docs[0].data();
+          if (userData.role) {
+            foundRole = userData.role;
+          }
+          const assigned = Array.isArray(userData.assignedShops)
+            ? (userData.assignedShops as string[])
+            : [userData.shopName || BRANCHES.CENTRAL];
+          assigned.forEach((s: string) => {
+            const key = s.replace(/\s+/g, '');
+            if (key === BRANCHES.CENTRAL || key === BRANCHES.KAMWENE) {
+              if (!foundShops.includes(key)) {
+                foundShops.push(key);
+              }
+            }
+          });
         }
       }
 
-      setDetectedRole(null);
+      // Decide allowedShops and default selected shop
+      if (foundShops.length > 0) {
+        setAllowedShops(foundShops);
+
+        const isAdminLike =
+          foundRole === 'mainAdmin' || foundRole === 'Admin' || foundRole === 'astraronix';
+
+        if (isAdminLike) {
+          // Admins: if multiple shops, keep current selection if valid, else default to first allowed
+          const current = shopToCheck;
+          const normalizedCurrent = current.replace(/\s+/g, '');
+          const hasCurrent = foundShops.includes(normalizedCurrent);
+          const nextShop = hasCurrent ? normalizedCurrent : foundShops[0];
+          setFormData((prev) => ({ ...prev, selectedShop: nextShop }));
+        } else {
+          // Non-admins: if one shop -> lock to it; if multiple -> default to first but allow choice
+          const nextShop = foundShops[0];
+          setFormData((prev) => ({ ...prev, selectedShop: nextShop }));
+        }
+      } else {
+        setAllowedShops([]);
+      }
+
+      setDetectedRole(foundRole);
     } catch (error: any) {
       console.error('Error looking up user role:', error);
       setDetectedRole(null);
@@ -133,8 +185,14 @@ const Login: React.FC = () => {
       }
     }
     
-    // Re-lookup when shop changes
-    if (name === 'selectedShop' && formData.email && formData.email.includes("@")) {
+    // Re-lookup when shop changes (only for admins who can pick any branch)
+    if (
+      name === 'selectedShop' &&
+      formData.email &&
+      formData.email.includes('@') &&
+      detectedRole &&
+      (detectedRole === 'mainAdmin' || detectedRole === 'Admin' || detectedRole === 'astraronix')
+    ) {
       handleEmailLookup(formData.email, value);
     }
   };
@@ -218,15 +276,41 @@ const Login: React.FC = () => {
             <label className="block text-gray-200 text-sm font-medium mb-1">
               Shop
             </label>
-            <Dropdown
-              value={formData.selectedShop}
-              onChange={(value) => setFormData({ ...formData, selectedShop: value })}
-              options={[
-                { value: BRANCHES.CENTRAL, label: 'Central Shop' },
-                { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
-              ]}
-              placeholder="Select Shop"
-            />
+            {/* For admins/mainAdmins or users with both shops: allow selection.
+                For others with a single assigned shop: show it read-only. */}
+            {detectedRole &&
+            (detectedRole === 'mainAdmin' ||
+              detectedRole === 'Admin' ||
+              detectedRole === 'astraronix' ||
+              allowedShops.length > 1) ? (
+              <Dropdown
+                value={formData.selectedShop}
+                onChange={(value) => {
+                  // Clamp selected shop to allowedShops if present
+                  const normalized = value.replace(/\s+/g, '');
+                  const safeValue =
+                    allowedShops.length > 0 && !allowedShops.includes(normalized)
+                      ? allowedShops[0]
+                      : normalized;
+                  setFormData({ ...formData, selectedShop: safeValue });
+                }}
+                options={[
+                  { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                  { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+                ]}
+                placeholder="Select Shop"
+              />
+            ) : (
+              <input
+                type="text"
+                readOnly
+                value={
+                  formData.selectedShop === BRANCHES.KAMWENE ? 'Kamwene Shop' : 'Central Shop'
+                }
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/20 text-white
+                           placeholder-gray-400 focus:outline-none"
+              />
+            )}
           </div>
 
           {/* EMAIL */}

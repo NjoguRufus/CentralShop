@@ -56,9 +56,31 @@ const POSSystem: React.FC = () => {
   const cartItemCount = cart.reduce((total, item) => total + (isMeasurementProduct(item.product) ? 1 : item.quantity), 0);
   const cartRef = useRef<OrderItem[]>(cart);
 
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
+
   useEffect(() => {
     cartRef.current = cart;
   }, [cart]);
+
+  // Auto-select the current user's shop as the active branch
+  useEffect(() => {
+    if (currentUser?.shopName) {
+      setSelectedBranch(currentUser.shopName);
+    } else if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedShop');
+      if (saved) {
+        setSelectedBranch(saved);
+      }
+    }
+  }, [currentUser?.shopName]);
 
   const getMeasurementLabel = useCallback((product?: Product | null) => {
     if (!product) return 'amount';
@@ -875,7 +897,7 @@ const POSSystem: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
           <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Process customer orders and payments</p>
         </div>
-        {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+        {canSwitchBranches && (
           <Dropdown
             value={selectedBranch}
             onChange={setSelectedBranch}

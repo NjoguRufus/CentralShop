@@ -45,6 +45,16 @@ const Inventory: React.FC = () => {
   const [selectedProductsForReport, setSelectedProductsForReport] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
 
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
+
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -59,6 +69,18 @@ const Inventory: React.FC = () => {
     buyingPrice: ''
   });
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Sync selected branch with current user's primary shop (auto-navigate to authorised shop)
+  useEffect(() => {
+    if (currentUser?.shopName) {
+      setSelectedBranch(currentUser.shopName);
+    } else if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedShop');
+      if (saved) {
+        setSelectedBranch(saved);
+      }
+    }
+  }, [currentUser?.shopName]);
 
   useEffect(() => {
     fetchProducts();
@@ -450,8 +472,8 @@ const Inventory: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Inventory Management</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage your products and stock levels</p>
         </div>
-        {/* Branch Selector for Central Shop */}
-        {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+        {/* Branch Selector (only for users allowed to access both shops) */}
+        {canSwitchBranches && (
           <Dropdown
             value={selectedBranch}
             onChange={setSelectedBranch}

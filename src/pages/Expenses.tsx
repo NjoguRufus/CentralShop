@@ -53,6 +53,28 @@ const Expenses: React.FC = () => {
   const [showAddCategoryInline, setShowAddCategoryInline] = useState<boolean>(false);
   const [newCategoryInline, setNewCategoryInline] = useState<string>('');
 
+  // Auto-select the current user's shop as the active branch
+  useEffect(() => {
+    if (currentUser?.shopName) {
+      setSelectedBranch(currentUser.shopName);
+    } else if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedShop');
+      if (saved) {
+        setSelectedBranch(saved);
+      }
+    }
+  }, [currentUser?.shopName]);
+
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
+
   // Revenue minus Expenses (Net) state for this page
   const [netRange, setNetRange] = useState<'day' | 'week' | 'month' | 'year' | 'custom-day'>('day');
   const [netSelectedDate, setNetSelectedDate] = useState<string>('');
@@ -604,7 +626,7 @@ const Expenses: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
         <div className="flex items-center gap-3">
-          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
               onChange={setSelectedBranch}

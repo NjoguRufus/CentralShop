@@ -11,7 +11,7 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { auth, db } from '../firebase';
 import { toast } from 'react-toastify';
 import { EmployeeActivityService } from '../services/EmployeeActivityService';
-import { getShopCollectionName, getUserCollectionName, BRANCHES } from '../config/shopConfig';
+import { getShopCollectionName, getUserCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
 
 interface User {
   id: string;
@@ -24,6 +24,7 @@ interface User {
   customId?: string; // Custom employee ID (CSH-00-001, MNG-00-001, ADM-00, etc.)
   shopId?: string; // For multi-tenant support
   shopName?: string; // For display purposes
+  assignedShops?: string[]; // Shops the user can access
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,51 +78,113 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Fetch user data from users collection or employees collection by UID field
         try {
           console.log('Fetching user data for UID:', firebaseUser.uid);
-          
+
           let userDoc = null;
           let userData: User | null = null;
-          
-          // Try dynamic user collection first (e.g., CentralShopUsers)
-          const userCollectionName = getUserCollectionName();
-          const dynamicUsersQuery = query(collection(db, userCollectionName), where('uid', '==', firebaseUser.uid));
-          const dynamicUsersSnapshot = await getDocs(dynamicUsersQuery);
-          console.log(`User documents found in ${userCollectionName} collection:`, dynamicUsersSnapshot.size);
-          
-          if (!dynamicUsersSnapshot.empty) {
-            userDoc = dynamicUsersSnapshot.docs[0];
-            userData = userDoc.data() as User;
-          } else {
+
+          // Prefer previously selected shop if stored
+          const savedShop = (typeof window !== 'undefined'
+            ? (localStorage.getItem('selectedShop') as BranchName | null)
+            : null);
+
+          const allBranches: BranchName[] = [BRANCHES.CENTRAL, BRANCHES.KAMWENE];
+          const branchesToCheck: BranchName[] = savedShop
+            ? Array.from(new Set<BranchName>([savedShop, ...allBranches]))
+            : allBranches;
+
+          // Try dynamic user collections for each branch (e.g., CentralShopUsers, KamweneShopUsers)
+          for (const branch of branchesToCheck) {
+            if (userData) break;
+
+            const branchUserCollection = getUserCollectionName(undefined, branch);
+            const branchUsersQuery = query(
+              collection(db, branchUserCollection),
+              where('uid', '==', firebaseUser.uid)
+            );
+            const branchUsersSnapshot = await getDocs(branchUsersQuery);
+
+            if (!branchUsersSnapshot.empty) {
+              userDoc = branchUsersSnapshot.docs[0];
+              userData = {
+                ...(userDoc.data() as User),
+                // Ensure shopName is set to branch if missing
+                shopName: (userDoc.data() as any).shopName || branch,
+              } as User;
+              break;
+            }
+          }
+
+          // If still not found, try legacy users and employees collections (Central shop only)
+          if (!userData) {
             // Try old users collection (for backward compatibility)
             const usersQuery = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
             const usersSnapshot = await getDocs(usersQuery);
             console.log('User documents found in users collection:', usersSnapshot.size);
-            
+
             if (!usersSnapshot.empty) {
               userDoc = usersSnapshot.docs[0];
               userData = userDoc.data() as User;
             } else {
-              // If not found in users, try employees collection
-              const employeesCollectionName = getShopCollectionName('employees');
-              const employeesQuery = query(collection(db, employeesCollectionName), where('uid', '==', firebaseUser.uid));
-              const employeesSnapshot = await getDocs(employeesQuery);
-              console.log('User documents found in employees collection:', employeesSnapshot.size);
-              
-              if (!employeesSnapshot.empty) {
-                userDoc = employeesSnapshot.docs[0];
-                userData = userDoc.data() as User;
+              // If not found in users, try employees collection for each branch
+              for (const branch of branchesToCheck) {
+                if (userData) break;
+                const employeesCollectionName = getShopCollectionName('employees', branch);
+                const employeesQuery = query(
+                  collection(db, employeesCollectionName),
+                  where('uid', '==', firebaseUser.uid)
+                );
+                const employeesSnapshot = await getDocs(employeesQuery);
+                console.log(
+                  `User documents found in ${employeesCollectionName} employees collection:`,
+                  employeesSnapshot.size
+                );
+
+                if (!employeesSnapshot.empty) {
+                  userDoc = employeesSnapshot.docs[0];
+                  userData = {
+                    ...(userDoc.data() as User),
+                    shopName: (userDoc.data() as any).shopName || branch,
+                  } as User;
+                  break;
+                }
               }
             }
           }
           
           if (userData && userDoc) {
             console.log('User data found:', userData);
-            const user = { 
-              ...userData, 
-              id: userDoc.id, 
+            const primaryShopRaw: string =
+              (userData.shopName as string) ||
+              (Array.isArray(userData.assignedShops) && userData.assignedShops.length > 0
+                ? userData.assignedShops[0]
+                : BRANCHES.CENTRAL);
+
+            // Normalize shopName to one of the known branches, handling legacy values like "Kamwene"
+            const normalizedKey = primaryShopRaw.toLowerCase().replace(/\s+/g, '');
+            let normalizedShopName: BranchName;
+            if (normalizedKey.includes('kamwene')) {
+              normalizedShopName = BRANCHES.KAMWENE;
+            } else if (normalizedKey.includes('central')) {
+              normalizedShopName = BRANCHES.CENTRAL;
+            } else {
+              // Fallback: default to CentralShop if unknown
+              normalizedShopName = BRANCHES.CENTRAL;
+            }
+
+            const user: User = {
+              ...userData,
+              id: userDoc.id,
               uid: firebaseUser.uid,
-              createdAt: userData.createdAt?.toDate() || new Date(),
-              updatedAt: userData.updatedAt?.toDate() || new Date()
+              shopName: normalizedShopName,
+              createdAt: (userData as any).createdAt?.toDate?.() || new Date(),
+              updatedAt: (userData as any).updatedAt?.toDate?.() || new Date(),
             };
+
+            // Persist selected shop so all pages can default correctly
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('selectedShop', normalizedShopName);
+            }
+
             setCurrentUser(user);
             
             // Track login activity (only once per session)

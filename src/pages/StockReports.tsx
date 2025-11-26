@@ -75,6 +75,16 @@ const StockReports: React.FC = () => {
   const [lowStockThreshold, setLowStockThreshold] = useState(5);
   const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
 
+  // Determine if user can switch between shops
+  const canSwitchBranches =
+    (Array.isArray((currentUser as any)?.assignedShops) &&
+      new Set(
+        ((currentUser as any).assignedShops as string[]).map(s => s.replace(/\s+/g, '').toLowerCase())
+      ).size > 1) ||
+    currentUser?.role === 'mainAdmin' ||
+    currentUser?.role === 'Admin' ||
+    currentUser?.role === 'astraronix';
+
   // Initialize date range
   useEffect(() => {
     const now = new Date();
@@ -381,7 +391,7 @@ const StockReports: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {(currentUser?.shopName === 'CentralShop' || currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin') && (
+          {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
               onChange={setSelectedBranch}
