@@ -468,8 +468,12 @@ const Orders: React.FC = () => {
       const newTax = newSubtotal * 0.1;
       const newTotal = newSubtotal + newTax;
 
-      // Update order in Firestore
-      const ordersCollectionName = getShopCollectionName('orders');
+      // Update order in Firestore - respect shop-specific orders collection
+      const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
+      const ordersCollectionName = await getShopOrdersCollectionNameCached(
+        currentUser!.shopId!,
+        selectedBranch as BranchName
+      );
       await updateDoc(doc(db, ordersCollectionName, selectedOrder.id!), {
         items: updatedItems,
         products: updatedItems,

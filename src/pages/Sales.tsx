@@ -254,18 +254,18 @@ const Sales: React.FC = () => {
   const formatCurrency = (value: number) => `KSH ${value.toLocaleString()}`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 mb-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
             Sales Summary
           </h1>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">
             Today&apos;s sales breakdown by payment method and outstanding debt.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           {canSwitchBranches && (
             <Dropdown
               value={selectedBranch}
@@ -278,7 +278,7 @@ const Sales: React.FC = () => {
             />
           )}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-700 dark:text-gray-300">Date:</span>
+            <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Date:</span>
             <DateInput value={selectedDate} onChange={setSelectedDate} />
           </div>
         </div>
@@ -372,86 +372,88 @@ const Sales: React.FC = () => {
             No orders found for the selected date.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm md:text-base">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                    Time
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                    Payment
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                    Total
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                    Cash
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                    Mpesa
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                    Debt
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {orders.map((order) => {
-                  const d: Date =
-                    order.createdAt?.toDate?.() || new Date(order.createdAt || selectedDate);
-                  const timeLabel = `${d.getHours().toString().padStart(2, '0')}:${d
-                    .getMinutes()
-                    .toString()
-                    .padStart(2, '0')}`;
+          <div className="overflow-x-auto -mx-3 md:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-xs sm:text-sm md:text-base">
+                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                  <tr>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                      Time
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                      Payment
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                      Total
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                      Cash
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                      Mpesa
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                      Debt
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                  {orders.map((order) => {
+                    const d: Date =
+                      order.createdAt?.toDate?.() || new Date(order.createdAt || selectedDate);
+                    const timeLabel = `${d.getHours().toString().padStart(2, '0')}:${d
+                      .getMinutes()
+                      .toString()
+                      .padStart(2, '0')}`;
 
-                  const method = (order.paymentMethod || '').toLowerCase();
-                  const label =
-                    method === 'mpesa' || method === 'm-pesa'
-                      ? 'Mpesa'
-                      : method === 'cash'
-                      ? 'Cash'
-                      : method === 'split'
-                      ? 'Split'
-                      : method === 'debt'
-                      ? 'Debt'
-                      : method || 'N/A';
+                    const method = (order.paymentMethod || '').toLowerCase();
+                    const label =
+                      method === 'mpesa' || method === 'm-pesa'
+                        ? 'Mpesa'
+                        : method === 'cash'
+                        ? 'Cash'
+                        : method === 'split'
+                        ? 'Split'
+                        : method === 'debt'
+                        ? 'Debt'
+                        : method || 'N/A';
 
-                  const cash = order.cashAmount || 0;
-                  const mpesa = order.mpesaAmount || 0;
-                  const paid = cash + mpesa + (order.partialAmount || 0);
-                  const debt =
-                    order.remainingAmount != null
-                      ? order.remainingAmount
-                      : order.debtAmount != null
-                      ? order.debtAmount
-                      : Math.max(0, (order.total || 0) - paid);
+                    const cash = order.cashAmount || 0;
+                    const mpesa = order.mpesaAmount || 0;
+                    const paid = cash + mpesa + (order.partialAmount || 0);
+                    const debt =
+                      order.remainingAmount != null
+                        ? order.remainingAmount
+                        : order.debtAmount != null
+                        ? order.debtAmount
+                        : Math.max(0, (order.total || 0) - paid);
 
-                  return (
-                    <tr key={order.id}>
-                      <td className="px-3 py-2 text-gray-900 dark:text-white text-sm md:text-base font-medium">
-                        {timeLabel}
-                      </td>
-                      <td className="px-3 py-2 text-gray-800 dark:text-gray-200 text-sm md:text-base">
-                        {label}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-900 dark:text-white text-sm md:text-base font-semibold tabular-nums">
-                        {formatCurrency(order.total || 0)}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-900 dark:text-white text-sm md:text-base tabular-nums">
-                        {cash > 0 ? formatCurrency(cash) : '-'}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-900 dark:text-white text-sm md:text-base tabular-nums">
-                        {mpesa > 0 ? formatCurrency(mpesa) : '-'}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-900 dark:text-white text-sm md:text-base tabular-nums">
-                        {debt > 0 ? formatCurrency(debt) : '-'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td className="px-2 sm:px-3 py-2 text-gray-900 dark:text-white text-xs sm:text-sm md:text-base font-medium whitespace-nowrap">
+                          {timeLabel}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-gray-800 dark:text-gray-200 text-xs sm:text-sm md:text-base whitespace-nowrap">
+                          {label}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white text-xs sm:text-sm md:text-base font-semibold tabular-nums whitespace-nowrap">
+                          {formatCurrency(order.total || 0)}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white text-xs sm:text-sm md:text-base tabular-nums whitespace-nowrap">
+                          {cash > 0 ? formatCurrency(cash) : '-'}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white text-xs sm:text-sm md:text-base tabular-nums whitespace-nowrap">
+                          {mpesa > 0 ? formatCurrency(mpesa) : '-'}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white text-xs sm:text-sm md:text-base tabular-nums whitespace-nowrap">
+                          {debt > 0 ? formatCurrency(debt) : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </Card>
@@ -469,48 +471,50 @@ const Sales: React.FC = () => {
           </p>
         ) : (
           <div className="space-y-3">
-            <div className="text-sm text-gray-600 dark:text-gray-300">
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
               <span className="font-semibold">Total products sold:</span>{' '}
               {productSummary.reduce((sum, p) => sum + p.quantitySold, 0).toLocaleString()} units
             </div>
-            <div className="max-h-96 overflow-y-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm md:text-base">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                      Product
-                    </th>
-                    <th className="px-3 py-2 text-right text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                      Sold (Qty)
-                    </th>
-                    <th className="px-3 py-2 text-right text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                      Revenue
-                    </th>
-                    <th className="px-3 py-2 text-right text-xs md:text-sm font-semibold text-gray-600 dark:text-gray-300">
-                      Remaining Stock
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                  {productSummary.map((p) => (
-                    <tr key={p.productId}>
-                      <td className="px-3 py-2 text-gray-900 dark:text-white font-medium">
-                        {p.name}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-900 dark:text-white font-semibold tabular-nums">
-                        {p.quantitySold.toLocaleString()}
-                        {p.unit ? ` ${p.unit}` : ''}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-900 dark:text-white font-semibold tabular-nums">
-                        {formatCurrency(p.revenue)}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-900 dark:text-white tabular-nums">
-                        {p.remainingStock != null ? p.remainingStock.toLocaleString() : '-'}
-                      </td>
+            <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-xs sm:text-sm md:text-base">
+                  <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                    <tr>
+                      <th className="px-2 sm:px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        Product
+                      </th>
+                      <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        Sold (Qty)
+                      </th>
+                      <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        Revenue
+                      </th>
+                      <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        Remaining Stock
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    {productSummary.map((p) => (
+                      <tr key={p.productId} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td className="px-2 sm:px-3 py-2 text-gray-900 dark:text-white font-medium text-xs sm:text-sm md:text-base">
+                          {p.name}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white font-semibold tabular-nums text-xs sm:text-sm md:text-base whitespace-nowrap">
+                          {p.quantitySold.toLocaleString()}
+                          {p.unit ? ` ${p.unit}` : ''}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white font-semibold tabular-nums text-xs sm:text-sm md:text-base whitespace-nowrap">
+                          {formatCurrency(p.revenue)}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white tabular-nums text-xs sm:text-sm md:text-base whitespace-nowrap">
+                          {p.remainingStock != null ? p.remainingStock.toLocaleString() : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

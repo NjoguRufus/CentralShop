@@ -196,8 +196,12 @@ service cloud.firestore {
     }
     
     // Orders: {ShopName}Orders/{orderId}
+    // Example: CentralShopOrders/{orderId}, KamweneShopOrders/{orderId}
     match /{shopOrders}/{orderId} {
+      // Any signed-in user can read shop-specific orders
       allow read: if isSignedIn() && shopOrders.matches('.*Orders$');
+
+      // Keep strict validation on create so new orders are always consistent
       allow create: if isSignedIn() 
         && shopOrders.matches('.*Orders$')
         && request.resource.data.keys().hasAll(['items', 'subtotal', 'tax', 'total', 'status', 'paymentMethod', 'createdAt', 'employeeId'])
@@ -207,22 +211,15 @@ service cloud.firestore {
         && request.resource.data.total >= 0
         && request.resource.data.status in ['completed', 'pending', 'cancelled', 'partial']
         && request.resource.data.items.size() > 0;
+
+      // Allow flexible updates from the app:
+      // - status / category changes
+      // - product deletions with subtotal/tax/total recalculated
+      // - extra metadata: refundedItems, lastModifiedBy, processedByShopName, etc.
       allow update: if isSignedIn() 
-        && shopOrders.matches('.*Orders$')
-        && (
-          // Allow status and category updates
-          (resource.data.diff(request.resource.data).changedKeys().hasOnly(['status', 'category'])
-           && request.resource.data.status in ['completed','pending','cancelled','partial'])
-          ||
-          // Allow product deletion updates (must include items, subtotal, tax, total; can also include products, refundedItems, lastModifiedBy, etc.)
-          (resource.data.diff(request.resource.data).changedKeys().hasAll(['items', 'subtotal', 'tax', 'total'])
-           && request.resource.data.subtotal >= 0
-           && request.resource.data.tax >= 0
-           && request.resource.data.total >= 0
-           && request.resource.data.total == request.resource.data.subtotal + request.resource.data.tax
-           && request.resource.data.items.size() >= 0
-           && (!('items' in resource.data) || request.resource.data.items.size() < resource.data.items.size()))
-        );
+        && shopOrders.matches('.*Orders$');
+
+      // Allow signed-in users to delete orders in these collections
       allow delete: if isSignedIn() && shopOrders.matches('.*Orders$');
     }
 

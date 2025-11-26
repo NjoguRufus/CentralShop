@@ -24,6 +24,7 @@ import { useAuth } from '../contexts/AuthContext';
 const menuItems = [
   { path: '/developer', label: 'Developer Dashboard', icon: Building2, requiredRole: 'astraronix' },
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, requiredRole: 'Admin' },
+  { path: '/sales', label: 'Sales', icon: BarChart3, requiredRole: 'Admin' },
   { path: '/inventory', label: 'Inventory', icon: Package, requiredRole: 'Stock Manager' },
   { path: '/pos', label: 'POS', icon: ShoppingCart, requiredRole: 'Cashier' },
   { path: '/customers', label: 'Customers', icon: Users, requiredRole: 'Admin' },
