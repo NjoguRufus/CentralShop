@@ -1,5 +1,6 @@
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { addDoc, collection } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
+import { addDoc } from '../offline/firestoreWrappers';
 import { auth, db } from '../firebase';
 
 export const createAdminUser = async () => {

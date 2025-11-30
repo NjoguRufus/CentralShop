@@ -4,7 +4,8 @@ import { generateResponse, ChatMessage } from '../../config/gemini';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
 import toast from 'react-hot-toast';
-import { collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, doc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, updateDoc } from '../../offline/firestoreWrappers';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 

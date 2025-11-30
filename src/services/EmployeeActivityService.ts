@@ -1,4 +1,5 @@
-import { collection, addDoc, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { addDoc, updateDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 
 export interface EmployeeActivity {
@@ -33,7 +34,7 @@ export class EmployeeActivityService {
       // Update employee's last login/logout time and active status
       // Note: employeeId is the document ID from employees collection, not users collection
       try {
-        const { doc, updateDoc, getDoc, query, where, getDocs } = await import('firebase/firestore');
+        const { doc, getDoc, query, where, getDocs } = await import('firebase/firestore');
         const { getShopCollectionName } = await import('../config/shopConfig');
         
         const updateData: any = {

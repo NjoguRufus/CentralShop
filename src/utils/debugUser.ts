@@ -1,5 +1,6 @@
 // Debug utility to check and create user records
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { addDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 
 export const checkUserExists = async (uid: string) => {

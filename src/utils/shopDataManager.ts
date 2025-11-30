@@ -1,4 +1,5 @@
-import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
+import { addDoc, setDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 
 export interface ShopData {

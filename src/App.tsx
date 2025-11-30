@@ -19,6 +19,7 @@ import { initializeOfflineSync } from './offline';
 import { useOfflineSync } from './offline/useSync';
 import { registerPushNotifications } from './services/pushNotifications';
 import { useAppKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { syncPendingWrites } from './offline/sync';
 
 // Lazy load heavy pages for better performance
 const Login = lazy(() => import('./pages/Login'));
@@ -80,6 +81,46 @@ const AppContent: React.FC = () => {
     if ('Notification' in window) {
       registerPushNotifications().catch(console.error);
     }
+
+    // Register custom service worker for background sync
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('Custom service worker registered:', registration);
+        })
+        .catch((error) => {
+          console.warn('Custom service worker registration failed:', error);
+        });
+
+      // Listen for service worker messages
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SYNC_PENDING_WRITES') {
+          console.log('Service worker requested sync');
+          syncPendingWrites().catch(console.error);
+        }
+      });
+    }
+
+    // Listen for online event to sync pending writes
+    const syncHandler = async () => {
+      console.log('Online: Syncing pending writes...');
+      try {
+        await syncPendingWrites();
+      } catch (error) {
+        console.error('Error syncing pending writes:', error);
+      }
+    };
+
+    window.addEventListener('online', syncHandler);
+
+    // Also sync immediately if already online
+    if (navigator.onLine) {
+      syncHandler();
+    }
+
+    return () => {
+      window.removeEventListener('online', syncHandler);
+    };
   }, []);
 
   // Maximum 2.5 second loading screen

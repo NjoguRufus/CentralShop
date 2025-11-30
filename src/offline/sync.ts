@@ -2,7 +2,7 @@
  * Offline Sync Module
  * Handles syncing offline data to Firestore with Background Sync support
  */
-import { collection, doc, setDoc, Timestamp, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, Timestamp, getDocs, query, orderBy } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 import { getShopCollectionName } from '../config/shopConfig';
 import { db } from './db';
@@ -155,13 +155,108 @@ export async function syncCustomersFromFirestore(): Promise<void> {
 }
 
 /**
+ * Sync pending writes from IndexedDB to Firestore
+ * Replays all queued write operations (add/update/delete)
+ */
+export async function syncPendingWrites(): Promise<{ synced: number; errors: number }> {
+  if (!navigator.onLine) {
+    console.log('Offline: Cannot sync pending writes');
+    return { synced: 0, errors: 0 };
+  }
+
+  try {
+    // Get all pending writes
+    const pendingWrites = await db.pendingWrites
+      .where('status')
+      .equals('pending')
+      .toArray();
+
+    if (pendingWrites.length === 0) {
+      return { synced: 0, errors: 0 };
+    }
+
+    let synced = 0;
+    let errors = 0;
+
+    for (const write of pendingWrites) {
+      try {
+        // Mark as syncing
+        if (write.id) {
+          await db.pendingWrites.update(write.id.toString(), { status: 'syncing' });
+        }
+
+        // Execute the write operation based on type
+        switch (write.type) {
+          case 'add': {
+            const collectionRef = collection(firestoreDb, write.collection);
+            await addDoc(collectionRef, write.data);
+            break;
+          }
+          case 'update': {
+            if (!write.docId) {
+              throw new Error('docId is required for update operations');
+            }
+            const docRef = doc(firestoreDb, write.collection, write.docId);
+            await updateDoc(docRef, write.data);
+            break;
+          }
+          case 'delete': {
+            if (!write.docId) {
+              throw new Error('docId is required for delete operations');
+            }
+            const docRef = doc(firestoreDb, write.collection, write.docId);
+            await deleteDoc(docRef);
+            break;
+          }
+          default:
+            throw new Error(`Unknown write type: ${write.type}`);
+        }
+
+        // Mark as synced and remove from queue
+        if (write.id) {
+          await db.pendingWrites.delete(write.id.toString());
+        }
+
+        synced++;
+        console.log(`Synced ${write.type} operation to ${write.collection}`);
+      } catch (error) {
+        console.error(`Error syncing write ${write.id}:`, error);
+        errors++;
+
+        // Update error status and increment retry count
+        if (write.id) {
+          const retryCount = (write.retryCount || 0) + 1;
+          await db.pendingWrites.update(write.id.toString(), {
+            status: retryCount >= 5 ? 'error' : 'pending', // Mark as error after 5 retries
+            retryCount,
+            error: error instanceof Error ? error.message : 'Sync failed'
+          });
+        }
+      }
+    }
+
+    return { synced, errors };
+  } catch (error) {
+    console.error('Error syncing pending writes:', error);
+    return { synced: 0, errors: 0 };
+  }
+}
+
+/**
  * Sync all offline data
  */
 export async function syncAllOfflineData(): Promise<{ synced: number; errors: number }> {
+  // First sync pending writes
+  const pendingResult = await syncPendingWrites();
+  
+  // Then sync other offline data
   const orderResult = await syncOfflineOrdersToFirebase();
   await syncProductsFromFirestore();
   await syncCustomersFromFirestore();
   
-  return orderResult;
+  return {
+    synced: pendingResult.synced + orderResult.synced,
+    errors: pendingResult.errors + orderResult.errors
+  };
 }
 

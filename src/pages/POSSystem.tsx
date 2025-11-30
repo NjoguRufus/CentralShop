@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Minus, Trash2, Search, ShoppingCart, Grid3x3, List } from 'lucide-react';
-import { collection, getDocs, query, orderBy, addDoc, updateDoc, doc, Timestamp, where, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, Timestamp, where, getDoc } from 'firebase/firestore';
+import { addDoc, updateDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
@@ -19,6 +20,7 @@ import { Product, OrderItem } from '../types';
 import { toast } from 'react-toastify';
 import Modal from '../components/Modal';
 import { getUnitShortLabel, getDefaultUnit } from '../constants/productUnits';
+import { loadProductsCacheFirst, loadCategoriesCacheFirst } from '../offline/cacheFirstLoader';
 
 interface ProductCategory {
   id: string;
@@ -180,21 +182,19 @@ const POSSystem: React.FC = () => {
     try {
       if (!currentUser?.shopId) return;
 
-      const q = query(collection(db, getShopCollectionName('productCategories', selectedBranch as BranchName)), orderBy('name'));
-      const querySnapshot = await getDocs(q);
-      const categoriesData: ProductCategory[] = [];
-      querySnapshot.forEach((doc) => {
-        categoriesData.push({
-          id: doc.id,
-          name: doc.data().name
-        });
-      });
-      setCategories(categoriesData);
+      // Use cache-first loading
+      const categoriesData = await loadCategoriesCacheFirst(selectedBranch as BranchName);
+      setCategories(categoriesData as ProductCategory[]);
     } catch (error: any) {
       console.error('Error fetching categories:', error);
-      // Don't show error toast for permission errors - rules need to be deployed
-      if (error.code !== 'permission-denied') {
-        toast.error('Failed to load categories');
+      // Try cache fallback
+      try {
+        const cached = await loadCategoriesCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          setCategories(cached as ProductCategory[]);
+        }
+      } catch (e) {
+        // Ignore cache errors
       }
     }
   };
@@ -216,27 +216,30 @@ const POSSystem: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, getShopCollectionName('products', selectedBranch as BranchName)), orderBy('name'));
-      const querySnapshot = await getDocs(q);
-      const productsData: Product[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        productsData.push({ 
-          id: doc.id, 
-          ...data,
-          unit: data.unit || DEFAULT_UNIT,
-          requireMeasurement: data.requireMeasurement || false,
-          measurementLabel: data.measurementLabel || '',
-          capital: data.capital,
-          buyingPrice: data.buyingPrice,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date()
-        } as Product);
-      });
-      setProducts(productsData);
+      // Use cache-first loading
+      const productsData = await loadProductsCacheFirst(selectedBranch as BranchName);
+      setProducts(productsData as Product[]);
+      
+      // Only show error if we have no data and we're online
+      if (productsData.length === 0 && navigator.onLine) {
+        toast.error('Failed to fetch products');
+      } else if (productsData.length === 0 && !navigator.onLine) {
+        toast.info('Loading from cache...');
+      }
     } catch (error) {
-      toast.error('Failed to fetch products');
       console.error('Error fetching products:', error);
+      // Try to load from cache as fallback
+      try {
+        const cached = await loadProductsCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          setProducts(cached as Product[]);
+          toast.info('Loaded products from cache');
+        } else {
+          toast.error('Failed to fetch products');
+        }
+      } catch (e) {
+        toast.error('Failed to fetch products');
+      }
     } finally {
       setLoading(false);
     }

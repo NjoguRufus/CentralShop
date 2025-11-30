@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
-import { collection, addDoc, updateDoc, doc, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { addDoc, updateDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { getShopCollectionName } from '../config/shopConfig';

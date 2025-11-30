@@ -1,6 +1,7 @@
 // src/pages/Orders.tsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, where, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc } from '../offline/firestoreWrappers';
 import Select from '../components/UI/Select';
 import Dropdown from '../components/UI/Dropdown';
 import DateInput from '../components/UI/DateInput';
@@ -9,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
+import { loadOrdersCacheFirst, loadCustomersCacheFirst, loadProductsCacheFirst, loadCategoriesCacheFirst } from '../offline/cacheFirstLoader';
 import { useNotifications } from '../contexts/NotificationContext';
 import Card from '../components/UI/Card';
 import FormInput from '../components/UI/FormInput';
@@ -178,53 +180,23 @@ const Orders: React.FC = () => {
         return;
       }
 
-      const ordersCollectionName = getShopCollectionName('orders', selectedBranch as BranchName);
+      // Use cache-first loading
+      const employeeId = currentUser?.role === 'Cashier' ? (currentUser.customId || currentUser.uid) : undefined;
+      let ordersData = await loadOrdersCacheFirst(selectedBranch as BranchName, employeeId);
       
-      // If user is a cashier, only fetch their own orders
-      // Managers, mainAdmin, and Admin roles see all orders
-      let querySnapshot;
-      if (currentUser?.role === 'Cashier' && (currentUser?.customId || currentUser?.uid)) {
-        // For cashiers, filter by employeeId (using customId if available, fallback to uid) and then sort in memory
-        const employeeId = currentUser.customId || currentUser.uid;
-        const q = query(
-          collection(db, ordersCollectionName),
-          where('employeeId', '==', employeeId)
-        );
-        querySnapshot = await getDocs(q);
-      } else {
-        // For managers, admins and mainAdmin, fetch all orders with orderBy
-        const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
-        querySnapshot = await getDocs(q);
-      }
-      
-      let ordersData: OrderRecord[] = [];
-      
-      querySnapshot.forEach((orderDoc) => {
-        const orderData = { id: orderDoc.id, ...orderDoc.data() } as OrderRecord;
-        
-        // Auto-determine category based on the products in the order
-        const { category: computedCategory, categoriesCount } = determineOrderCategory(orderData);
+      // Process orders (determine categories, etc.)
+      ordersData = ordersData.map((orderData: any) => {
+        const order = { id: orderData.id, ...orderData } as OrderRecord;
+        const { category: computedCategory, categoriesCount } = determineOrderCategory(order);
         if (computedCategory) {
-          orderData.category = computedCategory;
+          order.category = computedCategory;
         }
-
-        if (
-          categoriesCount === 1 &&
-          computedCategory &&
-          computedCategory !== 'multiple' &&
-          orderDoc.data().category !== computedCategory
-        ) {
-          updateDoc(doc(db, ordersCollectionName, orderDoc.id), { category: computedCategory }).catch(err => {
-            console.error('Error updating order category:', err);
-          });
-        }
-        
-        ordersData.push(orderData);
+        return order;
       });
       
       // Sort cashier orders by createdAt in descending order (most recent first)
       if (currentUser?.role === 'Cashier') {
-        ordersData.sort((a, b) => {
+        ordersData.sort((a: any, b: any) => {
           const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.date || 0).getTime();
           const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.date || 0).getTime();
           return dateB - dateA;
@@ -233,16 +205,34 @@ const Orders: React.FC = () => {
 
       // Also filter by customId if it exists (for backward compatibility with old orders using uid)
       if (currentUser?.role === 'Cashier' && currentUser?.customId) {
-        // Filter to include orders with either customId or uid (for backward compatibility)
         const employeeId = currentUser.customId;
-        ordersData = ordersData.filter(order => 
+        ordersData = ordersData.filter((order: any) => 
           order.employeeId === employeeId || order.employeeId === currentUser.uid
         );
       }
-      setOrders(ordersData);
+      
+      setOrders(ordersData as OrderRecord[]);
+      
+      if (ordersData.length === 0 && navigator.onLine) {
+        toast.error('Failed to fetch orders');
+      } else if (ordersData.length === 0 && !navigator.onLine) {
+        toast.info('No cached orders available');
+      }
     } catch (error) {
-      toast.error('Failed to fetch orders');
       console.error('Error fetching orders:', error);
+      // Try cache fallback
+      try {
+        const employeeId = currentUser?.role === 'Cashier' ? (currentUser.customId || currentUser.uid) : undefined;
+        const cached = await loadOrdersCacheFirst(selectedBranch as BranchName, employeeId);
+        if (cached.length > 0) {
+          setOrders(cached as OrderRecord[]);
+          toast.info('Loaded orders from cache');
+        } else {
+          toast.error('Failed to fetch orders');
+        }
+      } catch (e) {
+        toast.error('Failed to fetch orders');
+      }
     } finally {
       setLoading(false);
     }
@@ -255,14 +245,20 @@ const Orders: React.FC = () => {
         return;
       }
 
-      const querySnapshot = await getDocs(collection(db, getShopCollectionName('customers', selectedBranch as BranchName)));
-      const customersData: Customer[] = [];
-      querySnapshot.forEach((doc) => {
-        customersData.push({ id: doc.id, ...doc.data() } as Customer);
-      });
-      setCustomers(customersData);
+      // Use cache-first loading
+      const customersData = await loadCustomersCacheFirst(selectedBranch as BranchName);
+      setCustomers(customersData as Customer[]);
     } catch (error) {
       console.error('Error fetching customers:', error);
+      // Try cache fallback
+      try {
+        const cached = await loadCustomersCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          setCustomers(cached as Customer[]);
+        }
+      } catch (e) {
+        // Ignore
+      }
     }
   };
 
@@ -273,15 +269,21 @@ const Orders: React.FC = () => {
         setProductsLoaded(true);
         return;
       }
-      const productsQuery = query(collection(db, getShopCollectionName('products')));
-      const productsSnapshot = await getDocs(productsQuery);
-      const productsData = productsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      
+      // Use cache-first loading
+      const productsData = await loadProductsCacheFirst(selectedBranch as BranchName);
       setProducts(productsData);
     } catch (error) {
       console.error('Error fetching products:', error);
+      // Try cache fallback
+      try {
+        const cached = await loadProductsCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          setProducts(cached);
+        }
+      } catch (e) {
+        // Ignore
+      }
     } finally {
       setProductsLoaded(true);
     }
@@ -290,13 +292,23 @@ const Orders: React.FC = () => {
   const fetchCategories = async (): Promise<void> => {
     try {
       if (!currentUser?.shopId) return;
-      // Fetch product categories
-      const snap = await getDocs(query(collection(db, getShopCollectionName('productCategories')), orderBy('name')));
-      const list: string[] = [];
-      snap.forEach(d => list.push((d.data() as any).name));
+      
+      // Use cache-first loading
+      const categoriesData = await loadCategoriesCacheFirst(selectedBranch as BranchName);
+      const list = categoriesData.map((cat: any) => cat.name);
       setCategories(list);
     } catch (error) {
       console.error('Error fetching product categories:', error);
+      // Try cache fallback
+      try {
+        const cached = await loadCategoriesCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          const list = cached.map((cat: any) => cat.name);
+          setCategories(list);
+        }
+      } catch (e) {
+        // Ignore
+      }
     }
   };
 

@@ -1,5 +1,6 @@
 // Utility script to add sample products to Firebase
-import { collection, addDoc } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
+import { addDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 
 const sampleProducts = [

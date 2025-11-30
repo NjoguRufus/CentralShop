@@ -1,6 +1,7 @@
 // src/pages/Employees.tsx
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, doc, query, orderBy, where } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc } from '../offline/firestoreWrappers';
 import { createUserWithEmailAndPassword, updateProfile, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';

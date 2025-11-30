@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, where, Timestamp, DocumentData, QuerySnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, query, orderBy, where, Timestamp, DocumentData, QuerySnapshot } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc } from '../offline/firestoreWrappers';
 import { db } from '../config/firebase';
 import { getShopCollectionName, BRANCHES } from '../config/shopConfig';
 import { useAuth } from '../contexts/AuthContext';

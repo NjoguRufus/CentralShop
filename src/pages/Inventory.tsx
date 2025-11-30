@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Package, Camera, X, Grid3x3, List, Loader2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, doc, query, orderBy, where } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc } from '../offline/firestoreWrappers';
+import { loadProductsCacheFirst, loadCategoriesCacheFirst } from '../offline/cacheFirstLoader';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName } from '../config/shopConfig';
@@ -97,23 +99,29 @@ const Inventory: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, getShopCollectionName('products', selectedBranch as BranchName)), orderBy('name'));
-      const querySnapshot = await getDocs(q);
-      const productsData: Product[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        productsData.push({ 
-          id: doc.id, 
-          ...data,
-          unit: data.unit || DEFAULT_UNIT,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date()
-        } as Product);
-      });
-      setProducts(productsData);
+      // Use cache-first loading
+      const productsData = await loadProductsCacheFirst(selectedBranch as BranchName);
+      setProducts(productsData as Product[]);
+      
+      if (productsData.length === 0 && navigator.onLine) {
+        toast.error('Failed to fetch products');
+      } else if (productsData.length === 0 && !navigator.onLine) {
+        toast.info('Loading from cache...');
+      }
     } catch (error) {
-      toast.error('Failed to fetch products');
       console.error('Error fetching products:', error);
+      // Try cache fallback
+      try {
+        const cached = await loadProductsCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          setProducts(cached as Product[]);
+          toast.info('Loaded products from cache');
+        } else {
+          toast.error('Failed to fetch products');
+        }
+      } catch (e) {
+        toast.error('Failed to fetch products');
+      }
     } finally {
       setLoading(false);
     }
@@ -123,21 +131,19 @@ const Inventory: React.FC = () => {
     try {
       if (!currentUser?.shopId) return;
 
-      const q = query(collection(db, getShopCollectionName('productCategories', selectedBranch as BranchName)), orderBy('name'));
-      const querySnapshot = await getDocs(q);
-      const categoriesData: ProductCategory[] = [];
-      querySnapshot.forEach((doc) => {
-        categoriesData.push({
-          id: doc.id,
-          name: doc.data().name
-        });
-      });
-      setCategories(categoriesData);
+      // Use cache-first loading
+      const categoriesData = await loadCategoriesCacheFirst(selectedBranch as BranchName);
+      setCategories(categoriesData as ProductCategory[]);
     } catch (error: any) {
       console.error('Error fetching categories:', error);
-      // Don't show error toast for permission errors - rules need to be deployed
-      if (error.code !== 'permission-denied') {
-        toast.error('Failed to load categories');
+      // Try cache fallback
+      try {
+        const cached = await loadCategoriesCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          setCategories(cached as ProductCategory[]);
+        }
+      } catch (e) {
+        // Ignore
       }
     }
   };

@@ -3,7 +3,8 @@ import { askAIPOS, UserRole } from '../services/ai';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { History, Plus, X, Search, Clock, MessageSquare, Minimize2, DollarSign, Package, Users, TrendingUp, Settings, HelpCircle } from 'lucide-react';
-import { collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, doc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, updateDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 
 interface AIChatWidgetProps {

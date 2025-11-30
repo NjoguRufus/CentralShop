@@ -1,6 +1,8 @@
 // src/pages/Customers.tsx
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, doc, query, orderBy, where } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc } from '../offline/firestoreWrappers';
+import { loadCustomersCacheFirst, loadOrdersCacheFirst } from '../offline/cacheFirstLoader';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
@@ -96,17 +98,20 @@ const Customers: React.FC = () => {
     try {
       if (!currentUser?.shopId) return;
 
-      // Use branch-specific orders collection
-      const ordersCollectionName = getShopCollectionName('orders', selectedBranch as BranchName);
-      const q = query(collection(db, ordersCollectionName), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const ordersData: Order[] = [];
-      querySnapshot.forEach((doc) => {
-        ordersData.push({ id: doc.id, ...doc.data() } as Order);
-      });
-      setOrders(ordersData);
+      // Use cache-first loading
+      const ordersData = await loadOrdersCacheFirst(selectedBranch as BranchName);
+      setOrders(ordersData as Order[]);
     } catch (error) {
       console.error('Error fetching orders:', error);
+      // Try cache fallback
+      try {
+        const cached = await loadOrdersCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          setOrders(cached as Order[]);
+        }
+      } catch (e) {
+        // Ignore
+      }
     }
   };
 
@@ -120,15 +125,11 @@ const Customers: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, getShopCollectionName('customers', selectedBranch as BranchName)), orderBy('name'));
-      const querySnapshot = await getDocs(q);
-      const customersData: Customer[] = [];
-      querySnapshot.forEach((doc) => {
-        customersData.push({ id: doc.id, ...doc.data() } as Customer);
-      });
+      // Use cache-first loading
+      const customersData = await loadCustomersCacheFirst(selectedBranch as BranchName);
 
       // Calculate purchase statistics for each customer
-      const customersWithStats = customersData.map(customer => {
+      const customersWithStats = customersData.map((customer: any) => {
         const customerOrdersList = orders.filter(order => order.customerId === customer.id);
         const totalSpent = customerOrdersList.reduce((sum, order) => sum + (order.total || 0), 0);
         const orderCount = customerOrdersList.length;
@@ -141,10 +142,33 @@ const Customers: React.FC = () => {
         };
       });
 
-      setCustomers(customersWithStats);
+      setCustomers(customersWithStats as Customer[]);
+      
+      if (customersData.length === 0 && navigator.onLine) {
+        toast.error('Failed to fetch customers');
+      } else if (customersData.length === 0 && !navigator.onLine) {
+        toast.info('Loading from cache...');
+      }
     } catch (error) {
-      toast.error('Failed to fetch customers');
       console.error('Error fetching customers:', error);
+      // Try cache fallback
+      try {
+        const cached = await loadCustomersCacheFirst(selectedBranch as BranchName);
+        if (cached.length > 0) {
+          const customersWithStats = cached.map((customer: any) => {
+            const customerOrdersList = orders.filter(order => order.customerId === customer.id);
+            const totalSpent = customerOrdersList.reduce((sum, order) => sum + (order.total || 0), 0);
+            const orderCount = customerOrdersList.length;
+            return { ...customer, totalPurchases: orderCount, totalSpent, orderCount };
+          });
+          setCustomers(customersWithStats as Customer[]);
+          toast.info('Loaded customers from cache');
+        } else {
+          toast.error('Failed to fetch customers');
+        }
+      } catch (e) {
+        toast.error('Failed to fetch customers');
+      }
     } finally {
       setLoading(false);
     }

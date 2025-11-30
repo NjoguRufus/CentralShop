@@ -7,6 +7,11 @@ export * from './offlineProducts';
 export * from './offlineOrders';
 export * from './offlineCustomers';
 export * from './offlineSettings';
+export * from './saveOffline';
+export * from './safeFirestoreWrite';
+export * from './firestoreWrappers';
+export * from './cacheFirstLoader';
+export { syncPendingWrites } from './sync';
 
 import { syncProductsFromFirestore } from './offlineProducts';
 import { syncCustomersFromFirestore, syncCustomersToFirestore } from './offlineCustomers';

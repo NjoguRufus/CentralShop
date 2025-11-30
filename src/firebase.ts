@@ -3,7 +3,7 @@
 // TODO: move config to .env and never commit secrets to repo.
 
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -18,6 +18,12 @@ const firebaseConfig = {
 
 const app: FirebaseApp = initializeApp(firebaseConfig);
 
-export const db: Firestore = getFirestore(app);
+// Initialize Firestore with offline persistence
+export const db: Firestore = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
+
 export const auth: Auth = getAuth(app);
 export default app;

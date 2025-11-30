@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { setDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 

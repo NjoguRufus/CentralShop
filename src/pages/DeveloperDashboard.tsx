@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, doc, query, orderBy, where } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc } from '../offline/firestoreWrappers';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { createShopCollections } from '../utils/shopDataManager';

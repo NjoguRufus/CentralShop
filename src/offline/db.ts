@@ -58,12 +58,33 @@ export interface OfflineSetting {
   lastSynced?: Date;
 }
 
+export interface PendingWrite {
+  id?: string;
+  collection: string;
+  data: any;
+  type: 'add' | 'update' | 'delete';
+  status: 'pending' | 'syncing' | 'synced' | 'error';
+  docId?: string; // For update/delete operations
+  timestamp: Date;
+  retryCount?: number;
+  error?: string;
+}
+
+export interface LocalCache {
+  id: string;
+  collection: string;
+  data: any;
+  lastSynced?: Date;
+}
+
 class CentralShopDB extends Dexie {
   products!: Table<OfflineProduct, string>;
   orders!: Table<OfflineOrder, string>;
   customers!: Table<OfflineCustomer, string>;
   settings!: Table<OfflineSetting, string>;
   syncQueue!: Table<{ id?: string; type: string; data: any; timestamp: Date }, string>;
+  pendingWrites!: Table<PendingWrite, string>;
+  localCache!: Table<LocalCache, string>;
 
   constructor() {
     super('CentralShopDB');
@@ -74,6 +95,17 @@ class CentralShopDB extends Dexie {
       customers: 'id, phone, name, lastSynced, isDirty',
       settings: 'key, lastSynced',
       syncQueue: '++id, type, timestamp'
+    });
+
+    // Version 2: Add pendingWrites and localCache tables
+    this.version(2).stores({
+      products: 'id, name, category, lastSynced, isDirty',
+      orders: 'id, customerId, createdAt, synced, status',
+      customers: 'id, phone, name, lastSynced, isDirty',
+      settings: 'key, lastSynced',
+      syncQueue: '++id, type, timestamp',
+      pendingWrites: '++id, collection, type, status, timestamp',
+      localCache: 'id, collection, lastSynced'
     });
   }
 }
