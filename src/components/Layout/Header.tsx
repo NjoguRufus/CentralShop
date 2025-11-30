@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { Sun, Moon, User, LogOut, Bell, Menu, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sun, Moon, User, LogOut, Bell, Menu, X, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import CloudLoader from '../UI/CloudLoader';
 
 interface HeaderProps {
   onProfileClick: () => void;
@@ -17,6 +16,20 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
   const { user, currentUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95">
@@ -26,8 +39,18 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
           Welcome back, {currentUser?.name || user?.displayName || 'User'}
         </h1>
         <div className="flex items-center gap-2">
-          <CloudLoader />
-          <span className="text-xs font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Online</span>
+          {isOnline ? (
+            <Wifi className="w-4 h-4 text-green-600 dark:text-green-400" />
+          ) : (
+            <WifiOff className="w-4 h-4 text-red-600 dark:text-red-400" />
+          )}
+          <span className={`text-xs font-medium whitespace-nowrap ${
+            isOnline 
+              ? 'text-green-600 dark:text-green-400' 
+              : 'text-red-600 dark:text-red-400'
+          }`}>
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
         </div>
       </div>
 
@@ -102,8 +125,18 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
 
           {/* Online Status Indicator - Rightmost (Desktop only) */}
           <div className="hidden lg:flex items-center gap-2 ml-2">
-            <CloudLoader />
-            <span className="text-xs font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Online</span>
+            {isOnline ? (
+              <Wifi className="w-4 h-4 text-green-600 dark:text-green-400" />
+            ) : (
+              <WifiOff className="w-4 h-4 text-red-600 dark:text-red-400" />
+            )}
+            <span className={`text-xs font-medium whitespace-nowrap ${
+              isOnline 
+                ? 'text-green-600 dark:text-green-400' 
+                : 'text-red-600 dark:text-red-400'
+            }`}>
+              {isOnline ? 'Online' : 'Offline'}
+            </span>
           </div>
         </div>
       </div>
