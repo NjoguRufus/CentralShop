@@ -86,7 +86,12 @@ export async function syncProductsFromFirestore(): Promise<void> {
     });
     
     await saveProductsOffline(products);
-  } catch (error) {
+  } catch (error: any) {
+    // For permission issues, log a concise warning and skip without throwing
+    if (error?.code === 'permission-denied' || error?.message?.includes('Missing or insufficient permissions')) {
+      console.warn('Skipping product sync: missing or insufficient Firestore permissions for this user.');
+      return;
+    }
     console.error('Error syncing products from Firestore:', error);
     throw error;
   }

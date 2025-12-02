@@ -38,7 +38,8 @@ export async function setDoc<T extends DocumentData>(
   data: WithFieldValue<T>,
   options?: SetOptions
 ): Promise<void> {
-  const collectionPath = documentRef.path;
+  // Use the parent collection path (without the document ID)
+  const collectionPath = documentRef.parent.path;
   const docId = documentRef.id;
   
   return safeFirestoreWrite(
@@ -54,7 +55,8 @@ export async function updateDoc<T extends DocumentData>(
   documentRef: DocumentReference<T>,
   data: UpdateData<T>
 ): Promise<void> {
-  const collectionPath = documentRef.path;
+  // Use the parent collection path (without the document ID)
+  const collectionPath = documentRef.parent.path;
   const docId = documentRef.id;
   
   return safeFirestoreWrite(
@@ -69,7 +71,8 @@ export async function updateDoc<T extends DocumentData>(
 export async function deleteDoc<T extends DocumentData>(
   documentRef: DocumentReference<T>
 ): Promise<void> {
-  const collectionPath = documentRef.path;
+  // Use the parent collection path (without the document ID)
+  const collectionPath = documentRef.parent.path;
   const docId = documentRef.id;
   
   return safeFirestoreWrite(

@@ -11,6 +11,7 @@ export * from './saveOffline';
 export * from './safeFirestoreWrite';
 export * from './firestoreWrappers';
 export * from './cacheFirstLoader';
+export * from './offlineAuth';
 export { syncPendingWrites } from './sync';
 
 import { syncProductsFromFirestore } from './offlineProducts';

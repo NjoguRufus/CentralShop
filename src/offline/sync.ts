@@ -10,75 +10,14 @@ import { registerBackgroundSync } from '../utils/backgroundSync';
 
 /**
  * Sync offline orders to Firestore
+ * DISABLED: Orders should only be created through POS checkout, not automatically synced
+ * This prevents automatic order creation for KamweneShop or any other shop
  */
 export async function syncOfflineOrdersToFirebase(): Promise<{ synced: number; errors: number }> {
-  if (!navigator.onLine) {
-    console.log('Offline: Registering background sync for orders');
-    // Register background sync for when connection is restored
-    await registerBackgroundSync('sync-orders');
-    return { synced: 0, errors: 0 };
-  }
-
-  try {
-    // Get all orders and filter for unsynced ones (handles undefined/null synced values)
-    const allOrders = await db.orders.toArray();
-    const unsyncedOrders = allOrders.filter(order => order.synced !== true);
-    const ordersCollection = getShopCollectionName('orders');
-    
-    let synced = 0;
-    let errors = 0;
-
-    for (const order of unsyncedOrders) {
-      try {
-        // Convert to Firestore format
-        const firestoreOrder = {
-          customerId: order.customerId,
-          items: order.items,
-          subtotal: order.subtotal,
-          tax: order.tax,
-          total: order.total,
-          status: order.status,
-          paymentMethod: order.paymentMethod,
-          createdAt: Timestamp.fromDate(order.createdAt),
-          employeeId: order.employeeId,
-          employeeName: order.employeeName,
-          category: 'multiple' // Default category
-        };
-
-        // Use order ID if available, otherwise generate new doc
-        const orderRef = order.id 
-          ? doc(firestoreDb, ordersCollection, order.id.toString())
-          : doc(collection(firestoreDb, ordersCollection));
-
-        await setDoc(orderRef, firestoreOrder);
-
-        // Mark as synced
-        if (order.id) {
-          await db.orders.update(order.id.toString(), { 
-            synced: true,
-            syncError: undefined
-          });
-        }
-
-        synced++;
-      } catch (error) {
-        console.error(`Error syncing order ${order.id}:`, error);
-        errors++;
-        
-        // Update error message
-        if (order.id) {
-          await db.orders.update(order.id.toString(), {
-            syncError: error instanceof Error ? error.message : 'Sync failed'
-          });
-        }
-      }
-    }
-
-    return { synced, errors };
-  } catch (error) {
-    console.error('Error syncing offline orders:', error);
-    return { synced: 0, errors: 0 };
-  }
+  // Orders are now only created through the POS checkout flow
+  // This automatic sync has been disabled to prevent unwanted order creation
+  console.log('Order sync disabled: Orders must be created through POS checkout only');
+  return { synced: 0, errors: 0 };
 }
 
 /**
@@ -185,10 +124,34 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
           await db.pendingWrites.update(write.id.toString(), { status: 'syncing' });
         }
 
+        // Validate and fix collection path
+        let collectionSegments = write.collection.split('/').filter(s => s);
+        
+        // For update/delete operations, check if collection path already includes the docId
+        // This can happen with old writes that stored the full document path
+        if ((write.type === 'update' || write.type === 'delete') && write.docId) {
+          // If the last segment matches the docId, remove it (it's part of the document path, not collection)
+          if (collectionSegments.length > 0 && collectionSegments[collectionSegments.length - 1] === write.docId) {
+            collectionSegments = collectionSegments.slice(0, -1);
+            console.warn(`Fixed collection path for write ${write.id}: removed duplicate docId`);
+          }
+          
+          // Validate: collection path should have odd number of segments (1, 3, 5...)
+          // After appending docId, document path should have even number (2, 4, 6...)
+          if (collectionSegments.length % 2 === 0) {
+            throw new Error(`Invalid collection path: ${write.collection} has even number of segments. Collections must have odd number of segments.`);
+          }
+        } else if (write.type === 'add') {
+          // For add operations, collection path should have odd number of segments
+          if (collectionSegments.length % 2 === 0 && collectionSegments.length > 0) {
+            throw new Error(`Invalid collection path: ${write.collection} has even number of segments. Collections must have odd number of segments.`);
+          }
+        }
+
         // Execute the write operation based on type
         switch (write.type) {
           case 'add': {
-            const collectionRef = collection(firestoreDb, write.collection);
+            const collectionRef = collection(firestoreDb, ...collectionSegments);
             await addDoc(collectionRef, write.data);
             break;
           }
@@ -196,7 +159,7 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
             if (!write.docId) {
               throw new Error('docId is required for update operations');
             }
-            const docRef = doc(firestoreDb, write.collection, write.docId);
+            const docRef = doc(firestoreDb, ...collectionSegments, write.docId);
             await updateDoc(docRef, write.data);
             break;
           }
@@ -204,7 +167,7 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
             if (!write.docId) {
               throw new Error('docId is required for delete operations');
             }
-            const docRef = doc(firestoreDb, write.collection, write.docId);
+            const docRef = doc(firestoreDb, ...collectionSegments, write.docId);
             await deleteDoc(docRef);
             break;
           }
@@ -219,13 +182,19 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
 
         synced++;
         console.log(`Synced ${write.type} operation to ${write.collection}`);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error syncing write ${write.id}:`, error);
         errors++;
 
         // Update error status and increment retry count
         if (write.id) {
-          const retryCount = (write.retryCount || 0) + 1;
+          const isPermissionError =
+            error?.code === 'permission-denied' ||
+            error?.message?.includes('Missing or insufficient permissions');
+
+          // For permission errors, mark as error immediately to avoid endless retries
+          const retryCount = isPermissionError ? 5 : (write.retryCount || 0) + 1;
+
           await db.pendingWrites.update(write.id.toString(), {
             status: retryCount >= 5 ? 'error' : 'pending', // Mark as error after 5 retries
             retryCount,

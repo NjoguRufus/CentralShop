@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
-import { loadOrdersCacheFirst, loadCustomersCacheFirst, loadProductsCacheFirst, loadCategoriesCacheFirst } from '../offline/cacheFirstLoader';
+import { loadOrdersCacheFirst, loadCustomersCacheFirst, loadProductsCacheFirst, loadCategoriesCacheFirst, clearCache } from '../offline/cacheFirstLoader';
 import { useNotifications } from '../contexts/NotificationContext';
 import Card from '../components/UI/Card';
 import FormInput from '../components/UI/FormInput';
@@ -155,6 +155,9 @@ const Orders: React.FC = () => {
   const isMainAdmin = currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin';
   // Check if user can delete products (Admin or Stock Manager)
   const canDeleteProducts = currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin' || currentUser?.role === 'Stock Manager';
+  const canDeleteAllOrders =
+    (currentUser?.role === 'mainAdmin' || currentUser?.role === 'Admin' || currentUser?.role === 'astraronix') &&
+    selectedBranch === BRANCHES.KAMWENE;
 
   useEffect(() => {
     if (currentUser?.shopId) {
@@ -768,6 +771,55 @@ const Orders: React.FC = () => {
     }
   };
 
+  const handleDeleteAllKamweneOrders = async (): Promise<void> => {
+    try {
+      if (!canDeleteAllOrders) {
+        toast.error('You do not have permission to delete all orders.');
+        return;
+      }
+
+      if (!navigator.onLine) {
+        toast.error('Please connect to the internet to delete all orders.');
+        return;
+      }
+
+      const firstConfirm = window.confirm('Are you sure you want to delete ALL Kamwene orders? This cannot be undone.');
+      if (!firstConfirm) return;
+      const secondConfirm = window.confirm('This will permanently delete ALL Kamwene orders from the system. Are you absolutely sure?');
+      if (!secondConfirm) return;
+
+      const ordersCollectionName = getShopCollectionName('orders', BRANCHES.KAMWENE);
+      const qRef = query(collection(db, ordersCollectionName));
+      const snapshot = await getDocs(qRef);
+
+      if (snapshot.empty) {
+        toast.info('No Kamwene orders found to delete.');
+        return;
+      }
+
+      setLoading(true);
+
+      await Promise.all(
+        snapshot.docs.map((docSnap) => deleteDoc(doc(db, ordersCollectionName, docSnap.id)))
+      );
+
+      // Clear Kamwene orders cache (branch-level)
+      await clearCache(`orders-${BRANCHES.KAMWENE}`);
+
+      toast.success('All Kamwene orders have been deleted.');
+      if (selectedBranch === BRANCHES.KAMWENE) {
+        setOrders([]);
+      } else {
+        fetchOrders();
+      }
+    } catch (error) {
+      console.error('Error deleting all Kamwene orders:', error);
+      toast.error('Failed to delete all Kamwene orders.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const statusColors: Record<string, string> = {
     completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
@@ -799,6 +851,16 @@ const Orders: React.FC = () => {
             <Archive className="w-4 h-4" />
             <span className="hidden sm:inline">Deleted Items</span>
           </Button>
+          {canDeleteAllOrders && (
+            <Button
+              variant="danger"
+              onClick={handleDeleteAllKamweneOrders}
+              className="flex items-center space-x-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete All Kamwene Orders</span>
+            </Button>
+          )}
           {!canEditOrders && (
             <div className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
               View Only

@@ -52,7 +52,12 @@ export async function syncSettingsFromFirestore(): Promise<void> {
         lastSynced: new Date()
       });
     }
-  } catch (error) {
+  } catch (error: any) {
+    // For permission issues, log a concise warning and skip without throwing
+    if (error?.code === 'permission-denied' || error?.message?.includes('Missing or insufficient permissions')) {
+      console.warn('Skipping settings sync: missing or insufficient Firestore permissions for this user.');
+      return;
+    }
     console.error('Error syncing settings from Firestore:', error);
   }
 }

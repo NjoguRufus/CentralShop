@@ -58,13 +58,27 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const fetchedNotifications: AppNotification[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
+          // Handle both Firestore Timestamp and Date objects
+          let createdAt: Date;
+          if (data.createdAt) {
+            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+              createdAt = data.createdAt.toDate();
+            } else if (data.createdAt instanceof Date) {
+              createdAt = data.createdAt;
+            } else {
+              createdAt = new Date(data.createdAt);
+            }
+          } else {
+            createdAt = new Date();
+          }
+          
           fetchedNotifications.push({
             id: docSnap.id,
             title: data.title,
             message: data.message,
             type: data.type,
             read: data.read || false,
-            createdAt: data.createdAt?.toDate() || new Date()
+            createdAt
           });
         });
         

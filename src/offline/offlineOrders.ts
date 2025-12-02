@@ -55,62 +55,14 @@ export async function queueOrderForSync(order: OfflineOrder): Promise<void> {
 
 /**
  * Sync orders to Firestore
+ * DISABLED: Orders should only be created through POS checkout, not automatically synced
+ * This prevents automatic order creation for KamweneShop or any other shop
  */
 export async function syncOrdersToFirestore(): Promise<void> {
-  try {
-    if (!navigator.onLine) {
-      console.log('Offline: Cannot sync orders');
-      return;
-    }
-    
-    // Get all orders and filter for unsynced ones (handles undefined/null synced values)
-    const allOrders = await db.orders.toArray();
-    const unsyncedOrders = allOrders.filter(order => order.synced !== true);
-    const ordersCollection = getShopCollectionName('orders');
-    
-    for (const order of unsyncedOrders) {
-      try {
-        // Convert to Firestore format
-        const firestoreOrder = {
-          customerId: order.customerId,
-          items: order.items,
-          subtotal: order.subtotal,
-          tax: order.tax,
-          total: order.total,
-          status: order.status,
-          paymentMethod: order.paymentMethod,
-          createdAt: Timestamp.fromDate(order.createdAt),
-          employeeId: order.employeeId,
-          employeeName: order.employeeName,
-          category: 'multiple' // Default category
-        };
-        
-        await addDoc(collection(firestoreDb, ordersCollection), firestoreOrder);
-        
-        // Mark as synced
-        if (order.id) {
-          await db.orders.update(order.id, { synced: true });
-        }
-        
-        // Remove from sync queue
-        const queueItem = await db.syncQueue.where('type').equals('order').first();
-        if (queueItem?.id) {
-          await db.syncQueue.delete(queueItem.id);
-        }
-      } catch (error) {
-        console.error(`Error syncing order ${order.id}:`, error);
-        if (order.id) {
-          await db.orders.update(order.id, {
-            synced: false,
-            syncError: error instanceof Error ? error.message : 'Sync failed'
-          });
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error syncing orders to Firestore:', error);
-    throw error;
-  }
+  // Orders are now only created through the POS checkout flow
+  // This automatic sync has been disabled to prevent unwanted order creation
+  console.log('Order sync disabled: Orders must be created through POS checkout only');
+  return;
 }
 
 /**

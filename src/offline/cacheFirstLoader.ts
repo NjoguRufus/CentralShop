@@ -3,7 +3,7 @@
  * Loads data from IndexedDB cache first, then syncs from Firestore when online
  */
 import { db, LocalCache } from './db';
-import { collection, getDocs, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, limit, Timestamp } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 import { getShopCollectionName, BranchName } from '../config/shopConfig';
 
@@ -179,10 +179,16 @@ async function syncOrdersToCache(cacheKey: string, branch?: BranchName, employee
     if (employeeId) {
       q = query(
         collection(firestoreDb, ordersCollectionName),
-        where('employeeId', '==', employeeId)
+        where('employeeId', '==', employeeId),
+        orderBy('createdAt', 'desc'),
+        limit(300) // limit to most recent orders for this employee
       );
     } else {
-      q = query(collection(firestoreDb, ordersCollectionName), orderBy('createdAt', 'desc'));
+      q = query(
+        collection(firestoreDb, ordersCollectionName),
+        orderBy('createdAt', 'desc'),
+        limit(500) // limit to most recent orders per branch to keep loads fast
+      );
     }
     
     const snapshot = await getDocs(q);
