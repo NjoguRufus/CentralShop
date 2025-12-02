@@ -16,18 +16,71 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
   const { user, currentUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(() => {
+    // Check initial online status
+    if (typeof navigator !== 'undefined') {
+      return navigator.onLine;
+    }
+    return true; // Default to online if navigator is not available
+  });
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    // Function to check actual connectivity with timeout
+    const checkConnectivity = async () => {
+      // First check navigator.onLine (fast)
+      if (!navigator.onLine) {
+        setIsOnline(false);
+        return;
+      }
 
+      // Then verify with a lightweight connectivity check
+      try {
+        // Use a small image request with timeout to verify connectivity
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+        await fetch('https://www.google.com/favicon.ico', {
+          method: 'HEAD',
+          mode: 'no-cors',
+          cache: 'no-cache',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        setIsOnline(true);
+      } catch (error) {
+        // If fetch fails or times out, use navigator.onLine as fallback
+        setIsOnline(navigator.onLine);
+      }
+    };
+
+    const handleOnline = () => {
+      // When browser detects online, verify it
+      checkConnectivity();
+    };
+
+    const handleOffline = () => {
+      // When browser detects offline, immediately set to offline
+      setIsOnline(false);
+    };
+
+    // Initial connectivity check
+    checkConnectivity();
+
+    // Listen to browser online/offline events
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // Periodic connectivity check (every 30 seconds) to catch cases where
+    // navigator.onLine might be stale
+    const connectivityInterval = setInterval(() => {
+      checkConnectivity();
+    }, 30000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(connectivityInterval);
     };
   }, []);
 
