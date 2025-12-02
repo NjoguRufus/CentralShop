@@ -196,7 +196,7 @@ service cloud.firestore {
     }
     
     // Orders: {ShopName}Orders/{orderId}
-    // Example: CentralShopOrders/{orderId}, KamweneShopOrders/{orderId}
+    // Example: CentralShopOrders/{orderId}, KamwenesShopOrders/{orderId}
     match /{shopOrders}/{orderId} {
       // Any signed-in user can read shop-specific orders
       allow read: if isSignedIn() && shopOrders.matches('.*Orders$');

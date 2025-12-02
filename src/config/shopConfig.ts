@@ -16,7 +16,7 @@ export const SHOP_NAME = 'CentralShop';
 // Branch configuration
 export const BRANCHES = {
   CENTRAL: 'CentralShop',
-  KAMWENE: 'KamweneShop'
+  KAMWENE: 'KamwenesShop' // Changed from 'KamweneShop' to 'KamwenesShop' to generate 'KamwenesShopOrders'
 } as const;
 
 export type BranchName = typeof BRANCHES[keyof typeof BRANCHES];

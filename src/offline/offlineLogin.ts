@@ -67,14 +67,14 @@ export async function initializeOfflineUsers(): Promise<void> {
         password: 'kamwene123',
         role: 'Cashier',
         name: 'Mercy (Kamwene)',
-        shopName: 'KamweneShop'
+        shopName: 'KamwenesShop'
       },
       {
         email: 'mercymutheu498@gmail.com',
         password: 'sanyoras',
         role: 'Cashier',
         name: 'mercy kyalo',
-        shopName: 'KamweneShop'
+        shopName: 'KamwenesShop'
       }
     ];
 
