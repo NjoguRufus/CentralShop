@@ -2,7 +2,7 @@
  * Offline Sync Module
  * Handles syncing offline data to Firestore with Background Sync support
  */
-import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, Timestamp, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, Timestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 import { getShopCollectionName } from '../config/shopConfig';
 import { db } from './db';
@@ -151,8 +151,49 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
         // Execute the write operation based on type
         switch (write.type) {
           case 'add': {
+            // For add operations, check if a duplicate already exists
+            // This prevents creating multiple documents with the same data
             const collectionRef = collection(firestoreDb, ...collectionSegments);
-            await addDoc(collectionRef, write.data);
+            
+            // Check for potential duplicates by querying for similar documents
+            // Only check if the data has unique identifiers (like email, phone, etc.)
+            let shouldCreate = true;
+            if (write.data && typeof write.data === 'object') {
+              // Check for customers with same phone/email
+              if (write.data.phone || write.data.email) {
+                const existingQuery = query(
+                  collectionRef,
+                  where(write.data.phone ? 'phone' : 'email', '==', write.data.phone || write.data.email)
+                );
+                const existingDocs = await getDocs(existingQuery);
+                if (!existingDocs.empty) {
+                  console.warn(`Skipping duplicate ${write.collection} write: document with ${write.data.phone ? 'phone' : 'email'} already exists`);
+                  shouldCreate = false;
+                }
+              }
+              // Check for products with same name/barcode
+              else if (write.data.name && (write.data.barcode || write.data.name)) {
+                const existingQuery = query(
+                  collectionRef,
+                  where(write.data.barcode ? 'barcode' : 'name', '==', write.data.barcode || write.data.name)
+                );
+                const existingDocs = await getDocs(existingQuery);
+                if (!existingDocs.empty) {
+                  console.warn(`Skipping duplicate ${write.collection} write: document with ${write.data.barcode ? 'barcode' : 'name'} already exists`);
+                  shouldCreate = false;
+                }
+              }
+            }
+            
+            if (shouldCreate) {
+              await addDoc(collectionRef, write.data);
+            } else {
+              // Mark as synced even though we skipped it (to prevent retries)
+              if (write.id) {
+                await db.pendingWrites.delete(write.id.toString());
+              }
+              continue; // Skip to next write
+            }
             break;
           }
           case 'update': {
@@ -175,7 +216,8 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
             throw new Error(`Unknown write type: ${write.type}`);
         }
 
-        // Mark as synced and remove from queue
+        // Mark as synced and remove from queue IMMEDIATELY to prevent duplicates
+        // This ensures the same write is never processed twice
         if (write.id) {
           await db.pendingWrites.delete(write.id.toString());
         }

@@ -41,6 +41,8 @@ export async function syncAllFromFirestore(): Promise<void> {
 
 /**
  * Sync all dirty data to Firestore
+ * DISABLED: Only pending writes (from offline operations) are synced
+ * All other data must be created/updated through manual user input to prevent duplicates
  */
 export async function syncAllToFirestore(): Promise<void> {
   try {
@@ -49,13 +51,13 @@ export async function syncAllToFirestore(): Promise<void> {
       return;
     }
     
-    // Use the new sync module for orders
-    await syncOfflineOrdersToFirebase();
+    // Only sync pending writes (queued when offline)
+    // All other automatic syncing is disabled to prevent unwanted data creation
+    await syncOfflineOrdersToFirebase(); // Already disabled, just returns
     
-    await Promise.all([
-      syncCustomersToFirestore(),
-      syncSettingsToFirestore()
-    ]);
+    // Customer and Settings sync disabled - they must be created/updated manually
+    // await syncCustomersToFirestore(); // DISABLED
+    // await syncSettingsToFirestore(); // DISABLED
   } catch (error) {
     console.error('Error syncing all to Firestore:', error);
   }
@@ -63,25 +65,31 @@ export async function syncAllToFirestore(): Promise<void> {
 
 /**
  * Initialize offline sync on app start
+ * Only syncs FROM Firestore (read-only caching), never TO Firestore automatically
  */
 export async function initializeOfflineSync(): Promise<void> {
-  // Sync from Firestore on startup if online
+  // Sync from Firestore on startup if online (read-only, for caching)
   if (navigator.onLine) {
     await syncAllFromFirestore();
   }
   
-  // Set up periodic sync
+  // Set up periodic sync FROM Firestore only (read-only caching)
+  // No automatic writes to prevent unwanted data creation
   setInterval(async () => {
     if (navigator.onLine) {
-      await syncAllToFirestore();
+      // Only sync pending writes (from offline operations queued by user actions)
+      await syncAllToFirestore(); // Only processes pending writes, no automatic creation
+      // Sync FROM Firestore for caching (read-only)
       await syncAllFromFirestore();
     }
   }, 5 * 60 * 1000); // Every 5 minutes
   
   // Listen for online event
   window.addEventListener('online', async () => {
-    console.log('Online: Syncing data...');
-    await syncAllToFirestore();
+    console.log('Online: Syncing pending writes and refreshing cache...');
+    // Only sync pending writes (from offline operations)
+    await syncAllToFirestore(); // Only processes pending writes, no automatic creation
+    // Sync FROM Firestore for caching (read-only)
     await syncAllFromFirestore();
   });
 }

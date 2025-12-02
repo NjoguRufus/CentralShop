@@ -64,27 +64,13 @@ export async function syncSettingsFromFirestore(): Promise<void> {
 
 /**
  * Sync settings to Firestore
+ * DISABLED: Settings should only be updated through manual user input in Settings page, not automatically synced
+ * This prevents automatic settings updates and duplicate documents
  */
 export async function syncSettingsToFirestore(): Promise<void> {
-  try {
-    if (!navigator.onLine) {
-      return;
-    }
-    
-    const settings = await db.settings.toArray();
-    const settingsCollection = getShopCollectionName('settings');
-    
-    for (const setting of settings) {
-      try {
-        if (setting.key === 'main') {
-          await setDoc(doc(firestoreDb, settingsCollection, 'main'), setting.value);
-        }
-      } catch (error) {
-        console.error(`Error syncing setting ${setting.key}:`, error);
-      }
-    }
-  } catch (error) {
-    console.error('Error syncing settings to Firestore:', error);
-  }
+  // Settings are now only updated through manual user input in the Settings page
+  // This automatic sync has been disabled to prevent unwanted settings updates and duplicates
+  console.log('Settings sync disabled: Settings must be updated through manual user input only');
+  return;
 }
 

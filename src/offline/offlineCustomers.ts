@@ -105,38 +105,13 @@ export async function createCustomerOffline(customer: Omit<OfflineCustomer, 'id'
 
 /**
  * Sync dirty customers to Firestore
+ * DISABLED: Customers should only be created through manual user input, not automatically synced
+ * This prevents automatic customer creation and duplicate documents
  */
 export async function syncCustomersToFirestore(): Promise<void> {
-  try {
-    if (!navigator.onLine) {
-      return;
-    }
-    
-    const dirtyCustomers = await db.customers.where('isDirty').equals(true).toArray();
-    const customersCollection = getShopCollectionName('customers');
-    
-    for (const customer of dirtyCustomers) {
-      try {
-        await addDoc(collection(firestoreDb, customersCollection), {
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone,
-          address: customer.address,
-          createdAt: new Date()
-        });
-        
-        if (customer.id) {
-          await db.customers.update(customer.id, {
-            isDirty: false,
-            lastSynced: new Date()
-          });
-        }
-      } catch (error) {
-        console.error(`Error syncing customer ${customer.id}:`, error);
-      }
-    }
-  } catch (error) {
-    console.error('Error syncing customers to Firestore:', error);
-  }
+  // Customers are now only created through manual user input in the Customers page
+  // This automatic sync has been disabled to prevent unwanted customer creation and duplicates
+  console.log('Customer sync disabled: Customers must be created through manual user input only');
+  return;
 }
 
