@@ -36,61 +36,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [notifications]
   );
 
-  // Fetch notifications from Firestore
+  // DISABLED: Notifications are now local-only (in-memory), no Firestore fetching
+  // Old collection "CentralShopNotifications" has been replaced and disabled
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!currentUser?.shopId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const notificationsRef = collection(db, getShopCollectionName('notifications'));
-        const q = query(
-          notificationsRef,
-          where('shopId', '==', currentUser.shopId),
-          orderBy('createdAt', 'desc'),
-          limit(100)
-        );
-        const snapshot = await getDocs(q);
-        
-        const fetchedNotifications: AppNotification[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          // Handle both Firestore Timestamp and Date objects
-          let createdAt: Date;
-          if (data.createdAt) {
-            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-              createdAt = data.createdAt.toDate();
-            } else if (data.createdAt instanceof Date) {
-              createdAt = data.createdAt;
-            } else {
-              createdAt = new Date(data.createdAt);
-            }
-          } else {
-            createdAt = new Date();
-          }
-          
-          fetchedNotifications.push({
-            id: docSnap.id,
-            title: data.title,
-            message: data.message,
-            type: data.type,
-            read: data.read || false,
-            createdAt
-          });
-        });
-        
-        setNotifications(fetchedNotifications);
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchNotifications();
+    // Notifications are now only stored in local state, not in Firestore
+    setLoading(false);
   }, [currentUser?.shopId]);
 
   const addNotification: NotificationContextValue['addNotification'] = async (n) => {
@@ -117,38 +67,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const markAllAsRead: NotificationContextValue['markAllAsRead'] = async () => {
     const unreadNotifications = notifications.filter(n => !n.read);
     
-    // Update local state
+    // Update local state only (in-memory)
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
-    // Update in Firestore
-    if (currentUser?.shopId && unreadNotifications.length > 0) {
-      try {
-        const notificationsRef = collection(db, getShopCollectionName('notifications'));
-        const updatePromises = unreadNotifications.map(notification => {
-          const notificationDoc = doc(notificationsRef, notification.id);
-          return updateDoc(notificationDoc, { read: true });
-        });
-        await Promise.all(updatePromises);
-      } catch (error) {
-        console.error('Error updating notifications in Firestore:', error);
-      }
-    }
+    // DISABLED: No longer updating notifications in Firestore
+    // This prevents automatic creation/updates of CentralShopNotifications documents
+    console.log('Marked all notifications as read (local only)');
   };
 
   const markAsRead: NotificationContextValue['markAsRead'] = async (id: string) => {
-    // Update local state
+    // Update local state only (in-memory)
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
 
-    // Update in Firestore
-    if (currentUser?.shopId) {
-      try {
-        const notificationsRef = collection(db, getShopCollectionName('notifications'));
-        const notificationDoc = doc(notificationsRef, id);
-        await updateDoc(notificationDoc, { read: true });
-      } catch (error) {
-        console.error('Error updating notification in Firestore:', error);
-      }
-    }
+    // DISABLED: No longer updating notifications in Firestore
+    // This prevents automatic creation/updates of CentralShopNotifications documents
+    console.log('Marked notification as read (local only):', id);
   };
 
   const clear = () => {

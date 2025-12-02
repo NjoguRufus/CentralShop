@@ -99,7 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ? Array.from(new Set<BranchName>([savedShop, ...allBranches]))
         : allBranches;
 
-      // Try dynamic user collections for each branch (e.g., CentralShopUsers, KamweneShopUsers)
+      // Try dynamic user collections for each branch (e.g., CentralShopStaff, KamweneStaff)
       for (const branch of branchesToCheck) {
         if (userData) break;
 

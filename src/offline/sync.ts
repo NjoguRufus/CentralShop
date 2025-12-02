@@ -120,9 +120,30 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
     for (const write of pendingWrites) {
       try {
         // Skip any order writes - orders should only be created through POS checkout, not via pending writes
-        // This prevents automatic order creation for KamweneShopOrders or any other shop
-        if (write.collection.includes('Orders') || write.collection.toLowerCase().includes('order')) {
+        // This prevents automatic order creation for KamweneShopOrders, KamwenesShopOrders, or any other shop
+        const collectionLower = write.collection.toLowerCase();
+        if (collectionLower.includes('orders') || collectionLower.includes('order')) {
           console.warn(`Skipping order write in pending queue: ${write.collection}. Orders must be created through POS checkout only.`);
+          // Delete the pending write to prevent retries
+          if (write.id) {
+            await db.pendingWrites.delete(write.id.toString());
+          }
+          continue;
+        }
+        
+        // Also skip any notifications writes - notifications should not be saved to Firestore
+        if (collectionLower.includes('notifications') || collectionLower.includes('notification')) {
+          console.warn(`Skipping notification write in pending queue: ${write.collection}. Notifications are local-only.`);
+          // Delete the pending write to prevent retries
+          if (write.id) {
+            await db.pendingWrites.delete(write.id.toString());
+          }
+          continue;
+        }
+        
+        // Skip employee_activities writes - automatic creation is disabled
+        if (collectionLower.includes('employee_activities') || collectionLower.includes('employeeactivities')) {
+          console.warn(`Skipping employee_activities write in pending queue: ${write.collection}. Employee activities are no longer automatically created.`);
           // Delete the pending write to prevent retries
           if (write.id) {
             await db.pendingWrites.delete(write.id.toString());
@@ -212,6 +233,19 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
               throw new Error('docId is required for update operations');
             }
             const docRef = doc(firestoreDb, ...collectionSegments, write.docId);
+            
+            // Check if document exists before trying to update
+            const { getDoc } = await import('firebase/firestore');
+            const docSnapshot = await getDoc(docRef);
+            if (!docSnapshot.exists()) {
+              console.warn(`Skipping update to non-existent document: ${write.collection}/${write.docId}. Document does not exist.`);
+              // Delete the pending write to prevent retries
+              if (write.id) {
+                await db.pendingWrites.delete(write.id.toString());
+              }
+              continue; // Skip to next write
+            }
+            
             await updateDoc(docRef, write.data);
             break;
           }
@@ -237,22 +271,45 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
         console.log(`Synced ${write.type} operation to ${write.collection}`);
       } catch (error: any) {
         console.error(`Error syncing write ${write.id}:`, error);
+        
+        // Handle specific error types that should be skipped immediately
+        const isPermissionError =
+          error?.code === 'permission-denied' ||
+          error?.message?.includes('Missing or insufficient permissions');
+        
+        const isNotFoundError =
+          error?.code === 'not-found' ||
+          error?.message?.includes('No document to update') ||
+          error?.message?.includes('No document to delete');
+        
+        if (isPermissionError || isNotFoundError) {
+          console.warn(`Skipping write ${write.id} to ${write.collection}: ${isPermissionError ? 'Permission denied' : 'Document not found'}. Removing from queue.`);
+          // Delete immediately - these errors won't succeed on retry
+          if (write.id) {
+            await db.pendingWrites.delete(write.id.toString());
+          }
+          errors++;
+          continue;
+        }
+
         errors++;
 
-        // Update error status and increment retry count
+        // Update error status and increment retry count for other errors
         if (write.id) {
-          const isPermissionError =
-            error?.code === 'permission-denied' ||
-            error?.message?.includes('Missing or insufficient permissions');
-
-          // For permission errors, mark as error immediately to avoid endless retries
-          const retryCount = isPermissionError ? 5 : (write.retryCount || 0) + 1;
+          const retryCount = (write.retryCount || 0) + 1;
 
           await db.pendingWrites.update(write.id.toString(), {
             status: retryCount >= 5 ? 'error' : 'pending', // Mark as error after 5 retries
             retryCount,
-            error: error instanceof Error ? error.message : 'Sync failed'
+            error: error instanceof Error ? error.message : 'Sync failed',
+            lastErrorAt: new Date()
           });
+          
+          // Delete after too many retries
+          if (retryCount > 5) {
+            await db.pendingWrites.delete(write.id.toString());
+            console.log(`Deleted write ${write.id} after ${retryCount} failed attempts`);
+          }
         }
       }
     }

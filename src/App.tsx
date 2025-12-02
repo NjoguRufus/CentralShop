@@ -24,6 +24,7 @@ import { syncPendingWrites } from './offline/sync';
 // Lazy load heavy pages for better performance
 const Login = lazy(() => import('./pages/Login'));
 const Setup = lazy(() => import('./pages/Setup'));
+const ClearData = lazy(() => import('./pages/ClearData'));
 const DeveloperDashboard = lazy(() => import('./pages/DeveloperDashboard'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
@@ -156,6 +157,7 @@ const AppContent: React.FC = () => {
         <RouterContent>
           <Routes>
             <Route path="/setup" element={<Setup />} />
+            <Route path="/clear-data" element={<ClearData />} />
             {/* Public invoice view route - format: /{customerName}/invoice */}
             <Route path="/:customerName/invoice" element={<ViewInvoice />} />
             {!user ? (

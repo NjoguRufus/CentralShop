@@ -57,7 +57,7 @@ const Login: React.FC = () => {
       const shopsToCheck = [BRANCHES.CENTRAL, BRANCHES.KAMWENE];
 
       for (const shopName of shopsToCheck) {
-        // Try dynamic user collection first (e.g., CentralShopUsers, KamweneShopUsers)
+        // Try dynamic user collection first (e.g., CentralShopStaff, KamweneStaff)
         const userCollectionName = getUserCollectionName(undefined, shopName);
       const dynamicUsersQuery = query(
         collection(db, userCollectionName),

@@ -7,7 +7,7 @@ service cloud.firestore {
     }
 
     // Assumes users/{uid} contains { shopId: string, role: string }
-    // Note: Dynamic user collections (e.g., CentralShopUsers) are checked in application code
+    // Note: Dynamic user collections (e.g., CentralShopStaff) are checked in application code
     function getUser(uid) {
       return get(/databases/$(database)/documents/users/$(uid));
     }
@@ -60,16 +60,29 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn();
     }
 
-    // Dynamic User Collections: {ShopName}Users/{userId}
-    // Examples: CentralShopUsers, MyBusinessUsers, etc.
-    match /{shopUsers}/{userId} {
+    // Dynamic User Collections: {ShopName}Staff/{userId}
+    // Examples: CentralShopStaff, KamweneStaff, etc.
+    // Changed from Users to Staff to replace old CentralShopUsers collection
+    match /{shopStaff}/{userId} {
       // Allow individual document reads for authenticated users
-      allow read: if isSignedIn() && shopUsers.matches('.*Users$');
+      allow read: if isSignedIn() && shopStaff.matches('.*Staff$');
       // Allow list/query operations for unauthenticated users (needed for login page email lookup)
-      allow list: if shopUsers.matches('.*Users$');
-      // Allow create during setup (when user is authenticated but might not have shopId yet)
-      allow create: if isSignedIn() && shopUsers.matches('.*Users$');
+      allow list: if shopStaff.matches('.*Staff$');
+      // Allow create during setup - user is authenticated, shop may not exist yet
+      // This allows creating CentralShopStaff documents during initial setup
+      allow create: if isSignedIn() 
+        && shopStaff.matches('.*Staff$')
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role in ['mainAdmin', 'Admin', 'Cashier', 'Stock Manager', 'astraronix'];
       // Allow update/delete for authenticated users (can be tightened later)
+      allow update, delete: if isSignedIn() && shopStaff.matches('.*Staff$');
+    }
+    
+    // Legacy: Old {ShopName}Users collections (for backward compatibility during migration)
+    match /{shopUsers}/{userId} {
+      allow read: if isSignedIn() && shopUsers.matches('.*Users$');
+      allow list: if shopUsers.matches('.*Users$');
+      allow create: if false; // Disabled - use Staff collection instead
       allow update, delete: if isSignedIn() && shopUsers.matches('.*Users$');
     }
 
@@ -77,7 +90,9 @@ service cloud.firestore {
     match /shops/{shopId} {
       allow read: if isShopMember(shopId) || isAstraronix() || isSignedIn();
       // Allow create during setup (when user is authenticated)
-      allow create: if isSignedIn();
+      // This allows creating CentralShop shop document during initial setup
+      allow create: if isSignedIn()
+        && request.resource.data.mainAdminId == request.auth.uid;
       // Only astraronix can update/delete shops
       allow update, delete: if isAstraronix();
     }
@@ -196,7 +211,7 @@ service cloud.firestore {
     }
     
     // Orders: {ShopName}Orders/{orderId}
-    // Example: CentralShopOrders/{orderId}, KamwenesShopOrders/{orderId}
+    // Example: CentralShopOrders/{orderId}, KamweneOrders/{orderId}
     match /{shopOrders}/{orderId} {
       // Any signed-in user can read shop-specific orders
       allow read: if isSignedIn() && shopOrders.matches('.*Orders$');
@@ -346,15 +361,11 @@ service cloud.firestore {
     }
 
     // Employee Activity: shops/{shopId}/employee_activities/{activityId}
+    // DISABLED: Automatic creation of employee_activities is disabled
+    // Activities should only be created manually through the UI if needed
     match /shops/{shopId}/employee_activities/{activityId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['employeeId', 'employeeName', 'action', 'timestamp'])
-        && request.resource.data.employeeId is string
-        && request.resource.data.employeeName is string
-        && request.resource.data.action in ['login', 'logout']
-        && request.resource.data.timestamp is timestamp;
-      
+      allow create: if false; // Disabled - prevent automatic creation
       allow update, delete: if isSignedIn();
     }
 
@@ -366,15 +377,20 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isShopMember(shopId);
     }
 
-    // Notifications: {ShopName}Notifications/{notificationId}
+    // Notifications/Alerts: {ShopName}Alerts/{alertId}
+    // Changed from Notifications to Alerts (but currently disabled - local-only)
+    match /{shopAlerts}/{alertId} {
+      allow read: if isSignedIn() && shopAlerts.matches('.*Alerts$');
+      allow create: if false; // Disabled - notifications are local-only
+      allow update: if false; // Disabled - notifications are local-only
+      allow delete: if isSignedIn() && shopAlerts.matches('.*Alerts$');
+    }
+    
+    // Legacy: Old {ShopName}Notifications collections (for backward compatibility during migration)
     match /{shopNotifications}/{notificationId} {
       allow read: if isSignedIn() && shopNotifications.matches('.*Notifications$');
-      allow create: if isSignedIn() 
-        && shopNotifications.matches('.*Notifications$')
-        && request.resource.data.shopId is string;
-      allow update: if isSignedIn() 
-        && shopNotifications.matches('.*Notifications$')
-        && (resource.data.shopId == request.resource.data.shopId || !('shopId' in request.resource.data));
+      allow create: if false; // Disabled - use local notifications instead
+      allow update: if false; // Disabled - use local notifications instead
       allow delete: if isSignedIn() && shopNotifications.matches('.*Notifications$');
     }
   }

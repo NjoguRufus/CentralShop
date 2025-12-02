@@ -1,27 +1,38 @@
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { collection } from 'firebase/firestore';
-import { addDoc } from '../offline/firestoreWrappers';
+import { collection, addDoc as firestoreAddDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { getUserCollectionName } from '../config/shopConfig';
+import { getUserCollectionName, SHOP_NAME } from '../config/shopConfig';
 
 export const setupFirstAdmin = async (email: string, password: string, name: string, shopName?: string) => {
   try {
+    // Use fixed shop name (CentralShop is the main shop)
+    const fixedShopName = shopName || SHOP_NAME;
+    
+    console.log('Creating admin user...');
+    
     // Create Firebase Auth user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    console.log('✅ Auth user created, UID:', userCredential.user.uid);
     
-    // Update the user's display name
-    await updateProfile(userCredential.user, {
+    // Wait a moment for auth state to propagate to Firestore rules
+    // Reduced delay for faster setup - 500ms should be sufficient
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Update the user's display name (non-blocking, don't wait)
+    updateProfile(userCredential.user, {
       displayName: name
-    });
+    }).catch(err => console.warn('Profile update warning:', err));
 
+    // Create shop document first
     let shopId = null;
-    let shopNameForUser = null;
+    let shopNameForUser = fixedShopName;
 
-    // If shop name is provided, create a shop for this admin
-    if (shopName) {
-      const shopDoc = await addDoc(collection(db, 'shops'), {
-        name: shopName,
-        description: `${shopName} - Main Shop`,
+    console.log('Creating shop document...');
+    try {
+      // Create shop - use direct Firestore call for speed (not wrapped)
+      const shopDoc = await firestoreAddDoc(collection(db, 'shops'), {
+        name: fixedShopName,
+        description: `${fixedShopName} - Main Shop`,
         address: 'To be updated',
         phone: 'To be updated',
         email: email,
@@ -42,37 +53,95 @@ export const setupFirstAdmin = async (email: string, password: string, name: str
         }
       });
       shopId = shopDoc.id;
-      shopNameForUser = shopName;
+      console.log('✅ Shop document created with ID:', shopId);
+    } catch (shopError: any) {
+      console.error('❌ Shop creation failed:', shopError);
+      console.error('Shop error code:', shopError.code);
+      console.error('Shop error message:', shopError.message);
+      
+      // If permission denied, throw immediately - this is critical
+      if (shopError.code === 'permission-denied') {
+        throw new Error(`Permission denied creating shop. Check Firestore rules. Error: ${shopError.message}`);
+      }
+      
+      // Re-throw if it's a critical error
+      if (!shopError.message?.includes('already exists')) {
+        throw new Error(`Failed to create shop: ${shopError.message || shopError.code || 'Unknown error'}`);
+      }
+      console.warn('Shop creation warning (continuing - may already exist):', shopError);
     }
 
-    // Get the dynamic user collection name based on shop name
-    const userCollectionName = getUserCollectionName(shopId, shopName || undefined);
+    // Get the dynamic user collection name (CentralShopStaff)
+    // Use fixedShopName - this will generate "CentralShopStaff" for CentralShop
+    const userCollectionName = getUserCollectionName(shopId, fixedShopName);
+    console.log('Creating user in collection:', userCollectionName);
+    console.log('Shop name used:', fixedShopName);
+    console.log('Shop ID (may be null):', shopId);
     
-    // Save admin user data to dynamic users collection (e.g., CentralShopUsers)
-    const userDocRef = await addDoc(collection(db, userCollectionName), {
-      name: name,
-      email: email,
-      role: 'mainAdmin', // First admin is mainAdmin
-      status: 'Active',
-      uid: userCredential.user.uid,
-      shopId: shopId,
-      shopName: shopNameForUser,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-    
-    console.log('User document created with ID:', userDocRef.id);
-    
-    console.log('First admin user created successfully!');
-    console.log('Email:', email);
-    console.log('Password:', password);
-    console.log('Role: Admin');
-    if (shopId) {
-      console.log('Shop ID:', shopId);
-      console.log('Shop Name:', shopName);
+    // Verify collection name is correct (should be CentralShopStaff for CentralShop)
+    const expectedCollectionName = `${fixedShopName}Staff`;
+    if (userCollectionName !== expectedCollectionName) {
+      console.error('❌ Collection name mismatch!');
+      console.error('Expected:', expectedCollectionName);
+      console.error('Got:', userCollectionName);
+      throw new Error(`Invalid collection name: ${userCollectionName}. Expected ${expectedCollectionName}.`);
     }
     
-    return { user: userCredential.user, shopId };
+    console.log('✅ Collection name verified:', userCollectionName);
+    
+    // Verify user is authenticated before creating document
+    if (!auth.currentUser || auth.currentUser.uid !== userCredential.user.uid) {
+      console.error('❌ Auth state mismatch!');
+      console.error('Current auth user:', auth.currentUser?.uid);
+      console.error('Expected UID:', userCredential.user.uid);
+      throw new Error('User authentication state is not ready. Please try again.');
+    }
+    
+    console.log('✅ User authenticated, UID:', auth.currentUser.uid);
+    console.log('✅ Proceeding with document creation in:', userCollectionName);
+    
+    // Save admin user data - use direct Firestore call for speed (not wrapped)
+    // This is CRITICAL - must succeed for admin to be usable
+    try {
+      const userData = {
+        name: name,
+        email: email,
+        role: 'mainAdmin' as const, // First admin is mainAdmin
+        status: 'Active' as const,
+        uid: userCredential.user.uid,
+        shopId: shopId || null, // Allow null if shop creation failed
+        shopName: fixedShopName,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      console.log('User data to save:', userData);
+      console.log('Collection reference:', userCollectionName);
+      
+      const userDocRef = await firestoreAddDoc(collection(db, userCollectionName), userData);
+      
+      console.log('✅ Admin user document created successfully!');
+      console.log('User document ID:', userDocRef.id);
+      console.log('Collection:', userCollectionName);
+      console.log('Email:', email);
+      console.log('Shop Name:', fixedShopName);
+      console.log('Shop ID:', shopId);
+      
+      return { user: userCredential.user, shopId };
+    } catch (userError: any) {
+      console.error('❌ User document creation failed:', userError);
+      console.error('Collection name attempted:', userCollectionName);
+      console.error('Error code:', userError.code);
+      console.error('Error message:', userError.message);
+      console.error('Full error:', userError);
+      
+      // If permission denied, provide helpful message
+      if (userError.code === 'permission-denied') {
+        throw new Error(`Permission denied creating user in ${userCollectionName}. Check Firestore rules allow creating documents in *Staff collections for authenticated users.`);
+      }
+      
+      throw new Error(`Failed to create user document in ${userCollectionName}: ${userError.message || userError.code || 'Unknown error'}`);
+    }
   } catch (error) {
     console.error('Error creating first admin user:', error);
     throw error;

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { setupFirstAdmin } from '../utils/setupFirstAdmin';
 import { setupAstraronix } from '../utils/setupAstraronix';
 import Card from '../components/UI/Card';
 import FormInput from '../components/UI/FormInput';
 import Button from '../components/UI/Button';
 import { toast } from 'react-toastify';
+import { SHOP_NAME } from '../config/shopConfig';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Setup: React.FC = () => {
   const [accountType, setAccountType] = useState<'astraronix' | 'admin'>('astraronix');
@@ -12,10 +15,19 @@ const Setup: React.FC = () => {
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    shopName: ''
+    confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
+  const { currentUser, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && currentUser) {
+      console.log('User already logged in, redirecting to dashboard');
+      navigate('/', { replace: true });
+    }
+  }, [currentUser, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,26 +47,56 @@ const Setup: React.FC = () => {
     try {
       if (accountType === 'astraronix') {
         await setupAstraronix(formData.email, formData.password, formData.name);
-        toast.success('Astraronix account created successfully! You can now access the Developer Dashboard.');
+        toast.success('Astraronix account created successfully! Redirecting to dashboard...');
+        
+        // Give AuthContext a moment to start fetching user data
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Redirect to home - RoleBasedRedirect will route to developer dashboard
+        navigate('/', { replace: true });
       } else {
-        if (!formData.shopName.trim()) {
-          toast.error('Shop name is required for admin accounts');
-          return;
+        // Shop name is fixed to CentralShop (main shop)
+        const fixedShopName = SHOP_NAME;
+        console.log('Starting admin creation with shop:', fixedShopName);
+        const result = await setupFirstAdmin(formData.email, formData.password, formData.name, fixedShopName);
+        console.log('Admin creation result:', result);
+        
+        if (result && result.user) {
+          // User is already signed in after createUserWithEmailAndPassword
+          toast.success('Admin user created successfully! Redirecting to dashboard...');
+          
+          // Give AuthContext a moment to start fetching user data
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Redirect to home - AuthContext will automatically fetch user data
+          // RoleBasedRedirect will handle routing to dashboard once user data is loaded
+          navigate('/', { replace: true });
+        } else {
+          throw new Error('Admin creation completed but no user was returned');
         }
-        await setupFirstAdmin(formData.email, formData.password, formData.name, formData.shopName);
-        toast.success('Admin user and shop created successfully! You can now login.');
       }
-      // Redirect to login or dashboard
-      window.location.href = '/';
     } catch (error: any) {
       console.error('Setup error:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // Show detailed error message
+      let errorMessage = 'Failed to create admin user';
       if (error.code === 'auth/email-already-in-use') {
-        toast.error('Email is already in use');
+        errorMessage = 'Email is already in use';
       } else if (error.code === 'auth/weak-password') {
-        toast.error('Password should be at least 6 characters');
-      } else {
-        toast.error('Failed to create admin user');
+        errorMessage = 'Password should be at least 6 characters';
+      } else if (error.code === 'permission-denied') {
+        errorMessage = 'Permission denied. Check Firestore rules and browser console for details.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
+      toast.error(errorMessage);
+      console.error('Full error object:', error);
     } finally {
       setLoading(false);
     }
@@ -159,15 +201,21 @@ const Setup: React.FC = () => {
             />
             
             {accountType === 'admin' && (
-              <FormInput
-                label="Shop Name"
-                name="shopName"
-                type="text"
-                value={formData.shopName}
-                onChange={handleInputChange}
-                required={accountType === 'admin'}
-                placeholder="Enter your shop name"
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Shop Name (Fixed)
+                </label>
+                <input
+                  type="text"
+                  value={SHOP_NAME}
+                  disabled
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  CentralShop is the main shop. Kamwene is a sub-branch.
+                </p>
+              </div>
             )}
             
             <Button

@@ -99,6 +99,7 @@ const Employees: React.FC = () => {
     role: 'mainAdmin',
     status: 'Active',
     avatar: '',
+    assignedShops: [BRANCHES.CENTRAL], // Default to CentralShop
     workingHours: {
       startTime: '09:00',
       endTime: '17:00',
@@ -338,6 +339,13 @@ const Employees: React.FC = () => {
           updateData.assignedShops && updateData.assignedShops.length > 0
             ? updateData.assignedShops
             : [selectedBranch];
+        
+        // Ensure at least one shop is assigned
+        if (assignedShops.length === 0) {
+          toast.error('Please select at least one shop for this employee');
+          setIsSubmitting(false);
+          return;
+        }
 
         // Normalize previous and new primary shop to known branches
         const normalizeBranch = (value: string | undefined): BranchName => {
@@ -347,6 +355,7 @@ const Employees: React.FC = () => {
         };
 
         const previousPrimaryShop = normalizeBranch(editingEmployee.shopName);
+        const previousAssignedShops = editingEmployee.assignedShops || [previousPrimaryShop];
         const primaryFromAssigned = normalizeBranch(
           assignedShops.length > 0 ? assignedShops[0] : previousPrimaryShop
         );
@@ -362,102 +371,80 @@ const Employees: React.FC = () => {
           updatedAt: new Date(),
         };
 
-        // === Sync EMPLOYEES collection (one doc per shop) ===
-        if (newPrimaryShop === previousPrimaryShop) {
-          // Just update existing employee document in its current shop collection
-          await updateDoc(
-            doc(db, getShopCollectionName('employees', previousPrimaryShop), editingEmployee.id),
-            mergedEmployeeData as any
+        // === Update ALL shop collections where employee exists or should exist ===
+        const allShops = [...new Set([...previousAssignedShops, ...assignedShops])];
+        const updatePromises: Promise<any>[] = [];
+        
+        for (const shop of allShops) {
+          const normalizedShop = normalizeBranch(shop);
+          const userCollectionName = getUserCollectionName(currentUser?.shopId, normalizedShop);
+          const employeesCollectionName = getShopCollectionName('employees', normalizedShop);
+          
+          // Check if employee exists in this shop's user collection
+          const userQuery = query(
+            collection(db, userCollectionName),
+            where('uid', '==', editingEmployee.uid || '')
           );
-        } else {
-          // Move employee document between shop collections
-          const oldEmployeesCollection = getShopCollectionName('employees', previousPrimaryShop);
-          const newEmployeesCollection = getShopCollectionName('employees', newPrimaryShop);
-
-          // Remove from old collection
-          await deleteDoc(doc(db, oldEmployeesCollection, editingEmployee.id));
-
-          // Add to new collection with same core data
-          await addDoc(collection(db, newEmployeesCollection), {
-            ...mergedEmployeeData,
-            createdAt: editingEmployee.createdAt || new Date(),
-          } as any);
-        }
-
-        // === Sync USERS collection (auth profile used at login) ===
-        if (editingEmployee.uid) {
-          const branchesToCheck: BranchName[] = [BRANCHES.CENTRAL, BRANCHES.KAMWENE];
-          let existingUserDoc:
-            | { branch: BranchName; id: string; data: any }
-            | null = null;
-
-          // Find existing user document for this UID in any branch's Users collection
-          for (const branch of branchesToCheck) {
-            const userCollectionName = getUserCollectionName(undefined, branch);
-            const usersQuery = query(
-              collection(db, userCollectionName),
-              where('uid', '==', editingEmployee.uid)
-            );
-            const snap = await getDocs(usersQuery);
-            if (!snap.empty) {
-              const docSnap = snap.docs[0];
-              existingUserDoc = {
-                branch,
-                id: docSnap.id,
-                data: docSnap.data(),
-              };
-              break;
-            }
-          }
-
-          // Build data for user profile (used by AuthContext)
-          const mergedUserData = {
-            ...(existingUserDoc?.data || {}),
-            ...mergedEmployeeData,
-            // Ensure canonical auth fields
-            uid: editingEmployee.uid,
-            name: mergedEmployeeData.name,
-            email: mergedEmployeeData.email,
-            role: mergedEmployeeData.role,
-            status: mergedEmployeeData.status,
-            shopName: newPrimaryShop,
-            assignedShops,
-            updatedAt: new Date(),
-          };
-
-          if (existingUserDoc) {
-            if (existingUserDoc.branch === newPrimaryShop) {
-              // Same branch: just update user profile
-              const userCollectionName = getUserCollectionName(undefined, existingUserDoc.branch);
-              await updateDoc(
-                doc(db, userCollectionName, existingUserDoc.id),
-                mergedUserData as any
+          const userSnapshot = await getDocs(userQuery);
+          
+          // Check if employee exists in this shop's employees collection
+          const employeesQuery = query(
+            collection(db, employeesCollectionName),
+            where('uid', '==', editingEmployee.uid || '')
+          );
+          const employeesSnapshot = await getDocs(employeesQuery);
+          
+          if (assignedShops.includes(shop) || assignedShops.includes(normalizedShop)) {
+            // Employee should exist in this shop - create or update
+            const shopSpecificData = {
+              ...mergedEmployeeData,
+              shopName: normalizedShop // Set shopName to the specific shop for this collection
+            };
+            
+            if (!userSnapshot.empty) {
+              // Update existing user document
+              updatePromises.push(
+                updateDoc(userSnapshot.docs[0].ref, shopSpecificData)
               );
             } else {
-              // Branch changed: move user profile between Users collections
-              const oldUserCollection = getUserCollectionName(undefined, existingUserDoc.branch);
-              const newUserCollection = getUserCollectionName(undefined, newPrimaryShop);
-
-              await deleteDoc(doc(db, oldUserCollection, existingUserDoc.id));
-              await addDoc(collection(db, newUserCollection), {
-                ...mergedUserData,
-                createdAt:
-                  existingUserDoc.data?.createdAt?.toDate?.() ||
-                  editingEmployee.createdAt ||
-                  new Date(),
-              } as any);
+              // Create new user document in this shop
+              updatePromises.push(
+                addDoc(collection(db, userCollectionName), shopSpecificData)
+              );
+            }
+            
+            if (!employeesSnapshot.empty) {
+              // Update existing employee document
+              updatePromises.push(
+                updateDoc(employeesSnapshot.docs[0].ref, shopSpecificData)
+              );
+            } else {
+              // Create new employee document in this shop
+              updatePromises.push(
+                addDoc(collection(db, employeesCollectionName), shopSpecificData)
+              );
             }
           } else {
-            // No existing user doc (legacy user) – create one in the new primary shop collection
-            const newUserCollection = getUserCollectionName(undefined, newPrimaryShop);
-            await addDoc(collection(db, newUserCollection), {
-              ...mergedUserData,
-              createdAt: editingEmployee.createdAt || new Date(),
-            } as any);
+            // Employee should NOT exist in this shop - delete if exists
+            if (!userSnapshot.empty) {
+              updatePromises.push(
+                deleteDoc(userSnapshot.docs[0].ref)
+              );
+            }
+            if (!employeesSnapshot.empty) {
+              updatePromises.push(
+                deleteDoc(employeesSnapshot.docs[0].ref)
+              );
+            }
           }
         }
+        
+        // Wait for all updates to complete
+        await Promise.all(updatePromises);
+        
+        console.log(`✅ Employee updated in ${assignedShops.length} shop(s): ${assignedShops.join(', ')}`);
 
-        toast.success('Employee updated successfully');
+        toast.success(`Employee updated successfully in ${assignedShops.length} shop(s)`);
         setIsModalOpen(false);
         setEditingEmployee(null);
         setFormData({ 
@@ -467,6 +454,7 @@ const Employees: React.FC = () => {
           role: 'mainAdmin', 
           status: 'Active', 
           avatar: '',
+          assignedShops: [selectedBranch as any], // Reset to selected branch
           workingHours: {
             startTime: '09:00',
             endTime: '17:00',
@@ -535,71 +523,105 @@ const Employees: React.FC = () => {
           displayName: formData.name
         });
 
-        // Generate custom employee ID based on role
-        const employeesCollectionName = getShopCollectionName('employees', selectedBranch as BranchName);
-        const existingEmployeesQuery = query(collection(db, employeesCollectionName));
-        const existingEmployeesSnapshot = await getDocs(existingEmployeesQuery);
-        const existingCustomIds = existingEmployeesSnapshot.docs
-          .map(doc => doc.data().customId)
-          .filter((id): id is string => !!id);
+        // Determine which shops this employee should be saved to
+        // Use assignedShops from form, or default to selectedBranch
+        const assignedShops = formData.assignedShops && formData.assignedShops.length > 0
+          ? formData.assignedShops
+          : [selectedBranch];
         
-        const { customId } = generateEmployeeId(formData.role, existingCustomIds);
+        // Ensure at least one shop is assigned
+        if (assignedShops.length === 0) {
+          toast.error('Please select at least one shop for this employee');
+          setIsSubmitting(false);
+          return;
+        }
 
-        // Save employee data to dynamic user collection (e.g., CentralShopUsers, KamweneShopUsers)
-        // Use selectedBranch to determine which shop's user collection to save to
-        const userCollectionName = getUserCollectionName(currentUser?.shopId, selectedBranch);
+        // Generate custom employee ID based on role (check all assigned shops for existing IDs)
+        const allExistingCustomIds: string[] = [];
+        for (const shop of assignedShops) {
+          const employeesCollectionName = getShopCollectionName('employees', shop as BranchName);
+          const existingEmployeesQuery = query(collection(db, employeesCollectionName));
+          const existingEmployeesSnapshot = await getDocs(existingEmployeesQuery);
+          const customIds = existingEmployeesSnapshot.docs
+            .map(doc => doc.data().customId)
+            .filter((id): id is string => !!id);
+          allExistingCustomIds.push(...customIds);
+        }
+        
+        const { customId } = generateEmployeeId(formData.role, allExistingCustomIds);
+
+        // Prepare employee data
         const employeeData = {
           ...formData,
           email: trimmedEmail, // Use trimmed email
           uid: userCredential.user.uid,
           customId: customId, // Add custom ID
           shopId: currentUser?.shopId,
-          shopName: selectedBranch, // Use selected branch instead of currentUser shopName
-          assignedShops: formData.assignedShops || [selectedBranch as any],
+          shopName: assignedShops[0], // Primary shop (first in list)
+          assignedShops: assignedShops, // All shops this employee can access
           createdAt: new Date(),
           updatedAt: new Date()
         };
         
-        // Check for duplicate user before creating (prevent multiple documents with same email/uid)
-        const existingUsersQuery = query(
-          collection(db, userCollectionName),
-          where('email', '==', trimmedEmail)
-        );
-        const existingUsersSnapshot = await getDocs(existingUsersQuery);
-        
-        if (!existingUsersSnapshot.empty) {
-          toast.error('A user with this email already exists in this shop');
-          setIsSubmitting(false);
-          return;
+        // Check for duplicate user across ALL assigned shops before creating
+        for (const shop of assignedShops) {
+          const userCollectionName = getUserCollectionName(currentUser?.shopId, shop);
+          
+          // Check by email
+          const existingUsersQuery = query(
+            collection(db, userCollectionName),
+            where('email', '==', trimmedEmail)
+          );
+          const existingUsersSnapshot = await getDocs(existingUsersQuery);
+          
+          if (!existingUsersSnapshot.empty) {
+            toast.error(`A user with this email already exists in ${shop}`);
+            setIsSubmitting(false);
+            return;
+          }
+          
+          // Check by UID
+          const existingUidQuery = query(
+            collection(db, userCollectionName),
+            where('uid', '==', userCredential.user.uid)
+          );
+          const existingUidSnapshot = await getDocs(existingUidQuery);
+          
+          if (!existingUidSnapshot.empty) {
+            toast.error(`A user with this account already exists in ${shop}`);
+            setIsSubmitting(false);
+            return;
+          }
         }
         
-        // Also check by UID to prevent duplicates
-        const existingUidQuery = query(
-          collection(db, userCollectionName),
-          where('uid', '==', userCredential.user.uid)
-        );
-        const existingUidSnapshot = await getDocs(existingUidQuery);
+        // Save employee to ALL assigned shop collections
+        const savePromises: Promise<any>[] = [];
         
-        if (!existingUidSnapshot.empty) {
-          toast.error('A user with this account already exists in this shop');
-          setIsSubmitting(false);
-          return;
+        for (const shop of assignedShops) {
+          const userCollectionName = getUserCollectionName(currentUser?.shopId, shop);
+          const employeesCollectionName = getShopCollectionName('employees', shop as BranchName);
+          
+          // Save to user collection (e.g., CentralShopStaff, KamweneStaff)
+          savePromises.push(
+            addDoc(collection(db, userCollectionName), {
+              ...employeeData,
+              shopName: shop // Set shopName to the specific shop for this collection
+            })
+          );
+          
+          // Also save to employees collection for backward compatibility
+          savePromises.push(
+            addDoc(collection(db, employeesCollectionName), {
+              ...employeeData,
+              shopName: shop // Set shopName to the specific shop for this collection
+            })
+          );
         }
         
-        // Save to dynamic user collection (branch-specific) - only if no duplicate exists
-        await addDoc(collection(db, userCollectionName), employeeData);
+        // Wait for all saves to complete
+        await Promise.all(savePromises);
         
-        // Also save to employees collection for employee-specific features (optional, for backward compatibility)
-        // Check for duplicate in employees collection too
-        const existingEmployeesQuery2 = query(
-          collection(db, getShopCollectionName('employees', selectedBranch as BranchName)),
-          where('email', '==', trimmedEmail)
-        );
-        const existingEmployeesSnapshot2 = await getDocs(existingEmployeesQuery2);
-        
-        if (existingEmployeesSnapshot2.empty) {
-          await addDoc(collection(db, getShopCollectionName('employees', selectedBranch as BranchName)), employeeData);
-        }
+        console.log(`✅ Employee created in ${assignedShops.length} shop(s): ${assignedShops.join(', ')}`);
 
         // CRITICAL: Sign out the newly created user and immediately sign admin back in
         // This must happen in rapid succession to prevent the auth state change from propagating
@@ -619,7 +641,7 @@ const Employees: React.FC = () => {
           clearIgnoreAuthStateChange();
           
           // Success - admin session restored
-          toast.success('Employee created successfully');
+          toast.success(`Employee created successfully in ${assignedShops.length} shop(s): ${assignedShops.join(', ')}`);
           // Clear the password from state for security
           setAdminPasswordForReauth(null);
         } catch (reauthError: any) {
@@ -647,6 +669,7 @@ const Employees: React.FC = () => {
           role: 'mainAdmin', 
           status: 'Active', 
           avatar: '',
+          assignedShops: [selectedBranch as any], // Reset to selected branch
           workingHours: {
             startTime: '09:00',
             endTime: '17:00',

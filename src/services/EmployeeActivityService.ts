@@ -21,6 +21,12 @@ export class EmployeeActivityService {
     ipAddress?: string,
     userAgent?: string
   ) {
+    // DISABLED: Employee activities are no longer automatically created
+    // This prevents automatic generation of employee_activities documents
+    console.log(`Employee activity logging disabled: ${action} for ${employeeName}`);
+    return;
+    
+    /* DISABLED CODE - Employee activities creation
     try {
       await addDoc(collection(db, `shops/${shopId}/employee_activities`), {
         employeeId,
@@ -68,6 +74,7 @@ export class EmployeeActivityService {
     } catch (error) {
       console.error('Error logging employee activity:', error);
     }
+    */
   }
 
   static async getEmployeeActivities(shopId: string, employeeId?: string) {
