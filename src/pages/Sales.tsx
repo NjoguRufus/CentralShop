@@ -44,10 +44,16 @@ interface ProductSalesRow {
 const Sales: React.FC = () => {
   const { currentUser } = useAuth();
   const [selectedBranch, setSelectedBranch] = useState<string>('CentralShop');
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
+  // Helper function to get today's date in local timezone (YYYY-MM-DD)
+  const getTodayLocalDate = (): string => {
     const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayLocalDate());
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [summary, setSummary] = useState<SalesSummary>({
@@ -89,6 +95,11 @@ const Sales: React.FC = () => {
       }
     }
   }, [currentUser?.shopName]);
+
+  // Reset date to today when component mounts or page is opened
+  useEffect(() => {
+    setSelectedDate(getTodayLocalDate());
+  }, []); // Only run on mount
 
   useEffect(() => {
     if (!currentUser?.shopId) return;
@@ -280,6 +291,15 @@ const Sales: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Date:</span>
             <DateInput value={selectedDate} onChange={setSelectedDate} />
+            <button
+              onClick={() => {
+                setSelectedDate(getTodayLocalDate());
+              }}
+              className="px-2 py-1 text-xs md:text-sm bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors whitespace-nowrap"
+              title="Set to today"
+            >
+              Today
+            </button>
           </div>
         </div>
       </div>

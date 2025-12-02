@@ -40,7 +40,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Old collection "CentralShopNotifications" has been replaced and disabled
   useEffect(() => {
     // Notifications are now only stored in local state, not in Firestore
-    setLoading(false);
+        setLoading(false);
   }, [currentUser?.shopId]);
 
   const addNotification: NotificationContextValue['addNotification'] = async (n) => {
