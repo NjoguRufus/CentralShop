@@ -560,11 +560,46 @@ const Employees: React.FC = () => {
           updatedAt: new Date()
         };
         
-        // Save to dynamic user collection (branch-specific)
+        // Check for duplicate user before creating (prevent multiple documents with same email/uid)
+        const existingUsersQuery = query(
+          collection(db, userCollectionName),
+          where('email', '==', trimmedEmail)
+        );
+        const existingUsersSnapshot = await getDocs(existingUsersQuery);
+        
+        if (!existingUsersSnapshot.empty) {
+          toast.error('A user with this email already exists in this shop');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Also check by UID to prevent duplicates
+        const existingUidQuery = query(
+          collection(db, userCollectionName),
+          where('uid', '==', userCredential.user.uid)
+        );
+        const existingUidSnapshot = await getDocs(existingUidQuery);
+        
+        if (!existingUidSnapshot.empty) {
+          toast.error('A user with this account already exists in this shop');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Save to dynamic user collection (branch-specific) - only if no duplicate exists
         await addDoc(collection(db, userCollectionName), employeeData);
         
         // Also save to employees collection for employee-specific features (optional, for backward compatibility)
-        await addDoc(collection(db, getShopCollectionName('employees', selectedBranch as BranchName)), employeeData);
+        // Check for duplicate in employees collection too
+        const existingEmployeesQuery2 = query(
+          collection(db, getShopCollectionName('employees', selectedBranch as BranchName)),
+          where('email', '==', trimmedEmail)
+        );
+        const existingEmployeesSnapshot2 = await getDocs(existingEmployeesQuery2);
+        
+        if (existingEmployeesSnapshot2.empty) {
+          await addDoc(collection(db, getShopCollectionName('employees', selectedBranch as BranchName)), employeeData);
+        }
 
         // CRITICAL: Sign out the newly created user and immediately sign admin back in
         // This must happen in rapid succession to prevent the auth state change from propagating

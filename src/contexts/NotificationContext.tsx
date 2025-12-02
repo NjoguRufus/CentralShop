@@ -104,26 +104,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       createdAt: new Date()
     };
 
-    // Update local state immediately
+    // Update local state immediately (in-memory only)
     setNotifications(prev => [newNotification, ...prev]);
 
-    // Save to Firestore
-    if (currentUser?.shopId) {
-      try {
-        const notificationsRef = collection(db, getShopCollectionName('notifications'));
-        await addDoc(notificationsRef, {
-          id: notificationId,
-          title: n.title,
-          message: n.message,
-          type: n.type || 'info',
-          read: false,
-          shopId: currentUser.shopId,
-          createdAt: Timestamp.now()
-        });
-      } catch (error) {
-        console.error('Error saving notification to Firestore:', error);
-      }
-    }
+    // DISABLED: No longer saving notifications to Firestore automatically
+    // Notifications are now only stored in local state (in-memory)
+    // This prevents automatic creation of CentralShopNotifications documents
+    // If you need persistent notifications, they must be created manually through the UI
+    console.log('Notification created (local only):', n.title);
   };
 
   const markAllAsRead: NotificationContextValue['markAllAsRead'] = async () => {

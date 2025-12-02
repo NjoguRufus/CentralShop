@@ -119,6 +119,17 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
 
     for (const write of pendingWrites) {
       try {
+        // Skip any order writes - orders should only be created through POS checkout, not via pending writes
+        // This prevents automatic order creation for KamweneShopOrders or any other shop
+        if (write.collection.includes('Orders') || write.collection.toLowerCase().includes('order')) {
+          console.warn(`Skipping order write in pending queue: ${write.collection}. Orders must be created through POS checkout only.`);
+          // Delete the pending write to prevent retries
+          if (write.id) {
+            await db.pendingWrites.delete(write.id.toString());
+          }
+          continue;
+        }
+
         // Mark as syncing
         if (write.id) {
           await db.pendingWrites.update(write.id.toString(), { status: 'syncing' });
