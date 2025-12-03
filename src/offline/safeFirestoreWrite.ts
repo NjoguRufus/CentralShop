@@ -12,8 +12,9 @@ export async function safeFirestoreWrite<T>(
   action: () => Promise<T>,
   writeAction: OfflineWriteAction
 ): Promise<T> {
-  // BLOCK notifications and orders from being queued or written
-  // Notifications should be local-only, orders should only come from POS checkout
+  // BLOCK notifications and automatic order creation
+  // Notifications should be local-only
+  // Orders should ONLY be created through POS checkout - offline orders go to OfflineOrders collection
   const collectionLower = writeAction.collection.toLowerCase();
   if (collectionLower.includes('notifications') || collectionLower.includes('notification')) {
     console.warn(`Blocked notification write to Firestore: ${writeAction.collection}. Notifications are local-only.`);
@@ -30,17 +31,52 @@ export async function safeFirestoreWrite<T>(
     return undefined as T;
   }
   
-  // Allow orders to be queued when offline - they will sync when back online
-  // Orders from POS checkout should be saved even when offline
+  // BLOCK ALL automatic order syncing
+  // Orders should ONLY be created through:
+  // 1. Direct POS checkout when online (not queued, not wrapped)
+  // 2. Manual sync from OfflineOrders page (not queued, not wrapped)
+  // OfflineOrders can be queued when offline, but they should NOT automatically sync to main orders
+  if ((collectionLower.includes('orders') || collectionLower.includes('order')) && writeAction.type === 'add') {
+    // Only allow OfflineOrders collections to be queued when offline
+    // But they should NOT automatically sync - they stay in OfflineOrders until manually synced
+    if (writeAction.collection.includes('OfflineOrders')) {
+      // Allow OfflineOrders to be queued when offline - they'll stay in OfflineOrders collection
+      // They will NOT automatically sync to main orders - only manual sync from OfflineOrders page
+      console.log(`Allowing OfflineOrders write to queue: ${writeAction.collection} (will stay in OfflineOrders, not auto-sync)`);
+    } else {
+      // BLOCK writes to main orders collections - these should NEVER be queued
+      console.error(`BLOCKED: Attempted to queue order to main orders collection: ${writeAction.collection}. Orders must be created through POS checkout only.`);
+      // Return mock result without queuing - this prevents the write
+      if (writeAction.type === 'add') {
+        const mockId = `blocked-${Date.now()}`;
+        return {
+          id: mockId,
+          path: `${writeAction.collection}/${mockId}`,
+          parent: null,
+          type: 'document'
+        } as T;
+      }
+      return undefined as T;
+    }
+  }
 
   // Check if we're online
   if (!navigator.onLine) {
     console.log('Offline: Queuing write operation');
-    // For add operations (especially orders), generate OFF- prefix ID and store it
+    // For add operations, generate appropriate ID prefix
     let mockId: string | undefined;
     if (writeAction.type === 'add') {
-      mockId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      // Store the mock ID in the write action so we can identify legitimate offline orders
+      // Only use OFF- prefix for orders (OfflineOrders collections)
+      // Other collections (categories, products, etc.) get regular IDs
+      if (writeAction.collection.includes('OfflineOrders') || 
+          (writeAction.collection.toLowerCase().includes('orders') && 
+           !writeAction.collection.includes('OfflineOrders'))) {
+        mockId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      } else {
+        // Regular ID for non-order collections
+        mockId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
+      // Store the mock ID in the write action
       writeAction.docId = mockId;
     }
     await saveOfflineWrite(writeAction);
@@ -70,11 +106,20 @@ export async function safeFirestoreWrite<T>(
     
     // For orders and other writes, queue it for offline sync
     console.log('Write failed, queuing for offline sync:', err);
-    // For add operations (especially orders), generate OFF- prefix ID and store it
+    // For add operations, generate appropriate ID prefix
     let mockId: string | undefined;
     if (writeAction.type === 'add') {
-      mockId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      // Store the mock ID in the write action so we can identify legitimate offline orders
+      // Only use OFF- prefix for orders (OfflineOrders collections)
+      // Other collections (categories, products, etc.) get regular IDs
+      if (writeAction.collection.includes('OfflineOrders') || 
+          (writeAction.collection.toLowerCase().includes('orders') && 
+           !writeAction.collection.includes('OfflineOrders'))) {
+        mockId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      } else {
+        // Regular ID for non-order collections
+        mockId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
+      // Store the mock ID in the write action
       writeAction.docId = mockId;
     }
     await saveOfflineWrite(writeAction);

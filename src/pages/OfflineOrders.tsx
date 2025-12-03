@@ -4,7 +4,7 @@
  * These orders are stored in a separate Firebase collection and synced when online
  */
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, where, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
@@ -63,7 +63,7 @@ const OfflineOrders: React.FC = () => {
       // Also fetch from Firebase offline orders collection if online
       if (navigator.onLine) {
         try {
-          const offlineOrdersCollection = `OfflineOrders_${branch}`;
+          const offlineOrdersCollection = `OfflineOrders${branch}`;
           const q = query(
             collection(db, offlineOrdersCollection),
             orderBy('createdAt', 'desc')
@@ -93,8 +93,14 @@ const OfflineOrders: React.FC = () => {
             data: localOrders,
             lastSynced: new Date()
           });
-        } catch (error) {
-          console.warn('Error fetching offline orders from Firestore:', error);
+        } catch (error: any) {
+          // Handle permission errors gracefully
+          if (error?.code === 'permission-denied' || error?.message?.includes('Missing or insufficient permissions')) {
+            console.warn('Permission denied fetching offline orders from Firestore. Using local cache only.');
+            // Continue with local orders only
+          } else {
+            console.warn('Error fetching offline orders from Firestore:', error);
+          }
         }
       }
       
@@ -117,32 +123,113 @@ const OfflineOrders: React.FC = () => {
       setIsSyncing(true);
       const branch = selectedBranch as BranchName;
       const ordersCollectionName = getShopCollectionName('orders', branch);
-      const offlineOrdersCollection = `OfflineOrders_${branch}`;
+      const offlineOrdersCollection = `OfflineOrders${branch}`;
       
       let syncedCount = 0;
       let errorCount = 0;
       
       for (const order of offlineOrders) {
         try {
-          // Check if order already exists in main orders collection
-          const orderData = {
+          // Validate order has required fields before syncing
+          if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
+            console.warn(`Skipping invalid order: missing or empty items array`);
+            errorCount++;
+            continue;
+          }
+          
+          if (order.total === undefined || order.total === null || order.total < 0) {
+            console.warn(`Skipping invalid order: invalid total value`);
+            errorCount++;
+            continue;
+          }
+          
+          if (!order.employeeId) {
+            console.warn(`Skipping invalid order: missing employeeId`);
+            errorCount++;
+            continue;
+          }
+          
+          // Check for duplicate order before creating
+          // Check by employeeId, total, and createdAt (within 10 seconds)
+          try {
+            // Normalize createdAt to a valid Timestamp for duplicate checking
+            let createdAtTimestamp: Timestamp | null = null;
+            if (order.createdAt instanceof Timestamp) {
+              createdAtTimestamp = order.createdAt;
+            } else if (order.createdAt instanceof Date) {
+              createdAtTimestamp = Timestamp.fromDate(order.createdAt);
+            } else if (order.createdAt) {
+              const parsed = new Date(order.createdAt);
+              if (!isNaN(parsed.getTime())) {
+                createdAtTimestamp = Timestamp.fromDate(parsed);
+              }
+            }
+
+            if (createdAtTimestamp) {
+              const baseDate = createdAtTimestamp.toDate();
+              if (!isNaN(baseDate.getTime())) {
+                const startTime = new Date(baseDate.getTime() - 10000);
+                const endTime = new Date(baseDate.getTime() + 10000);
+                
+                const duplicateCheck = query(
+                  collection(db, ordersCollectionName),
+                  where('employeeId', '==', order.employeeId),
+                  where('total', '==', order.total),
+                  where('createdAt', '>=', Timestamp.fromDate(startTime)),
+                  where('createdAt', '<=', Timestamp.fromDate(endTime))
+                );
+                
+                const existing = await getDocs(duplicateCheck);
+                if (!existing.empty) {
+                  console.warn(`Skipping duplicate order: order already exists in main collection`);
+                  // Remove from offline orders since it's already synced
+                  if (order.id) {
+                    try {
+                      await deleteDoc(doc(db, offlineOrdersCollection, order.id));
+                    } catch (deleteError) {
+                      console.warn('Error deleting duplicate from offline orders:', deleteError);
+                    }
+                  }
+                  continue;
+                }
+              }
+            }
+          } catch (duplicateCheckError) {
+            console.warn('Error checking for duplicate (non-blocking):', duplicateCheckError);
+            // Continue with sync even if duplicate check fails
+          }
+          
+          // Filter out undefined values to prevent Firestore errors
+          const orderData: any = {
             items: order.items,
-            subtotal: order.subtotal,
-            tax: order.tax,
+            subtotal: order.subtotal || 0,
+            tax: order.tax || 0,
             total: order.total,
             status: order.status || 'completed',
-            paymentMethod: order.paymentMethod,
+            paymentMethod: order.paymentMethod || 'cash',
             createdAt: order.createdAt instanceof Timestamp ? order.createdAt : Timestamp.fromDate(new Date(order.createdAt)),
             employeeId: order.employeeId,
-            employeeName: order.employeeName,
             customerName: order.customerName || 'Walk In Customer',
-            customerPhone: order.customerPhone,
             shopName: order.shopName || branch,
             syncedFromOffline: true,
             syncedAt: Timestamp.now()
           };
           
-          // Add to main orders collection
+          // Only add optional fields if they exist and are not undefined
+          if (order.employeeName) {
+            orderData.employeeName = order.employeeName;
+          }
+          if (order.customerPhone) {
+            orderData.customerPhone = order.customerPhone;
+          }
+          if (order.customerEmail) {
+            orderData.customerEmail = order.customerEmail;
+          }
+          if (order.customerId) {
+            orderData.customerId = order.customerId;
+          }
+          
+          // Add to main orders collection (this is the ONLY place where orders should be added to main collection)
           await addDoc(collection(db, ordersCollectionName), orderData);
           
           // Remove from offline orders collection if it has an ID
@@ -159,7 +246,13 @@ const OfflineOrders: React.FC = () => {
           console.error('Error syncing order:', error);
           errorCount++;
           
-          // If it's a duplicate, remove from offline orders anyway
+          // Handle quota exceeded - stop syncing to avoid more errors
+          if (error.code === 'resource-exhausted' || error.message?.includes('Quota exceeded')) {
+            toast.warn('Firestore quota exceeded. Please try again later.');
+            break; // Stop syncing to avoid more quota errors
+          }
+          
+          // If it's a duplicate or permission error, remove from offline orders anyway
           if (error.message?.includes('already exists') || error.code === 'permission-denied') {
             if (order.id) {
               try {
@@ -196,7 +289,7 @@ const OfflineOrders: React.FC = () => {
     
     try {
       const branch = selectedBranch as BranchName;
-      const offlineOrdersCollection = `OfflineOrders_${branch}`;
+      const offlineOrdersCollection = `OfflineOrders${branch}`;
       
       // Delete from Firestore if online
       if (navigator.onLine) {

@@ -1,5 +1,5 @@
 import { collection, doc, getDoc, getDocs, query, where, orderBy, limit as qLimit, Timestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../firebase';
 import { getShopCollectionName } from '../config/shopConfig';
 
 // Types kept minimal to avoid coupling; consumers can refine as needed

@@ -3,23 +3,23 @@
 # Go to: Project Settings > Environment Variables
 
 # Firebase API Key
-VITE_FIREBASE_API_KEY=AIzaSyDcdFOP2eLJ3ATP3QhEJW5pwhIlrIW5XSU
+VITE_FIREBASE_API_KEY=AIzaSyB4o2QE0gvbm2thNlAzf3DPDgNE3iC78dE
 
 # Firebase Auth Domain
-VITE_FIREBASE_AUTH_DOMAIN=central-shop-34d1b.firebaseapp.com
+VITE_FIREBASE_AUTH_DOMAIN=centralbackup-a7dc0.firebaseapp.com
 
 # Firebase Project ID
-VITE_FIREBASE_PROJECT_ID=central-shop-34d1b
+VITE_FIREBASE_PROJECT_ID=centralbackup-a7dc0
 
 # Firebase Storage Bucket
-VITE_FIREBASE_STORAGE_BUCKET=central-shop-34d1b.firebasestorage.app
+VITE_FIREBASE_STORAGE_BUCKET=centralbackup-a7dc0.firebasestorage.app
 
 # Firebase Messaging Sender ID
-VITE_FIREBASE_MESSAGING_SENDER_ID=21423536006
+VITE_FIREBASE_MESSAGING_SENDER_ID=852031117658
 
 # Firebase App ID
-VITE_FIREBASE_APP_ID=1:21423536006:web:e1620c819f24efcdf49e07
+VITE_FIREBASE_APP_ID=1:852031117658:web:8e9ab7181c194aa6d8bb63
 
 # Firebase Analytics Measurement ID
-VITE_FIREBASE_MEASUREMENT_ID=G-0KNVRM3E1L
+VITE_FIREBASE_MEASUREMENT_ID=G-XZPYC5ZTDV
 

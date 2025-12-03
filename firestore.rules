@@ -217,12 +217,18 @@ service cloud.firestore {
         && shopOrdersCollection.matches('.*Orders$');
     }
     
-    // Offline Orders Collections: OfflineOrders_{ShopName}/{orderId}
-    // Example: OfflineOrders_CentralShop/{orderId}, OfflineOrders_Kamwene/{orderId}
+    // Offline Orders Collections: OfflineOrders{ShopName}/{orderId}
+    // Example: OfflineOrdersCentralShop/{orderId}, OfflineOrdersKamwene/{orderId}
     // These are orders created while offline, stored separately until synced to main orders collection
-    match /OfflineOrders_{shopName}/{orderId} {
-      allow read: if isSignedIn();
+    // Note: Using pattern without underscore because Firestore rules don't support underscores in path segments
+    match /{offlineOrdersCollection}/{orderId} {
+      // Only match collections that start with "OfflineOrders"
+      allow read: if isSignedIn() && offlineOrdersCollection.matches('^OfflineOrders.*');
+      // Allow list/query for authenticated users
+      allow list: if isSignedIn() && offlineOrdersCollection.matches('^OfflineOrders.*');
+      // Allow create with validation
       allow create: if isSignedIn() 
+        && offlineOrdersCollection.matches('^OfflineOrders.*')
         && request.resource.data.keys().hasAll(['items', 'subtotal', 'tax', 'total', 'status', 'paymentMethod', 'createdAt', 'employeeId'])
         && request.resource.data.total == request.resource.data.subtotal + request.resource.data.tax
         && request.resource.data.subtotal >= 0
@@ -230,7 +236,8 @@ service cloud.firestore {
         && request.resource.data.total >= 0
         && request.resource.data.status in ['completed', 'pending', 'cancelled', 'partial']
         && request.resource.data.items.size() > 0;
-      allow update, delete: if isSignedIn();
+      // Allow update and delete for authenticated users
+      allow update, delete: if isSignedIn() && offlineOrdersCollection.matches('^OfflineOrders.*');
     }
     
     // Orders: {ShopName}Orders/{orderId}

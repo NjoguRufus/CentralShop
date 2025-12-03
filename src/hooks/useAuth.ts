@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { setDoc } from '../offline/firestoreWrappers';
-import { auth, db } from '../config/firebase';
+import { auth, db } from '../firebase';
 import { User } from '../types';
 
 export const useAuth = () => {

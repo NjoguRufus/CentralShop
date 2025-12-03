@@ -28,23 +28,26 @@ export async function saveOfflineWrite(action: OfflineWriteAction): Promise<stri
 
     const id = await db.pendingWrites.add(pendingWrite);
     
-    // Register background sync if service worker is available
-    // Note: Background sync requires HTTPS (or localhost) and user gesture
-    // We'll catch permission errors gracefully
-    if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
+    // Register background sync ONCE per offline write (event-based)
+    // Only register if online (background sync will trigger when connection restored)
+    if (navigator.onLine && 'serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register('firebase-sync');
+        // Register sync tag - this will trigger sync when connection is restored
+        await registration.sync.register('sync-pending-writes');
       } catch (error: any) {
-        // Background sync may fail due to:
-        // - Not on HTTPS/localhost
-        // - Permission denied
-        // - Service worker not ready
-        // This is non-critical - writes are still queued
+        // Background sync may fail - non-critical
         if (error.name !== 'NotAllowedError' && error.name !== 'TypeError') {
           console.warn('Background sync registration failed:', error);
         }
       }
+    }
+    
+    // If online, trigger sync immediately (but only if not already syncing)
+    if (navigator.onLine) {
+      // Use safeSync to prevent double-sync
+      const { safeSync } = await import('./index');
+      safeSync().catch(console.error);
     }
 
     console.log(`Queued offline write: ${action.type} to ${action.collection}`);

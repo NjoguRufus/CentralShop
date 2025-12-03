@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Minus, Trash2, Search, ShoppingCart, Grid3x3, List } from 'lucide-react';
-import { collection, getDocs, query, orderBy, doc, Timestamp, where, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, Timestamp, where, getDoc, addDoc as addDocOnline } from 'firebase/firestore';
 import { addDoc, updateDoc } from '../offline/firestoreWrappers';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -750,7 +750,7 @@ const POSSystem: React.FC = () => {
       let orderRef;
       if (!navigator.onLine) {
         // If offline, save to OfflineOrders collection in IndexedDB and queue for Firestore sync
-        const offlineOrdersCollection = `OfflineOrders_${selectedBranch}`;
+        const offlineOrdersCollection = `OfflineOrders${selectedBranch}`;
         const offlineOrderId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
         // Save to local IndexedDB cache
@@ -786,8 +786,23 @@ const POSSystem: React.FC = () => {
         
         console.log('Offline order saved to OfflineOrders collection (queued for sync)');
       } else {
-        // If online, save to main orders collection
-        orderRef = await addDoc(collection(db, ordersCollectionName), orderData);
+        // If online, save to main orders collection directly using native Firestore addDoc (not wrapped)
+        // This ensures online POS orders go straight to the main orders collection
+        try {
+          orderRef = await addDocOnline(collection(db, ordersCollectionName), orderData);
+        } catch (error: any) {
+          // If write fails (e.g., network issue), fall back to OfflineOrders collection
+          console.warn('Failed to save order to main collection, saving to OfflineOrders:', error);
+          const offlineOrdersCollection = `OfflineOrders${selectedBranch}`;
+          const { addDoc: safeAddDoc } = await import('../offline/firestoreWrappers');
+          const { createAddAction } = await import('../offline/safeFirestoreWrite');
+          orderRef = await safeAddDoc(
+            collection(db, offlineOrdersCollection),
+            { ...orderData, synced: false, createdAt: Timestamp.now() },
+            createAddAction(offlineOrdersCollection, { ...orderData, synced: false, createdAt: Timestamp.now() })
+          );
+          toast.info('Order saved to offline orders (will sync later)');
+        }
       }
       
       // Save order to IndexedDB cache immediately for offline viewing

@@ -1,10 +1,11 @@
 /**
  * Service Worker for Background Sync
  * Handles offline write operations when connection is restored
+ * SAFE VERSION: Does NOT spam sync
  */
 
 const CACHE_NAME = 'central-shop-v1';
-const SYNC_TAG = 'firebase-sync';
+const SYNC_TAG = 'sync-pending-writes';
 
 // Install event - cache offline page
 self.addEventListener('install', (event) => {
@@ -18,23 +19,31 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Background sync event
+// Background sync event - SAFE VERSION
 self.addEventListener('sync', (event) => {
   if (event.tag === SYNC_TAG) {
-    console.log('Background sync triggered for firebase-sync');
-    event.waitUntil(syncPendingWrites());
+    console.log('Background sync triggered for sync-pending-writes');
+    // Use waitUntil to ensure sync completes
+    event.waitUntil(doSyncOnce());
   }
 });
 
 /**
- * Sync pending writes to Firestore
- * This function will be called by the main app when online
+ * Sync pending writes ONCE (does not re-trigger sync)
+ * This function runs one time and does NOT spam Firebase
  */
-async function syncPendingWrites() {
+async function doSyncOnce() {
   try {
     // Get all clients (tabs) and notify them to sync
     const clients = await self.clients.matchAll();
     
+    // Only notify if we have clients
+    if (clients.length === 0) {
+      console.log('No clients to notify for sync');
+      return;
+    }
+    
+    // Notify each client to sync (they will check if queue is empty)
     clients.forEach((client) => {
       client.postMessage({
         type: 'SYNC_PENDING_WRITES',
@@ -45,7 +54,7 @@ async function syncPendingWrites() {
     console.log('Background sync: Notified clients to sync pending writes');
   } catch (error) {
     console.error('Background sync error:', error);
-    throw error;
+    throw error; // Re-throw to let browser retry if needed
   }
 }
 
@@ -67,4 +76,3 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
-

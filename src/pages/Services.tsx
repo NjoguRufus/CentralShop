@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, query, orderBy, where, Timestamp } from 'firebase/firestore';
 import { addDoc, updateDoc, deleteDoc } from '../offline/firestoreWrappers';
-import { db } from '../config/firebase';
+import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Service } from '../types';
 import Card from '../components/UI/Card';

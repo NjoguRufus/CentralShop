@@ -12,87 +12,49 @@ export * from './safeFirestoreWrite';
 export * from './firestoreWrappers';
 export * from './cacheFirstLoader';
 export * from './offlineAuth';
-export { syncPendingWrites } from './sync';
+export { syncPendingWrites, cleanBrokenSyncEntries } from './sync';
 
-import { syncProductsFromFirestore } from './offlineProducts';
-import { syncCustomersFromFirestore, syncCustomersToFirestore } from './offlineCustomers';
-import { syncSettingsFromFirestore, syncSettingsToFirestore } from './offlineSettings';
-import { syncOfflineOrdersToFirebase } from './sync';
+import { syncProductsFromFirestore } from './sync';
+import { syncCustomersFromFirestore } from './sync';
+import { syncSettingsFromFirestore } from './sync';
+import { syncAllFromFirestore } from './sync';
 
 /**
- * Sync all data from Firestore to IndexedDB
+ * Safe sync wrapper - only syncs when online
  */
-export async function syncAllFromFirestore(): Promise<void> {
-  try {
-    if (!navigator.onLine) {
-      console.log('Offline: Cannot sync from Firestore');
-      return;
-    }
-    
-    await Promise.all([
-      syncProductsFromFirestore(),
-      syncCustomersFromFirestore(),
-      syncSettingsFromFirestore()
-    ]);
-  } catch (error) {
-    console.error('Error syncing all from Firestore:', error);
+export async function safeSync(): Promise<void> {
+  if (!navigator.onLine) {
+    return;
   }
+  
+  const { syncPendingWrites } = await import('./sync');
+  await syncPendingWrites();
 }
 
 /**
- * Sync all dirty data to Firestore
- * DISABLED: Only pending writes (from offline operations) are synced
- * All other data must be created/updated through manual user input to prevent duplicates
+ * Sync all data from Firestore to IndexedDB (read-only caching)
  */
-export async function syncAllToFirestore(): Promise<void> {
-  try {
-    if (!navigator.onLine) {
-      console.log('Offline: Cannot sync to Firestore');
-      return;
-    }
-    
-    // Only sync pending writes (queued when offline from user actions like POS checkout)
-    // This syncs orders, customers, products, etc. that were created offline
-    // All other automatic syncing is disabled to prevent unwanted data creation
-    const { syncPendingWrites } = await import('./sync');
-    await syncPendingWrites();
-    
-    // Customer and Settings sync disabled - they must be created/updated manually
-    // await syncCustomersToFirestore(); // DISABLED
-    // await syncSettingsToFirestore(); // DISABLED
-  } catch (error) {
-    console.error('Error syncing all to Firestore:', error);
-  }
+export async function syncAllFromFirestoreToCache(): Promise<void> {
+  await syncAllFromFirestore();
 }
 
 /**
  * Initialize offline sync on app start
- * Only syncs FROM Firestore (read-only caching), never TO Firestore automatically
+ * NO AUTOMATIC SYNCING - only event-based syncing
  */
 export async function initializeOfflineSync(): Promise<void> {
+  // Clean up broken entries on startup
+  const { cleanBrokenSyncEntries } = await import('./sync');
+  await cleanBrokenSyncEntries();
+  
   // Sync from Firestore on startup if online (read-only, for caching)
   if (navigator.onLine) {
     await syncAllFromFirestore();
   }
   
-  // Set up periodic sync FROM Firestore only (read-only caching)
-  // No automatic writes to prevent unwanted data creation
-  setInterval(async () => {
-    if (navigator.onLine) {
-      // Only sync pending writes (from offline operations queued by user actions)
-      await syncAllToFirestore(); // Only processes pending writes, no automatic creation
-      // Sync FROM Firestore for caching (read-only)
-      await syncAllFromFirestore();
-    }
-  }, 5 * 60 * 1000); // Every 5 minutes
-  
-  // Listen for online event
-  window.addEventListener('online', async () => {
-    console.log('Online: Syncing pending writes and refreshing cache...');
-    // Only sync pending writes (from offline operations)
-    await syncAllToFirestore(); // Only processes pending writes, no automatic creation
-    // Sync FROM Firestore for caching (read-only)
-    await syncAllFromFirestore();
-  });
+  // NO INTERVALS - only event-based syncing
+  // Sync will happen on:
+  // 1. window.addEventListener('online', safeSync)
+  // 2. When new offline write is created (triggers background sync)
+  // 3. Manual sync from UI
 }
-

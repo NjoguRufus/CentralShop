@@ -47,9 +47,8 @@ const SyncQueueManager: React.FC = () => {
     };
 
     checkPendingSync();
-    const interval = setInterval(checkPendingSync, 5000); // Check every 5 seconds
-
-    return () => clearInterval(interval);
+    // NO INTERVALS - only check when component mounts or when manually triggered
+    // Sync happens event-based: on online event or when new write is created
   }, []);
 
   const handleSync = async () => {

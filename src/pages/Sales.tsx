@@ -123,9 +123,27 @@ const Sales: React.FC = () => {
       
       // Filter orders by selected date (include offline orders)
       const selectedDateOrders = allOrders.filter((order: any) => {
-        const orderDate = order.createdAt?.toDate 
-          ? order.createdAt.toDate() 
-          : (order.createdAt ? new Date(order.createdAt) : new Date(order.date || 0));
+        // Normalize createdAt to a valid Date object
+        let orderDate: Date;
+        if (order.createdAt?.toDate) {
+          // Firestore Timestamp
+          orderDate = order.createdAt.toDate();
+        } else if (order.createdAt instanceof Date) {
+          orderDate = order.createdAt;
+        } else if (order.createdAt) {
+          orderDate = new Date(order.createdAt);
+        } else if (order.date) {
+          orderDate = new Date(order.date);
+        } else {
+          // Invalid or missing date - skip this order
+          return false;
+        }
+
+        // Guard against invalid dates that would break toISOString()
+        if (isNaN(orderDate.getTime())) {
+          return false;
+        }
+
         const orderDateStr = orderDate.toISOString().split('T')[0];
         return orderDateStr === selectedDate;
       });

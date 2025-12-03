@@ -98,27 +98,27 @@ const AppContent: React.FC = () => {
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data && event.data.type === 'SYNC_PENDING_WRITES') {
           console.log('Service worker requested sync');
-          syncPendingWrites().catch(console.error);
+          // Use safeSync to prevent double-sync
+          import('./offline').then(({ safeSync }) => {
+            safeSync().catch(console.error);
+          });
         }
       });
     }
 
-    // Listen for online event to sync pending writes
+    // Listen for online event to sync pending writes (event-based only, NO intervals)
     const syncHandler = async () => {
       console.log('Online: Syncing pending writes...');
       try {
-        await syncPendingWrites();
+        const { safeSync } = await import('./offline');
+        await safeSync();
       } catch (error) {
         console.error('Error syncing pending writes:', error);
       }
     };
 
+    // Only sync on online event (NO immediate sync, NO intervals)
     window.addEventListener('online', syncHandler);
-
-    // Also sync immediately if already online
-    if (navigator.onLine) {
-      syncHandler();
-    }
 
     return () => {
       window.removeEventListener('online', syncHandler);
