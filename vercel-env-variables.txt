@@ -1,0 +1,25 @@
+# Firebase Configuration for Vercel
+# Add these environment variables in your Vercel project settings
+# Go to: Project Settings > Environment Variables
+
+# Firebase API Key
+VITE_FIREBASE_API_KEY=AIzaSyDcdFOP2eLJ3ATP3QhEJW5pwhIlrIW5XSU
+
+# Firebase Auth Domain
+VITE_FIREBASE_AUTH_DOMAIN=central-shop-34d1b.firebaseapp.com
+
+# Firebase Project ID
+VITE_FIREBASE_PROJECT_ID=central-shop-34d1b
+
+# Firebase Storage Bucket
+VITE_FIREBASE_STORAGE_BUCKET=central-shop-34d1b.firebasestorage.app
+
+# Firebase Messaging Sender ID
+VITE_FIREBASE_MESSAGING_SENDER_ID=21423536006
+
+# Firebase App ID
+VITE_FIREBASE_APP_ID=1:21423536006:web:e1620c819f24efcdf49e07
+
+# Firebase Analytics Measurement ID
+VITE_FIREBASE_MEASUREMENT_ID=G-0KNVRM3E1L
+

@@ -17,7 +17,8 @@ import {
   Receipt,
   Truck,
   CreditCard,
-  BarChart3
+  BarChart3,
+  WifiOff
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -29,6 +30,7 @@ const menuItems = [
   { path: '/pos', label: 'POS', icon: ShoppingCart, requiredRole: 'Cashier' },
   { path: '/customers', label: 'Customers', icon: Users, requiredRole: 'Admin' },
   { path: '/orders', label: 'Orders', icon: FileText, requiredRole: 'Cashier' },
+  { path: '/offline-orders', label: 'Offline Orders', icon: WifiOff, requiredRole: 'Cashier' },
   { path: '/invoicing', label: 'Invoicing', icon: Receipt, requiredRole: 'Admin' },
   { path: '/suppliers', label: 'Suppliers', icon: Truck, requiredRole: 'Admin' },
   { path: '/expenses', label: 'Expenses', icon: CreditCard, requiredRole: 'Admin' },

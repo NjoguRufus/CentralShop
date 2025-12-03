@@ -32,6 +32,7 @@ const Inventory = lazy(() => import('./pages/Inventory'));
 const POSSystem = lazy(() => import('./pages/POSSystem'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Orders = lazy(() => import('./pages/Orders'));
+const OfflineOrders = lazy(() => import('./pages/OfflineOrders'));
 const Invoicing = lazy(() => import('./pages/Invoicing'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Expenses = lazy(() => import('./pages/Expenses'));
@@ -208,6 +209,13 @@ const AppContent: React.FC = () => {
                   <ProtectedRoute requiredRole="Admin">
                     <Suspense fallback={<PageSkeleton />}>
                     <Customers />
+                    </Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="offline-orders" element={
+                  <ProtectedRoute requiredRole="Cashier">
+                    <Suspense fallback={<PageSkeleton />}>
+                    <OfflineOrders />
                     </Suspense>
                   </ProtectedRoute>
                 } />

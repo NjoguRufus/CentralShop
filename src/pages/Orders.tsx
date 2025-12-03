@@ -180,9 +180,91 @@ const Orders: React.FC = () => {
         return;
       }
 
-      // Use cache-first loading
+      const branch = selectedBranch as BranchName;
+      const ordersCollectionName = getShopCollectionName('orders', branch);
       const employeeId = currentUser?.role === 'Cashier' ? (currentUser.customId || currentUser.uid) : undefined;
-      let ordersData = await loadOrdersCacheFirst(selectedBranch as BranchName, employeeId);
+      
+      let ordersData: any[] = [];
+      
+      // Always load from Firestore as source of truth when online
+      if (navigator.onLine) {
+        try {
+          // Build query based on user role
+          let q;
+          if (employeeId) {
+            q = query(
+              collection(db, ordersCollectionName),
+              where('employeeId', '==', employeeId),
+              orderBy('createdAt', 'desc')
+            );
+          } else {
+            q = query(
+              collection(db, ordersCollectionName),
+              orderBy('createdAt', 'desc')
+            );
+          }
+          
+          const snapshot = await getDocs(q);
+          ordersData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt,
+            date: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate().toISOString().split('T')[0] : (doc.data().date || new Date().toISOString().split('T')[0])
+          }));
+          
+          // Update cache to match Firestore exactly
+          const cacheKey = `orders-${branch}${employeeId ? `-${employeeId}` : ''}`;
+          const { db: indexedDb } = await import('../offline/db');
+          await indexedDb.localCache.put({
+            id: cacheKey,
+            collection: ordersCollectionName,
+            data: ordersData,
+            lastSynced: new Date()
+          });
+          
+          // DISABLED: Automatic syncing of local-only orders
+          // Orders should ONLY be created through POS checkout, not automatically synced
+          // This prevents unwanted automatic order creation
+          // If there are local-only orders in cache that aren't in Firestore, they should be removed from cache
+          // to keep the cache in sync with Firestore (source of truth)
+          const cached = await indexedDb.localCache.get(cacheKey);
+          if (cached && Array.isArray(cached.data)) {
+            const cachedOrders = cached.data;
+            const firestoreOrderIds = new Set(ordersData.map(o => o.id));
+            
+            // Find orders in cache that aren't in Firestore (these are stale/invalid)
+            const staleOrders = cachedOrders.filter((cachedOrder: any) => {
+              // Skip orders that start with OFF- (these are pending sync from POS checkout)
+              if (cachedOrder.id && cachedOrder.id.startsWith('OFF-')) {
+                return false;
+              }
+              return !firestoreOrderIds.has(cachedOrder.id);
+            });
+            
+            // Remove stale orders from cache (they don't exist in Firestore, so they shouldn't be in cache)
+            if (staleOrders.length > 0) {
+              console.log(`Found ${staleOrders.length} stale orders in cache that don't exist in Firestore. Removing from cache to keep it in sync.`);
+              // Update cache to only include orders that exist in Firestore
+              await indexedDb.localCache.put({
+                id: cacheKey,
+                collection: ordersCollectionName,
+                data: ordersData, // Only Firestore orders
+                lastSynced: new Date()
+              });
+            }
+          }
+        } catch (firestoreError) {
+          console.error('Error fetching from Firestore:', firestoreError);
+          // Fallback to cache if Firestore fails
+          const cached = await loadOrdersCacheFirst(branch, employeeId);
+          ordersData = cached;
+          toast.warn('Using cached orders (Firestore unavailable)');
+        }
+      } else {
+        // Offline: use cache but note it might not match Firestore
+        ordersData = await loadOrdersCacheFirst(branch, employeeId);
+        toast.info('Offline: Showing cached orders');
+      }
       
       // Process orders (determine categories, etc.)
       ordersData = ordersData.map((orderData: any) => {
@@ -214,25 +296,12 @@ const Orders: React.FC = () => {
       setOrders(ordersData as OrderRecord[]);
       
       if (ordersData.length === 0 && navigator.onLine) {
-        toast.error('Failed to fetch orders');
-      } else if (ordersData.length === 0 && !navigator.onLine) {
-        toast.info('No cached orders available');
+        // No orders found - this is normal if there are no orders
+        console.log('No orders found in Firestore');
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
-      // Try cache fallback
-      try {
-        const employeeId = currentUser?.role === 'Cashier' ? (currentUser.customId || currentUser.uid) : undefined;
-        const cached = await loadOrdersCacheFirst(selectedBranch as BranchName, employeeId);
-        if (cached.length > 0) {
-          setOrders(cached as OrderRecord[]);
-          toast.info('Loaded orders from cache');
-        } else {
-          toast.error('Failed to fetch orders');
-        }
-      } catch (e) {
-        toast.error('Failed to fetch orders');
-      }
+      toast.error('Failed to fetch orders');
     } finally {
       setLoading(false);
     }
@@ -591,6 +660,28 @@ const Orders: React.FC = () => {
       const { getShopOrdersCollectionNameCached } = await import('../utils/orderCollectionHelper');
       const ordersCollectionName = await getShopOrdersCollectionNameCached(currentUser!.shopId!);
       await deleteDoc(doc(db, ordersCollectionName, orderToDelete.id!));
+      
+      // Also remove from cache to keep it in sync with Firestore
+      try {
+        const branch = selectedBranch as BranchName;
+        const employeeId = currentUser?.role === 'Cashier' ? (currentUser.customId || currentUser.uid) : undefined;
+        const cacheKey = `orders-${branch}${employeeId ? `-${employeeId}` : ''}`;
+        const { db: indexedDb } = await import('../offline/db');
+        const cached = await indexedDb.localCache.get(cacheKey);
+        if (cached && Array.isArray(cached.data)) {
+          const updatedOrders = cached.data.filter((o: any) => o.id !== orderToDelete.id);
+          await indexedDb.localCache.put({
+            id: cacheKey,
+            collection: ordersCollectionName,
+            data: updatedOrders,
+            lastSynced: new Date()
+          });
+          console.log('Removed deleted order from cache');
+        }
+      } catch (cacheError) {
+        console.warn('Error updating cache after delete:', cacheError);
+        // Non-critical, continue
+      }
       
       // Add notification for order deletion
       await addNotification({

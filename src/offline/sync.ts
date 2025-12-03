@@ -97,6 +97,52 @@ export async function syncCustomersFromFirestore(): Promise<void> {
  * Sync pending writes from IndexedDB to Firestore
  * Replays all queued write operations (add/update/delete)
  */
+/**
+ * Clean up invalid order writes from the queue
+ * Removes any order writes that don't have OFF- prefix (not from POS checkout)
+ */
+async function cleanupInvalidOrderWrites(): Promise<number> {
+  try {
+    const allPendingWrites = await db.pendingWrites
+      .where('status')
+      .anyOf(['pending', 'syncing', 'error'])
+      .toArray();
+    
+    let cleaned = 0;
+    for (const write of allPendingWrites) {
+      const collectionLower = write.collection.toLowerCase();
+      if ((collectionLower.includes('orders') || collectionLower.includes('order')) && write.type === 'add') {
+        // Allow OfflineOrders collection writes - these are legitimate offline orders
+        if (write.collection.includes('OfflineOrders')) {
+          // This is a legitimate offline order - keep it
+          continue;
+        }
+        
+        // Check if this is a legitimate offline order from POS checkout in main orders collection
+        const isOfflineOrder = write.docId && write.docId.startsWith('OFF-');
+        
+        if (!isOfflineOrder) {
+          // This is NOT an offline order from POS checkout - remove it
+          console.warn(`Cleaning up invalid order write ${write.id}: order ${write.docId || 'unknown'} is not from POS checkout`);
+          if (write.id) {
+            await db.pendingWrites.delete(write.id.toString());
+            cleaned++;
+          }
+        }
+      }
+    }
+    
+    if (cleaned > 0) {
+      console.log(`Cleaned up ${cleaned} invalid order writes from queue`);
+    }
+    
+    return cleaned;
+  } catch (error) {
+    console.error('Error cleaning up invalid order writes:', error);
+    return 0;
+  }
+}
+
 export async function syncPendingWrites(): Promise<{ synced: number; errors: number }> {
   if (!navigator.onLine) {
     console.log('Offline: Cannot sync pending writes');
@@ -104,6 +150,9 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
   }
 
   try {
+    // First, clean up any invalid order writes (orders without OFF- prefix)
+    await cleanupInvalidOrderWrites();
+    
     // Get all pending writes
     const pendingWrites = await db.pendingWrites
       .where('status')
@@ -119,19 +168,10 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
 
     for (const write of pendingWrites) {
       try {
-        // Skip any order writes - orders should only be created through POS checkout, not via pending writes
-        // This prevents automatic order creation for KamweneShopOrders, KamwenesShopOrders, or any other shop
+        // Allow orders to sync - orders from POS checkout when offline should be synced when back online
         const collectionLower = write.collection.toLowerCase();
-        if (collectionLower.includes('orders') || collectionLower.includes('order')) {
-          console.warn(`Skipping order write in pending queue: ${write.collection}. Orders must be created through POS checkout only.`);
-          // Delete the pending write to prevent retries
-          if (write.id) {
-            await db.pendingWrites.delete(write.id.toString());
-          }
-          continue;
-        }
         
-        // Also skip any notifications writes - notifications should not be saved to Firestore
+        // Skip any notifications writes - notifications should not be saved to Firestore
         if (collectionLower.includes('notifications') || collectionLower.includes('notification')) {
           console.warn(`Skipping notification write in pending queue: ${write.collection}. Notifications are local-only.`);
           // Delete the pending write to prevent retries
@@ -149,6 +189,31 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
             await db.pendingWrites.delete(write.id.toString());
           }
           continue;
+        }
+        
+        // Allow OfflineOrders collection writes - these are legitimate offline orders
+        // Block automatic order creation in main orders collections - only allow orders with OFF- prefix (from offline POS checkout)
+        if ((collectionLower.includes('orders') || collectionLower.includes('order')) && write.type === 'add') {
+          // Allow writes to OfflineOrders collections (separate collection for offline orders)
+          if (write.collection.includes('OfflineOrders')) {
+            // This is a legitimate offline order - allow it to sync
+            console.log(`Allowing OfflineOrders write: ${write.collection}`);
+          } else {
+            // Check if this is a legitimate offline order from POS checkout in main orders collection
+            // Orders from POS checkout when offline have an OFF- prefix in their docId
+            const isOfflineOrder = write.docId && write.docId.startsWith('OFF-');
+            
+            if (!isOfflineOrder) {
+              // This is NOT an offline order from POS checkout - skip it immediately
+              // Orders should ONLY be created through POS checkout, not automatically
+              console.warn(`BLOCKED automatic order write: order ${write.docId || 'unknown'} is not from POS checkout. Orders must be created through POS checkout only. Removing from queue.`);
+              // Delete immediately to prevent retries
+              if (write.id) {
+                await db.pendingWrites.delete(write.id.toString());
+              }
+              continue;
+            }
+          }
         }
 
         // Mark as syncing
@@ -191,8 +256,116 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
             // Only check if the data has unique identifiers (like email, phone, etc.)
             let shouldCreate = true;
             if (write.data && typeof write.data === 'object') {
+              const collectionLower = write.collection.toLowerCase();
+              
+              // For orders, validate that it's a legitimate order from POS checkout
+              // Only orders with OFF- prefix (from offline POS checkout) should be synced
+              // Note: This check should already be done above, but keeping it here as a double-check
+              if (collectionLower.includes('orders') || collectionLower.includes('order')) {
+                // Check if this is a legitimate offline order from POS checkout
+                // Orders from POS checkout when offline have an OFF- prefix in their docId
+                const isOfflineOrder = write.docId && write.docId.startsWith('OFF-');
+                
+                if (!isOfflineOrder && write.type === 'add') {
+                  // This is NOT an offline order from POS checkout - skip it
+                  // Orders should ONLY be created through POS checkout, not automatically
+                  console.warn(`BLOCKED automatic order write (double-check): order ${write.docId || 'unknown'} is not from POS checkout. Orders must be created through POS checkout only.`);
+                  shouldCreate = false;
+                  
+                  // Remove from queue to prevent retries
+                  if (write.id) {
+                    await db.pendingWrites.delete(write.id.toString());
+                  }
+                  continue;
+                }
+                
+                // Validate order has required fields per Firestore rules
+                // Firestore rules require: items, subtotal, tax, total, status, paymentMethod, createdAt, employeeId
+                const requiredFields = ['items', 'subtotal', 'tax', 'total', 'status', 'paymentMethod', 'createdAt', 'employeeId'];
+                const missingFields = requiredFields.filter(field => {
+                  if (field === 'items') {
+                    return !write.data.items && !write.data.products;
+                  }
+                  return write.data[field] === undefined || write.data[field] === null;
+                });
+                
+                if (missingFields.length > 0) {
+                  console.warn(`Skipping invalid order write: order missing required fields: ${missingFields.join(', ')}`);
+                  shouldCreate = false;
+                } else {
+                  // Ensure items array exists and is not empty (Firestore rule requirement)
+                  const items = write.data.items || write.data.products || [];
+                  if (!Array.isArray(items) || items.length === 0) {
+                    console.warn(`Skipping invalid order write: order must have at least one item`);
+                    shouldCreate = false;
+                  } else {
+                    // Validate total calculation (Firestore rule: total == subtotal + tax)
+                    const subtotal = write.data.subtotal || 0;
+                    const tax = write.data.tax || 0;
+                    const total = write.data.total || 0;
+                    if (Math.abs(total - (subtotal + tax)) > 0.01) { // Allow small floating point differences
+                      console.warn(`Skipping invalid order write: total (${total}) does not equal subtotal (${subtotal}) + tax (${tax})`);
+                      shouldCreate = false;
+                    }
+                  }
+                }
+                
+                // Only proceed with duplicate check if order is valid
+                if (!shouldCreate) {
+                  if (write.id) {
+                    await db.pendingWrites.delete(write.id.toString());
+                  }
+                  continue;
+                }
+                
+                // For orders, check by multiple criteria to prevent duplicates
+                // Check if an order with the same characteristics already exists
+                // This prevents duplicate orders from being created
+                if (write.data.createdAt && write.data.total !== undefined && write.data.employeeId) {
+                  try {
+                    const createdAt = write.data.createdAt;
+                    const total = write.data.total;
+                    const employeeId = write.data.employeeId;
+                    
+                    // Convert createdAt to Timestamp if needed
+                    let createdAtTimestamp: Timestamp;
+                    if (createdAt && typeof createdAt.toDate === 'function') {
+                      createdAtTimestamp = createdAt;
+                    } else if (createdAt instanceof Timestamp) {
+                      createdAtTimestamp = createdAt;
+                    } else {
+                      createdAtTimestamp = Timestamp.fromDate(new Date(createdAt));
+                    }
+                    
+                    // Build query to check for duplicate orders
+                    // Check by employeeId, total, and createdAt (within 10 seconds) to catch duplicates
+                    const startTime = new Date(createdAtTimestamp.toDate().getTime() - 10000);
+                    const endTime = new Date(createdAtTimestamp.toDate().getTime() + 10000);
+                    
+                    // Check by employeeId and total (most reliable for duplicate detection)
+                    const existingOrderQuery = query(
+                      collectionRef,
+                      where('employeeId', '==', employeeId),
+                      where('total', '==', total),
+                      where('createdAt', '>=', Timestamp.fromDate(startTime)),
+                      where('createdAt', '<=', Timestamp.fromDate(endTime))
+                    );
+                    
+                    const existingOrderDocs = await getDocs(existingOrderQuery);
+                    
+                    if (!existingOrderDocs.empty) {
+                      console.warn(`Skipping duplicate order write: order with same employeeId (${employeeId}), total (${total}), and createdAt (within 10s) already exists`);
+                      shouldCreate = false;
+                    }
+                  } catch (queryError: any) {
+                    // If query fails (e.g., permission error), log but don't block the write
+                    console.warn('Error checking for duplicate orders (non-blocking):', queryError);
+                    // Continue with creation - better to have a potential duplicate than block legitimate orders
+                  }
+                }
+              }
               // Check for customers with same phone/email
-              if (write.data.phone || write.data.email) {
+              else if (write.data.phone || write.data.email) {
                 const existingQuery = query(
                   collectionRef,
                   where(write.data.phone ? 'phone' : 'email', '==', write.data.phone || write.data.email)
@@ -283,6 +456,33 @@ export async function syncPendingWrites(): Promise<{ synced: number; errors: num
           error?.message?.includes('No document to delete');
         
         if (isPermissionError || isNotFoundError) {
+          // For Staff collection writes, check if it's a duplicate before skipping
+          const collectionLower = write.collection.toLowerCase();
+          if (isPermissionError && collectionLower.includes('staff') && write.type === 'add') {
+            try {
+              // Check if document already exists (might be a duplicate)
+              const collectionRef = collection(firestoreDb, write.collection);
+              if (write.data && write.data.uid) {
+                const existingQuery = query(
+                  collectionRef,
+                  where('uid', '==', write.data.uid)
+                );
+                const existingDocs = await getDocs(existingQuery);
+                if (!existingDocs.empty) {
+                  console.warn(`Skipping duplicate Staff write: document with uid ${write.data.uid} already exists in ${write.collection}`);
+                  // Mark as synced (duplicate, so it's effectively "done")
+                  if (write.id) {
+                    await db.pendingWrites.delete(write.id.toString());
+                  }
+                  continue;
+                }
+              }
+            } catch (checkError) {
+              // If duplicate check fails, proceed with normal error handling
+              console.warn('Error checking for duplicate Staff document:', checkError);
+            }
+          }
+          
           console.warn(`Skipping write ${write.id} to ${write.collection}: ${isPermissionError ? 'Permission denied' : 'Document not found'}. Removing from queue.`);
           // Delete immediately - these errors won't succeed on retry
           if (write.id) {

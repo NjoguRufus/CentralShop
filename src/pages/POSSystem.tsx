@@ -696,7 +696,7 @@ const POSSystem: React.FC = () => {
         total,
         status: orderStatus,
         paymentMethod: paymentData.paymentMethod,
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
         shopId: currentUser.shopId || '',
         // The shop the order belongs to (destination shop in POS)
         shopName: selectedBranch as BranchName,
@@ -746,7 +746,84 @@ const POSSystem: React.FC = () => {
         currentUser.shopId!,
         selectedBranch as BranchName
       );
-      await addDoc(collection(db, ordersCollectionName), orderData);
+      
+      let orderRef;
+      if (!navigator.onLine) {
+        // If offline, save to OfflineOrders collection in IndexedDB and queue for Firestore sync
+        const offlineOrdersCollection = `OfflineOrders_${selectedBranch}`;
+        const offlineOrderId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Save to local IndexedDB cache
+        const { db: indexedDb } = await import('../offline/db');
+        const cacheKey = `offline-orders-${selectedBranch}`;
+        const cached = await indexedDb.localCache.get(cacheKey);
+        const cachedOrders = cached && Array.isArray(cached.data) ? cached.data : [];
+        
+        const newOrder = {
+          id: offlineOrderId,
+          ...orderData,
+          synced: false,
+          createdAt: orderData.createdAt?.toDate ? orderData.createdAt.toDate() : (orderData.createdAt || new Date())
+        };
+        
+        cachedOrders.unshift(newOrder);
+        
+        await indexedDb.localCache.put({
+          id: cacheKey,
+          collection: offlineOrdersCollection,
+          data: cachedOrders,
+          lastSynced: new Date()
+        });
+        
+        // Queue for Firestore sync when back online
+        const { addDoc: safeAddDoc } = await import('../offline/firestoreWrappers');
+        const { createAddAction } = await import('../offline/safeFirestoreWrite');
+        orderRef = await safeAddDoc(
+          collection(db, offlineOrdersCollection),
+          { ...orderData, synced: false, createdAt: Timestamp.now() },
+          createAddAction(offlineOrdersCollection, { ...orderData, synced: false, createdAt: Timestamp.now() })
+        );
+        
+        console.log('Offline order saved to OfflineOrders collection (queued for sync)');
+      } else {
+        // If online, save to main orders collection
+        orderRef = await addDoc(collection(db, ordersCollectionName), orderData);
+      }
+      
+      // Save order to IndexedDB cache immediately for offline viewing
+      // This ensures the order appears in the Orders page even when offline
+      try {
+        const { db: indexedDb } = await import('../offline/db');
+        const cacheKey = `orders-${selectedBranch || 'default'}`;
+        const cached = await indexedDb.localCache.get(cacheKey);
+        const cachedOrders = cached && Array.isArray(cached.data) ? cached.data : [];
+        
+        // Add the new order to the cache
+        const newOrder = {
+          id: orderRef.id,
+          ...orderData,
+          createdAt: orderData.createdAt?.toDate ? orderData.createdAt.toDate() : (orderData.createdAt || new Date()),
+          date: orderData.date || new Date().toISOString().split('T')[0]
+        };
+        
+        // Add to beginning of array (most recent first)
+        cachedOrders.unshift(newOrder);
+        
+        // Limit to 500 orders to keep cache size manageable
+        const limitedOrders = cachedOrders.slice(0, 500);
+        
+        await indexedDb.localCache.put({
+          id: cacheKey,
+          collection: ordersCollectionName,
+          data: limitedOrders,
+          lastSynced: new Date()
+        });
+        
+        console.log('Order saved to IndexedDB cache for offline viewing');
+      } catch (cacheError) {
+        console.warn('Failed to save order to cache (non-critical):', cacheError);
+        // Don't throw - this is just for offline viewing, order is already queued
+      }
 
       // If debt or partial payment, create invoice
       if (paymentData.paymentMethod === 'debt' && paymentData.customerName && paymentData.customerPhone) {

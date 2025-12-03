@@ -30,29 +30,23 @@ export async function safeFirestoreWrite<T>(
     return undefined as T;
   }
   
-  if (collectionLower.includes('orders') || collectionLower.includes('order')) {
-    // Only allow orders if they're coming from POS checkout (online and successful)
-    // Block offline order writes and failed order writes from being queued
-    if (!navigator.onLine) {
-      console.warn(`Blocked offline order write: ${writeAction.collection}. Orders must be created through POS checkout when online.`);
-      const mockId = `blocked-${Date.now()}`;
-      return {
-        id: mockId,
-        path: `${writeAction.collection}/${mockId}`,
-        parent: null,
-        type: 'document'
-      } as T;
-    }
-  }
+  // Allow orders to be queued when offline - they will sync when back online
+  // Orders from POS checkout should be saved even when offline
 
   // Check if we're online
   if (!navigator.onLine) {
     console.log('Offline: Queuing write operation');
+    // For add operations (especially orders), generate OFF- prefix ID and store it
+    let mockId: string | undefined;
+    if (writeAction.type === 'add') {
+      mockId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Store the mock ID in the write action so we can identify legitimate offline orders
+      writeAction.docId = mockId;
+    }
     await saveOfflineWrite(writeAction);
     // Return a mock result that matches the expected type
     // For addDoc, return a DocumentReference-like object
-    if (writeAction.type === 'add') {
-      const mockId = `offline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (writeAction.type === 'add' && mockId) {
       return {
         id: mockId,
         path: `${writeAction.collection}/${mockId}`,
@@ -68,23 +62,25 @@ export async function safeFirestoreWrite<T>(
     // Try to execute the write operation
     return await action();
   } catch (err) {
-    // If write fails, check if it's an order or notification - don't queue those
-    if (collectionLower.includes('orders') || collectionLower.includes('order')) {
-      console.warn(`Order write failed and will not be queued: ${writeAction.collection}. Orders must be created through POS checkout.`);
-      throw err; // Re-throw to let the caller handle it
-    }
+    // If write fails, check if it's a notification - don't queue those
     if (collectionLower.includes('notifications') || collectionLower.includes('notification')) {
       console.warn(`Notification write failed and will not be queued: ${writeAction.collection}. Notifications are local-only.`);
       throw err; // Re-throw to let the caller handle it
     }
     
-    // For other writes, queue it for offline sync
+    // For orders and other writes, queue it for offline sync
     console.log('Write failed, queuing for offline sync:', err);
+    // For add operations (especially orders), generate OFF- prefix ID and store it
+    let mockId: string | undefined;
+    if (writeAction.type === 'add') {
+      mockId = `OFF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Store the mock ID in the write action so we can identify legitimate offline orders
+      writeAction.docId = mockId;
+    }
     await saveOfflineWrite(writeAction);
     
     // Return a mock result
-    if (writeAction.type === 'add') {
-      const mockId = `offline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (writeAction.type === 'add' && mockId) {
       return {
         id: mockId,
         path: `${writeAction.collection}/${mockId}`,

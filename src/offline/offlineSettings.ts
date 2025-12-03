@@ -71,6 +71,6 @@ export async function syncSettingsToFirestore(): Promise<void> {
   // Settings are now only updated through manual user input in the Settings page
   // This automatic sync has been disabled to prevent unwanted settings updates and duplicates
   console.log('Settings sync disabled: Settings must be updated through manual user input only');
-  return;
+      return;
 }
 

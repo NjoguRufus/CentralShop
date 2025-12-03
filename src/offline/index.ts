@@ -51,9 +51,11 @@ export async function syncAllToFirestore(): Promise<void> {
       return;
     }
     
-    // Only sync pending writes (queued when offline)
+    // Only sync pending writes (queued when offline from user actions like POS checkout)
+    // This syncs orders, customers, products, etc. that were created offline
     // All other automatic syncing is disabled to prevent unwanted data creation
-    await syncOfflineOrdersToFirebase(); // Already disabled, just returns
+    const { syncPendingWrites } = await import('./sync');
+    await syncPendingWrites();
     
     // Customer and Settings sync disabled - they must be created/updated manually
     // await syncCustomersToFirestore(); // DISABLED

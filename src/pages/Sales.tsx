@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
+import { loadOrdersCacheFirst } from '../offline/cacheFirstLoader';
 import Card from '../components/UI/Card';
 import Modal from '../components/Modal';
 import Dropdown from '../components/UI/Dropdown';
@@ -117,16 +118,58 @@ const Sales: React.FC = () => {
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
 
-      const qRef = query(
-        collection(db, ordersPath),
-        where('createdAt', '>=', start),
-        where('createdAt', '<', end)
-      );
+      // Use cache-first loading to get offline orders
+      let allOrders = await loadOrdersCacheFirst(branch);
+      
+      // Filter orders by selected date (include offline orders)
+      const selectedDateOrders = allOrders.filter((order: any) => {
+        const orderDate = order.createdAt?.toDate 
+          ? order.createdAt.toDate() 
+          : (order.createdAt ? new Date(order.createdAt) : new Date(order.date || 0));
+        const orderDateStr = orderDate.toISOString().split('T')[0];
+        return orderDateStr === selectedDate;
+      });
 
-      const [ordersSnap, productsSnap] = await Promise.all([
-        getDocs(qRef),
-        getDocs(collection(db, getShopCollectionName('products', branch))),
-      ]);
+      // Also try to fetch from Firestore if online (for real-time updates)
+      let firestoreOrders: any[] = [];
+      if (navigator.onLine) {
+        try {
+          const qRef = query(
+            collection(db, ordersPath),
+            where('createdAt', '>=', Timestamp.fromDate(start)),
+            where('createdAt', '<', Timestamp.fromDate(end))
+          );
+          const ordersSnap = await getDocs(qRef);
+          firestoreOrders = ordersSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt
+          }));
+        } catch (error) {
+          console.warn('Error fetching orders from Firestore, using cache:', error);
+        }
+      }
+
+      // Merge cache and Firestore orders, removing duplicates
+      const orderMap = new Map();
+      // Add cached orders first (includes offline orders)
+      selectedDateOrders.forEach((order: any) => {
+        orderMap.set(order.id, order);
+      });
+      // Add/update with Firestore orders
+      firestoreOrders.forEach((order: any) => {
+        orderMap.set(order.id, order);
+      });
+      const mergedOrders = Array.from(orderMap.values());
+
+      // Fetch products
+      let productsSnap;
+      try {
+        productsSnap = await getDocs(collection(db, getShopCollectionName('products', branch)));
+      } catch (error) {
+        console.warn('Error fetching products:', error);
+        productsSnap = { forEach: () => {} } as any; // Empty snapshot
+      }
 
       const productMap: Record<
         string,
@@ -151,8 +194,8 @@ const Sales: React.FC = () => {
       let ordersCount = 0;
       let splitCount = 0;
 
-      ordersSnap.forEach((docSnap) => {
-        const data = docSnap.data() as any;
+      mergedOrders.forEach((orderData: any) => {
+        const data = orderData;
 
         const status: string = (data.status || 'completed').toString().toLowerCase();
         // Skip cancelled orders from sales metrics
@@ -199,7 +242,7 @@ const Sales: React.FC = () => {
         }
 
         rows.push({
-          id: docSnap.id,
+          id: data.id || `order-${Date.now()}`,
           total,
           status,
           paymentMethod,

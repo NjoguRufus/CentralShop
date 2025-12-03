@@ -68,12 +68,19 @@ service cloud.firestore {
       allow read: if isSignedIn() && shopStaff.matches('.*Staff$');
       // Allow list/query operations for unauthenticated users (needed for login page email lookup)
       allow list: if shopStaff.matches('.*Staff$');
-      // Allow create during setup - user is authenticated, shop may not exist yet
-      // This allows creating CentralShopStaff documents during initial setup
+      // Allow create:
+      // 1. During setup - user creating their own document (uid matches)
+      // 2. By admins/mainAdmin/astraronix - creating employee documents for other users
       allow create: if isSignedIn() 
         && shopStaff.matches('.*Staff$')
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.role in ['mainAdmin', 'Admin', 'Cashier', 'Stock Manager', 'astraronix'];
+        && request.resource.data.role in ['mainAdmin', 'Admin', 'Cashier', 'Stock Manager', 'astraronix']
+        && (
+          // User creating their own document (setup scenario)
+          request.resource.data.uid == request.auth.uid
+          ||
+          // Admin/mainAdmin/astraronix creating documents for other users
+          (hasAnyRole(['mainAdmin', 'Admin', 'astraronix']) && request.resource.data.uid != null)
+        );
       // Allow update/delete for authenticated users (can be tightened later)
       allow update, delete: if isSignedIn() && shopStaff.matches('.*Staff$');
     }
@@ -208,6 +215,22 @@ service cloud.firestore {
       // Only match collections ending with "Orders"
       allow read, write: if isSignedIn() 
         && shopOrdersCollection.matches('.*Orders$');
+    }
+    
+    // Offline Orders Collections: OfflineOrders_{ShopName}/{orderId}
+    // Example: OfflineOrders_CentralShop/{orderId}, OfflineOrders_Kamwene/{orderId}
+    // These are orders created while offline, stored separately until synced to main orders collection
+    match /OfflineOrders_{shopName}/{orderId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() 
+        && request.resource.data.keys().hasAll(['items', 'subtotal', 'tax', 'total', 'status', 'paymentMethod', 'createdAt', 'employeeId'])
+        && request.resource.data.total == request.resource.data.subtotal + request.resource.data.tax
+        && request.resource.data.subtotal >= 0
+        && request.resource.data.tax >= 0
+        && request.resource.data.total >= 0
+        && request.resource.data.status in ['completed', 'pending', 'cancelled', 'partial']
+        && request.resource.data.items.size() > 0;
+      allow update, delete: if isSignedIn();
     }
     
     // Orders: {ShopName}Orders/{orderId}

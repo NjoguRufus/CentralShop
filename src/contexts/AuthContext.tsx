@@ -83,116 +83,116 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Separate function to fetch user data from Firestore
   const fetchUserDataFromFirestore = React.useCallback(async (firebaseUser: FirebaseUser): Promise<void> => {
-    try {
-      console.log('Fetching user data for UID:', firebaseUser.uid);
-      
-      let userDoc = null;
-      let userData: User | null = null;
+        try {
+          console.log('Fetching user data for UID:', firebaseUser.uid);
           
-      // Prefer previously selected shop if stored
-      const savedShop = (typeof window !== 'undefined'
-        ? (localStorage.getItem('selectedShop') as BranchName | null)
-        : null);
+          let userDoc = null;
+          let userData: User | null = null;
+          
+          // Prefer previously selected shop if stored
+          const savedShop = (typeof window !== 'undefined'
+            ? (localStorage.getItem('selectedShop') as BranchName | null)
+            : null);
 
-      const allBranches: BranchName[] = [BRANCHES.CENTRAL, BRANCHES.KAMWENE];
-      const branchesToCheck: BranchName[] = savedShop
-        ? Array.from(new Set<BranchName>([savedShop, ...allBranches]))
-        : allBranches;
+          const allBranches: BranchName[] = [BRANCHES.CENTRAL, BRANCHES.KAMWENE];
+          const branchesToCheck: BranchName[] = savedShop
+            ? Array.from(new Set<BranchName>([savedShop, ...allBranches]))
+            : allBranches;
 
       // Try dynamic user collections for each branch (e.g., CentralShopStaff, KamweneStaff)
-      for (const branch of branchesToCheck) {
-        if (userData) break;
-
-        const branchUserCollection = getUserCollectionName(undefined, branch);
-        const branchUsersQuery = query(
-          collection(db, branchUserCollection),
-          where('uid', '==', firebaseUser.uid)
-        );
-        const branchUsersSnapshot = await getDocs(branchUsersQuery);
-      
-        if (!branchUsersSnapshot.empty) {
-          userDoc = branchUsersSnapshot.docs[0];
-          userData = {
-            ...(userDoc.data() as User),
-            // Ensure shopName is set to branch if missing
-            shopName: (userDoc.data() as any).shopName || branch,
-          } as User;
-          break;
-        }
-      }
-
-      // If still not found, try legacy users and employees collections (Central shop only)
-      if (!userData) {
-        // Try old users collection (for backward compatibility)
-        const usersQuery = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
-        const usersSnapshot = await getDocs(usersQuery);
-        console.log('User documents found in users collection:', usersSnapshot.size);
-        
-        if (!usersSnapshot.empty) {
-          userDoc = usersSnapshot.docs[0];
-          userData = userDoc.data() as User;
-        } else {
-          // If not found in users, try employees collection for each branch
           for (const branch of branchesToCheck) {
             if (userData) break;
-            const employeesCollectionName = getShopCollectionName('employees', branch);
-            const employeesQuery = query(
-              collection(db, employeesCollectionName),
+
+            const branchUserCollection = getUserCollectionName(undefined, branch);
+            const branchUsersQuery = query(
+              collection(db, branchUserCollection),
               where('uid', '==', firebaseUser.uid)
             );
-          const employeesSnapshot = await getDocs(employeesQuery);
-            console.log(
-              `User documents found in ${employeesCollectionName} employees collection:`,
-              employeesSnapshot.size
-            );
+            const branchUsersSnapshot = await getDocs(branchUsersQuery);
           
-          if (!employeesSnapshot.empty) {
-            userDoc = employeesSnapshot.docs[0];
+            if (!branchUsersSnapshot.empty) {
+              userDoc = branchUsersSnapshot.docs[0];
               userData = {
                 ...(userDoc.data() as User),
+                // Ensure shopName is set to branch if missing
                 shopName: (userDoc.data() as any).shopName || branch,
               } as User;
               break;
             }
           }
-        }
-      }
-      
-      if (userData && userDoc) {
-        console.log('User data found:', userData);
-        const primaryShopRaw: string =
-          (userData.shopName as string) ||
-          (Array.isArray(userData.assignedShops) && userData.assignedShops.length > 0
-            ? userData.assignedShops[0]
-            : BRANCHES.CENTRAL);
 
-        // Normalize shopName to one of the known branches, handling legacy values like "Kamwene"
-        const normalizedKey = primaryShopRaw.toLowerCase().replace(/\s+/g, '');
-        let normalizedShopName: BranchName;
-        if (normalizedKey.includes('kamwene')) {
-          normalizedShopName = BRANCHES.KAMWENE;
-        } else if (normalizedKey.includes('central')) {
-          normalizedShopName = BRANCHES.CENTRAL;
-        } else {
-          // Fallback: default to CentralShop if unknown
-          normalizedShopName = BRANCHES.CENTRAL;
-        }
+          // If still not found, try legacy users and employees collections (Central shop only)
+          if (!userData) {
+            // Try old users collection (for backward compatibility)
+            const usersQuery = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
+            const usersSnapshot = await getDocs(usersQuery);
+            console.log('User documents found in users collection:', usersSnapshot.size);
+            
+            if (!usersSnapshot.empty) {
+              userDoc = usersSnapshot.docs[0];
+              userData = userDoc.data() as User;
+            } else {
+              // If not found in users, try employees collection for each branch
+              for (const branch of branchesToCheck) {
+                if (userData) break;
+                const employeesCollectionName = getShopCollectionName('employees', branch);
+                const employeesQuery = query(
+                  collection(db, employeesCollectionName),
+                  where('uid', '==', firebaseUser.uid)
+                );
+              const employeesSnapshot = await getDocs(employeesQuery);
+                console.log(
+                  `User documents found in ${employeesCollectionName} employees collection:`,
+                  employeesSnapshot.size
+                );
+              
+              if (!employeesSnapshot.empty) {
+                userDoc = employeesSnapshot.docs[0];
+                  userData = {
+                    ...(userDoc.data() as User),
+                    shopName: (userDoc.data() as any).shopName || branch,
+                  } as User;
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (userData && userDoc) {
+            console.log('User data found:', userData);
+            const primaryShopRaw: string =
+              (userData.shopName as string) ||
+              (Array.isArray(userData.assignedShops) && userData.assignedShops.length > 0
+                ? userData.assignedShops[0]
+                : BRANCHES.CENTRAL);
 
-        const user: User = {
-          ...userData, 
-          id: userDoc.id, 
-          uid: firebaseUser.uid,
-          shopName: normalizedShopName,
-          createdAt: (userData as any).createdAt?.toDate?.() || new Date(),
-          updatedAt: (userData as any).updatedAt?.toDate?.() || new Date(),
-        };
+            // Normalize shopName to one of the known branches, handling legacy values like "Kamwene"
+            const normalizedKey = primaryShopRaw.toLowerCase().replace(/\s+/g, '');
+            let normalizedShopName: BranchName;
+            if (normalizedKey.includes('kamwene')) {
+              normalizedShopName = BRANCHES.KAMWENE;
+            } else if (normalizedKey.includes('central')) {
+              normalizedShopName = BRANCHES.CENTRAL;
+            } else {
+              // Fallback: default to CentralShop if unknown
+              normalizedShopName = BRANCHES.CENTRAL;
+            }
 
-        // Persist selected shop so all pages can default correctly
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('selectedShop', normalizedShopName);
-        }
+            const user: User = {
+              ...userData, 
+              id: userDoc.id, 
+              uid: firebaseUser.uid,
+              shopName: normalizedShopName,
+              createdAt: (userData as any).createdAt?.toDate?.() || new Date(),
+              updatedAt: (userData as any).updatedAt?.toDate?.() || new Date(),
+            };
 
-        setCurrentUser(user);
+            // Persist selected shop so all pages can default correctly
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('selectedShop', normalizedShopName);
+            }
+
+            setCurrentUser(user);
         
         // Cache user data for offline access
         try {
@@ -203,24 +203,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch (cacheError) {
           console.warn('Error caching user data:', cacheError);
         }
-        
-        // Track login activity (only once per session)
-        if (lastLoginTracked !== user.id) {
-          try {
-            const { ipAddress, userAgent } = await EmployeeActivityService.getClientInfo();
-            await EmployeeActivityService.logActivity(
-              user.id,
-              user.name,
-              'login',
-              user.shopId || '',
-              ipAddress,
-              userAgent
-            );
-            setLastLoginTracked(user.id);
-          } catch (error) {
-            console.error('Error logging login activity:', error);
-            // Don't fail login if activity logging fails
-          }
+            
+            // Track login activity (only once per session)
+            if (lastLoginTracked !== user.id) {
+              try {
+                const { ipAddress, userAgent } = await EmployeeActivityService.getClientInfo();
+                await EmployeeActivityService.logActivity(
+                  user.id,
+                  user.name,
+                  'login',
+                  user.shopId || '',
+                  ipAddress,
+                  userAgent
+                );
+                setLastLoginTracked(user.id);
+              } catch (error) {
+                console.error('Error logging login activity:', error);
+                // Don't fail login if activity logging fails
+              }
         }
       } else {
         // If no user record exists, try to use cached data as fallback
@@ -235,17 +235,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setCurrentUser(user);
           if (!navigator.onLine) {
             toast.info('Using cached user data. Some features may be limited offline.');
-          }
-        } else {
-          // If no user record exists, keep Firebase auth but set currentUser to null
-          // This allows the user to see an error message instead of being logged out
-          console.warn('No user record found in database for UID:', firebaseUser.uid);
-          setCurrentUser(null);
-          // Don't sign out - let the UI handle showing an error message
+            }
+          } else {
+            // If no user record exists, keep Firebase auth but set currentUser to null
+            // This allows the user to see an error message instead of being logged out
+            console.warn('No user record found in database for UID:', firebaseUser.uid);
+            setCurrentUser(null);
+            // Don't sign out - let the UI handle showing an error message
         }
-      }
-    } catch (error: any) {
-      console.error('Error fetching user data:', error);
+          }
+        } catch (error: any) {
+          console.error('Error fetching user data:', error);
       
       // If offline or network error, try to use cached data
       if (!navigator.onLine || error.code === 'unavailable' || error.message?.includes('network')) {
@@ -268,18 +268,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
       
-      // Check if it's a permission error
-      if (error.code === 'permission-denied') {
-        console.error('Permission denied when fetching user data. Check Firestore rules.');
+          // Check if it's a permission error
+          if (error.code === 'permission-denied') {
+            console.error('Permission denied when fetching user data. Check Firestore rules.');
         if (navigator.onLine) {
-          toast.error('Permission denied. Please contact an administrator.');
+            toast.error('Permission denied. Please contact an administrator.');
         }
-      } else {
-        console.error('Unexpected error fetching user data:', error);
-      }
-      // Don't sign out on error - keep Firebase auth active
-      setCurrentUser(null);
-    }
+          } else {
+            console.error('Unexpected error fetching user data:', error);
+          }
+          // Don't sign out on error - keep Firebase auth active
+          setCurrentUser(null);
+        }
   }, [lastLoginTracked]);
 
   useEffect(() => {
@@ -439,15 +439,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Log logout activity before signing out (only if online)
       if (currentUser && navigator.onLine) {
         try {
-          const { ipAddress, userAgent } = await EmployeeActivityService.getClientInfo();
-          await EmployeeActivityService.logActivity(
-            currentUser.id,
-            currentUser.name,
-            'logout',
-            currentUser.shopId || '',
-            ipAddress,
-            userAgent
-          );
+        const { ipAddress, userAgent } = await EmployeeActivityService.getClientInfo();
+        await EmployeeActivityService.logActivity(
+          currentUser.id,
+          currentUser.name,
+          'logout',
+          currentUser.shopId || '',
+          ipAddress,
+          userAgent
+        );
         } catch (error) {
           console.error('Error logging logout activity:', error);
           // Don't fail logout if activity logging fails
