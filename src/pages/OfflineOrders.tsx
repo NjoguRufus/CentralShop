@@ -55,54 +55,10 @@ const OfflineOrders: React.FC = () => {
       setLoading(true);
       const branch = selectedBranch as BranchName;
       
-      // Load from IndexedDB first (local storage)
+      // Load from IndexedDB only (source of truth for offline orders)
       const cacheKey = `offline-orders-${branch}`;
       const cached = await indexedDb.localCache.get(cacheKey);
-      let localOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
-      
-      // Also fetch from Firebase offline orders collection if online
-      if (navigator.onLine) {
-        try {
-          const offlineOrdersCollection = `OfflineOrders${branch}`;
-          const q = query(
-            collection(db, offlineOrdersCollection),
-            orderBy('createdAt', 'desc')
-          );
-          const snapshot = await getDocs(q);
-          const firestoreOrders = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : doc.data().createdAt
-          })) as OfflineOrder[];
-          
-          // Merge local and Firestore orders, removing duplicates
-          const orderMap = new Map();
-          localOrders.forEach(order => {
-            if (order.id) orderMap.set(order.id, order);
-          });
-          firestoreOrders.forEach(order => {
-            if (order.id) orderMap.set(order.id, order);
-          });
-          
-          localOrders = Array.from(orderMap.values());
-          
-          // Update cache
-          await indexedDb.localCache.put({
-            id: cacheKey,
-            collection: offlineOrdersCollection,
-            data: localOrders,
-            lastSynced: new Date()
-          });
-        } catch (error: any) {
-          // Handle permission errors gracefully
-          if (error?.code === 'permission-denied' || error?.message?.includes('Missing or insufficient permissions')) {
-            console.warn('Permission denied fetching offline orders from Firestore. Using local cache only.');
-            // Continue with local orders only
-          } else {
-            console.warn('Error fetching offline orders from Firestore:', error);
-          }
-        }
-      }
+      const localOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
       
       setOfflineOrders(localOrders);
     } catch (error) {
