@@ -144,10 +144,9 @@ const Customers: React.FC = () => {
 
       setCustomers(customersWithStats as Customer[]);
       
-      if (customersData.length === 0 && navigator.onLine) {
-        toast.error('Failed to fetch customers');
-      } else if (customersData.length === 0 && !navigator.onLine) {
-        toast.info('Loading from cache...');
+      // If there are no customers, let the UI show an empty state instead of an error toast
+      if (customersData.length === 0 && !navigator.onLine) {
+        toast.info('Loading customers from cache...');
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -163,11 +162,9 @@ const Customers: React.FC = () => {
           });
           setCustomers(customersWithStats as Customer[]);
           toast.info('Loaded customers from cache');
-        } else {
-          toast.error('Failed to fetch customers');
         }
       } catch (e) {
-        toast.error('Failed to fetch customers');
+        // Silent – UI will show empty state
       }
     } finally {
       setLoading(false);
@@ -336,80 +333,89 @@ const Customers: React.FC = () => {
       </div>
 
       <Card className="p-6">
-        <div className="mb-4">
-          <FormInput
-            name="search"
-            type="text"
-            placeholder="Search customers..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="w-full md:w-1/2"
-          />
-        </div>
-
         {loading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
             ))}
           </div>
+        ) : customers.length === 0 ? (
+          <div className="py-8 text-center">
+            <ShoppingBag className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-600 dark:text-gray-400 font-medium">No customers found</p>
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-500 mt-1">
+              Add a customer to get started.
+            </p>
+          </div>
         ) : (
-          <Table
-            columns={[
-              { header: 'Name', accessor: 'name' },
-              { header: 'Email', accessor: 'email' },
-              { header: 'Phone', accessor: 'phone' },
-              { 
-                header: 'Orders', 
-                accessor: 'totalPurchases',
-                render: (row: Customer) => (
-                  <div className="flex items-center space-x-2">
-                    <ShoppingBag className="w-4 h-4 text-gray-500" />
-                    <span>{row.totalPurchases || 0}</span>
-                  </div>
-                )
-              },
-              { 
-                header: 'Total Spent', 
-                accessor: 'totalSpent',
-                render: (row: Customer) => (
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-4 h-4 text-green-600" />
-                    <span className="font-semibold text-green-600">KSH {(row.totalSpent || 0).toLocaleString()}</span>
-                  </div>
-                )
-              },
-              { header: 'Loyalty Points', accessor: 'loyaltyPoints' },
-              {
-                header: 'Actions',
-                accessor: 'actions',
-                render: (row: Customer) => (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleViewPurchaseHistory(row)}
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                      title="View Purchase History"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(row)}
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(row.id!)}
-                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ),
-              },
-            ]}
-            data={filteredCustomers}
-          />
+          <>
+            <div className="mb-4">
+              <FormInput
+                name="search"
+                type="text"
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="w-full md:w-1/2"
+              />
+            </div>
+            <Table
+              columns={[
+                { header: 'Name', accessor: 'name' },
+                { header: 'Email', accessor: 'email' },
+                { header: 'Phone', accessor: 'phone' },
+                { 
+                  header: 'Orders', 
+                  accessor: 'totalPurchases',
+                  render: (row: Customer) => (
+                    <div className="flex items-center space-x-2">
+                      <ShoppingBag className="w-4 h-4 text-gray-500" />
+                      <span>{row.totalPurchases || 0}</span>
+                    </div>
+                  )
+                },
+                { 
+                  header: 'Total Spent', 
+                  accessor: 'totalSpent',
+                  render: (row: Customer) => (
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="w-4 h-4 text-green-600" />
+                      <span className="font-semibold text-green-600">KSH {(row.totalSpent || 0).toLocaleString()}</span>
+                    </div>
+                  )
+                },
+                { header: 'Loyalty Points', accessor: 'loyaltyPoints' },
+                {
+                  header: 'Actions',
+                  accessor: 'actions',
+                  render: (row: Customer) => (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleViewPurchaseHistory(row)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="View Purchase History"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(row)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(row.id!)}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={filteredCustomers}
+            />
+          </>
         )}
       </Card>
 

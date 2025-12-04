@@ -686,60 +686,69 @@ const Expenses: React.FC = () => {
       </div>
 
       <Card>
-        <Table
-          headers={['Description', 'Type', 'Category', 'Amount', 'Date', 'Payment Method', 'Status', 'Actions']}
-          data={expenses.map(expense => [
-            <div>
-              <div className="font-medium">{expense.description}</div>
-              {expense.expenseType === 'salary' && expense.employeeName && (
-                <div className="text-xs text-gray-500 dark:text-gray-400">Employee: {expense.employeeName}</div>
-              )}
-              {expense.expenseType === 'regular' && expense.supplierName && (
-                <div className="text-xs text-gray-500 dark:text-gray-400">Supplier: {expense.supplierName}</div>
-              )}
-            </div>,
-            <span className={`px-2 py-1 rounded-full text-xs ${
-              expense.expenseType === 'salary' 
-                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' 
-                : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-            }`}>
-              {expense.expenseType === 'salary' ? 'Salary' : 'Expense'}
-            </span>,
-            <span className="flex items-center">
-              <div 
-                className="w-3 h-3 rounded-full mr-2" 
-                style={{ backgroundColor: expense.category.color }}
-              ></div>
-              {expense.category.name}
-            </span>,
-            `KSH ${expense.amount.toLocaleString()}`,
-            expense.date.toLocaleDateString(),
-            <span className={`px-2 py-1 rounded-full text-xs ${getPaymentMethodColor(expense.paymentMethod)} badge-text-dark`}>
-              {expense.paymentMethod.replace('_', ' ').toUpperCase()}
-            </span>,
-            <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(expense.status)} badge-text-dark`}>
-              {expense.status}
-            </span>,
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  setSelectedExpense(expense);
-                  setEditingExpense(expense);
-                  setShowEditModal(true);
-                }}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => handleDeleteExpense(expense.id)}
-                className="text-red-600 hover:text-red-800"
-              >
-                Delete
-              </button>
-            </div>
-          ])}
-        />
+        {expenses.length === 0 ? (
+          <div className="py-10 text-center text-gray-600 dark:text-gray-400">
+            <p className="text-sm md:text-base font-medium">No expenses recorded</p>
+            <p className="text-xs md:text-sm mt-1">
+              Add an expense and it will appear here.
+            </p>
+          </div>
+        ) : (
+          <Table
+            headers={['Description', 'Type', 'Category', 'Amount', 'Date', 'Payment Method', 'Status', 'Actions']}
+            data={expenses.map(expense => [
+              <div>
+                <div className="font-medium">{expense.description}</div>
+                {expense.expenseType === 'salary' && expense.employeeName && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Employee: {expense.employeeName}</div>
+                )}
+                {expense.expenseType === 'regular' && expense.supplierName && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Supplier: {expense.supplierName}</div>
+                )}
+              </div>,
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                expense.expenseType === 'salary' 
+                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' 
+                  : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+              }`}>
+                {expense.expenseType === 'salary' ? 'Salary' : 'Expense'}
+              </span>,
+              <span className="flex items-center">
+                <div 
+                  className="w-3 h-3 rounded-full mr-2" 
+                  style={{ backgroundColor: expense.category.color }}
+                ></div>
+                {expense.category.name}
+              </span>,
+              `KSH ${expense.amount.toLocaleString()}`,
+              expense.date.toLocaleDateString(),
+              <span className={`px-2 py-1 rounded-full text-xs ${getPaymentMethodColor(expense.paymentMethod)} badge-text-dark`}>
+                {expense.paymentMethod.replace('_', ' ').toUpperCase()}
+              </span>,
+              <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(expense.status)} badge-text-dark`}>
+                {expense.status}
+              </span>,
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    setSelectedExpense(expense);
+                    setEditingExpense(expense);
+                    setShowEditModal(true);
+                  }}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteExpense(expense.id)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Delete
+                </button>
+              </div>
+            ])}
+          />
+        )}
       </Card>
 
       {/* Create Expense Modal */}

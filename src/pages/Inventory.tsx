@@ -103,10 +103,9 @@ const Inventory: React.FC = () => {
       const productsData = await loadProductsCacheFirst(selectedBranch as BranchName);
       setProducts(productsData as Product[]);
       
-      if (productsData.length === 0 && navigator.onLine) {
-        toast.error('Failed to fetch products');
-      } else if (productsData.length === 0 && !navigator.onLine) {
-        toast.info('Loading from cache...');
+      // If there are no products, let the UI show an empty state instead of an error toast
+      if (productsData.length === 0 && !navigator.onLine) {
+        toast.info('Loading products from cache...');
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -116,11 +115,9 @@ const Inventory: React.FC = () => {
         if (cached.length > 0) {
           setProducts(cached as Product[]);
           toast.info('Loaded products from cache');
-        } else {
-          toast.error('Failed to fetch products');
         }
       } catch (e) {
-        toast.error('Failed to fetch products');
+        // Silent – UI will show empty state
       }
     } finally {
       setLoading(false);

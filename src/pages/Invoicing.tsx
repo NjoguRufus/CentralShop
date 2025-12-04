@@ -986,41 +986,50 @@ const Invoicing: React.FC = () => {
       </div>
 
       <Card className="p-3 md:p-4">
-        <Table
-          headers={['Invoice #', 'Customer', 'Amount', 'Status', 'Due Date', 'Actions']}
-          data={invoices.map(invoice => [
-            invoice.invoiceNumber,
-            getCustomerName(invoice),
-            `KSH ${invoice.total.toLocaleString()}`,
-            <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(invoice.status)}`}>
-              {invoice.status}
-            </span>,
-            invoice.dueDate.toLocaleDateString(),
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  setSelectedInvoice(invoice);
-                  setShowDetailModal(true);
-                }}
-                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                title="View Details"
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedInvoice(invoice);
-                  setEditingInvoice(invoice);
-                  setShowEditModal(true);
-                }}
-                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                title="Edit"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
-            </div>
-          ])}
-        />
+        {invoices.length === 0 ? (
+          <div className="py-10 text-center text-gray-600 dark:text-gray-400">
+            <h3 className="text-sm md:text-base font-medium">No invoices found</h3>
+            <p className="text-xs md:text-sm mt-1">
+              Create an invoice to see it listed here.
+            </p>
+          </div>
+        ) : (
+          <Table
+            headers={['Invoice #', 'Customer', 'Amount', 'Status', 'Due Date', 'Actions']}
+            data={invoices.map(invoice => [
+              invoice.invoiceNumber,
+              getCustomerName(invoice),
+              `KSH ${invoice.total.toLocaleString()}`,
+              <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(invoice.status)}`}>
+                {invoice.status}
+              </span>,
+              invoice.dueDate.toLocaleDateString(),
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    setSelectedInvoice(invoice);
+                    setShowDetailModal(true);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="View Details"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedInvoice(invoice);
+                    setEditingInvoice(invoice);
+                    setShowEditModal(true);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="Edit"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              </div>
+            ])}
+          />
+        )}
       </Card>
 
       {/* Create/Edit Invoice Modal */}

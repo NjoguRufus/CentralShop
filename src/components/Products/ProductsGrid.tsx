@@ -66,6 +66,19 @@ const ProductsGrid: React.FC<ProductsGridProps> = ({
     );
   }
 
+  if (!loading && products.length === 0) {
+    return (
+      <div className="py-12 text-center text-gray-600 dark:text-gray-400">
+        <p className="font-medium text-sm md:text-base">
+          No products found
+        </p>
+        <p className="text-xs md:text-sm mt-1">
+          Add products to start selling.
+        </p>
+      </div>
+    );
+  }
+
   if (viewMode === 'list') {
     return (
       <div className="space-y-3">

@@ -808,74 +808,82 @@ const Employees: React.FC = () => {
       </div>
 
       <Card className="p-6">
-        <div className="mb-4">
-          <FormInput
-            name="search"
-            type="text"
-            placeholder="Search employees..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="w-full md:w-1/2"
-          />
-        </div>
-
         {loading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
             ))}
           </div>
+        ) : employees.length === 0 ? (
+          <div className="py-10 text-center text-gray-600 dark:text-gray-400">
+            <p className="text-sm md:text-base font-medium">No employees found</p>
+            <p className="text-xs md:text-sm mt-1">
+              Add an employee to see them listed here.
+            </p>
+          </div>
         ) : (
-          <Table
-            columns={[
-              { header: 'Name', accessor: 'name' },
-              { header: 'Email', accessor: 'email' },
-              { header: 'Role', accessor: 'role' },
-              {
-                header: 'Password',
-                accessor: 'password',
-                render: (row: Employee) => (
-                  <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
-                    {row.password || 'N/A'}
-                  </span>
-                )
-              },
-              { 
-                header: 'Status', 
-                accessor: 'status',
-                render: (row: Employee) => (
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    row.status === 'Active' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  }`}>
-                    {row.status}
-                  </span>
-                )
-              },
-              {
-                header: 'Actions',
-                accessor: 'actions',
-                render: (row: Employee) => (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(row)}
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(row.id!)}
-                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ),
-              },
-            ]}
-            data={filteredEmployees}
-          />
+          <>
+            <div className="mb-4">
+              <FormInput
+                name="search"
+                type="text"
+                placeholder="Search employees..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="w-full md:w-1/2"
+              />
+            </div>
+            <Table
+              columns={[
+                { header: 'Name', accessor: 'name' },
+                { header: 'Email', accessor: 'email' },
+                { header: 'Role', accessor: 'role' },
+                {
+                  header: 'Password',
+                  accessor: 'password',
+                  render: (row: Employee) => (
+                    <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
+                      {row.password || 'N/A'}
+                    </span>
+                  )
+                },
+                { 
+                  header: 'Status', 
+                  accessor: 'status',
+                  render: (row: Employee) => (
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      row.status === 'Active' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    }`}>
+                      {row.status}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Actions',
+                  accessor: 'actions',
+                  render: (row: Employee) => (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEdit(row)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(row.id!)}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={filteredEmployees}
+            />
+          </>
         )}
       </Card>
 

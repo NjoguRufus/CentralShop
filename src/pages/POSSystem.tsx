@@ -220,11 +220,9 @@ const POSSystem: React.FC = () => {
       const productsData = await loadProductsCacheFirst(selectedBranch as BranchName);
       setProducts(productsData as Product[]);
       
-      // Only show error if we have no data and we're online
-      if (productsData.length === 0 && navigator.onLine) {
-        toast.error('Failed to fetch products');
-      } else if (productsData.length === 0 && !navigator.onLine) {
-        toast.info('Loading from cache...');
+      // If there are no products, let the UI show an empty state instead of an error toast
+      if (productsData.length === 0 && !navigator.onLine) {
+        toast.info('Loading products from cache...');
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -234,11 +232,9 @@ const POSSystem: React.FC = () => {
         if (cached.length > 0) {
           setProducts(cached as Product[]);
           toast.info('Loaded products from cache');
-        } else {
-          toast.error('Failed to fetch products');
         }
       } catch (e) {
-        toast.error('Failed to fetch products');
+        // Silent – UI will show empty state
       }
     } finally {
       setLoading(false);
@@ -684,8 +680,11 @@ const POSSystem: React.FC = () => {
 
       // Create order - filter out undefined values
       const orderData: any = {
+        // Include product name on each item so Offline Orders page and receipts
+        // can display the actual items clearly even when offline
         items: cartSnapshot.map(item => ({
           productId: item.productId,
+          name: item.product.name,
           quantity: item.quantity,
           price: item.price,
           unit: item.product.unit || DEFAULT_UNIT,

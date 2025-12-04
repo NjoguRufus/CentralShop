@@ -17,7 +17,7 @@ import FormInput from '../components/UI/FormInput';
 import Table from '../components/UI/Table';
 import Modal from '../components/Modal';
 import Button from '../components/UI/Button';
-import { Download, Trash2, Archive } from 'lucide-react';
+import { Download, Trash2, Archive, Upload } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ReceiptService, ReceiptData } from '../services/ReceiptService';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
@@ -116,6 +116,7 @@ const Orders: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<{index: number, name: string} | null>(null);
   const [productDeletePassword, setProductDeletePassword] = useState<string>('');
   const [isDeletingProduct, setIsDeletingProduct] = useState<boolean>(false);
+  const [isSyncingOffline, setIsSyncingOffline] = useState<boolean>(false);
 
   // Determine if user can switch between shops
   const canSwitchBranches =
@@ -453,6 +454,34 @@ const Orders: React.FC = () => {
     } catch (error) {
       toast.error('Failed to update order status');
       console.error('Error updating order status:', error);
+    }
+  };
+
+  const handleSyncOfflineOrdersFromOrdersPage = async (): Promise<void> => {
+    if (!navigator.onLine) {
+      toast.error('Cannot sync offline orders while offline');
+      return;
+    }
+
+    try {
+      setIsSyncingOffline(true);
+      const branch = selectedBranch as BranchName;
+      const { syncOfflineOrdersForBranch } = await import('../offline/offlineOrders');
+      const { syncedCount, errorCount } = await syncOfflineOrdersForBranch(branch);
+
+      if (syncedCount === 0 && errorCount === 0) {
+        toast.info('No offline orders to sync');
+      } else {
+        toast.success(`Synced ${syncedCount} offline orders${errorCount > 0 ? ` (${errorCount} errors)` : ''}`);
+      }
+
+      // Refresh orders list so newly synced orders appear
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error syncing offline orders from Orders page:', error);
+      toast.error('Failed to sync offline orders');
+    } finally {
+      setIsSyncingOffline(false);
     }
   };
 
@@ -883,6 +912,17 @@ const Orders: React.FC = () => {
               placeholder="Select Branch"
             />
           )}
+          <Button
+            variant="primary"
+            onClick={handleSyncOfflineOrdersFromOrdersPage}
+            disabled={isSyncingOffline || !navigator.onLine}
+            className="flex items-center space-x-2"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">
+              {isSyncingOffline ? 'Syncing...' : 'Sync Offline Orders'}
+            </span>
+          </Button>
           <Button
             variant="secondary"
             onClick={() => navigate('/deleted-items')}

@@ -407,110 +407,120 @@ const Suppliers: React.FC = () => {
       </Card>
 
       {/* Suppliers Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {suppliers.filter(supplier => {
-          if (!searchTerm) return true;
-          const searchLower = searchTerm.toLowerCase();
-          // Search by supplier name
-          const matchesSupplierName = supplier.name.toLowerCase().includes(searchLower);
-          // Search by supply/product names
-          const matchesSupplyName = supplier.supplies?.some(supply => 
-            supply.productName.toLowerCase().includes(searchLower)
-          ) || false;
-          return matchesSupplierName || matchesSupplyName;
-        }).map(supplier => (
-          <Card key={supplier.id} className="p-4">
-            <div className="space-y-3">
-              <div className="flex items-start justify-between">
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">{supplier.name}</h3>
-                <span className={`px-2 py-1 rounded-full text-xs shrink-0 ${getStatusColor(supplier.status)}`}>
-                  {supplier.status}
-                </span>
-              </div>
-              
-              <div className="space-y-1 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                {supplier.contactPerson && (
-                  <div>
-                    <span className="font-medium">Contact:</span> {supplier.contactPerson}
-                  </div>
-                )}
-                {supplier.email && (
-                  <div className="truncate">
-                    <span className="font-medium">Email:</span> {supplier.email}
-                  </div>
-                )}
-                {supplier.phone && (
-                  <div>
-                    <span className="font-medium">Phone:</span> {supplier.phone}
-                  </div>
-                )}
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium">Supplies:</span>
-                  <span className="text-sm">{supplier.supplies?.length || 0}</span>
-                  {supplier.supplies && supplier.supplies.length > 0 && (
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      supplier.supplies.filter(s => !s.isCleared).length > 0 
-                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' 
-                        : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    }`}>
-                      {supplier.supplies.filter(s => !s.isCleared).length} uncleared
-                    </span>
+      {suppliers.length === 0 ? (
+        <Card className="p-8 text-center">
+          <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-600 dark:text-gray-400 font-medium">No suppliers found</p>
+          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-500 mt-1">
+            Add a supplier to start tracking supplies.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {suppliers.filter(supplier => {
+            if (!searchTerm) return true;
+            const searchLower = searchTerm.toLowerCase();
+            // Search by supplier name
+            const matchesSupplierName = supplier.name.toLowerCase().includes(searchLower);
+            // Search by supply/product names
+            const matchesSupplyName = supplier.supplies?.some(supply => 
+              supply.productName.toLowerCase().includes(searchLower)
+            ) || false;
+            return matchesSupplierName || matchesSupplyName;
+          }).map(supplier => (
+            <Card key={supplier.id} className="p-4">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm md:text-base">{supplier.name}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs shrink-0 ${getStatusColor(supplier.status)}`}>
+                    {supplier.status}
+                  </span>
+                </div>
+                
+                <div className="space-y-1 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                  {supplier.contactPerson && (
+                    <div>
+                      <span className="font-medium">Contact:</span> {supplier.contactPerson}
+                    </div>
                   )}
+                  {supplier.email && (
+                    <div className="truncate">
+                      <span className="font-medium">Email:</span> {supplier.email}
+                    </div>
+                  )}
+                  {supplier.phone && (
+                    <div>
+                      <span className="font-medium">Phone:</span> {supplier.phone}
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">Supplies:</span>
+                    <span className="text-sm">{supplier.supplies?.length || 0}</span>
+                    {supplier.supplies && supplier.supplies.length > 0 && (
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        supplier.supplies.filter(s => !s.isCleared).length > 0 
+                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' 
+                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      }`}>
+                        {supplier.supplies.filter(s => !s.isCleared).length} uncleared
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => {
+                      setSelectedSupplier(supplier);
+                      setShowSupplyDetailsModal(true);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                    title="View Supplies"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedSupplier(supplier);
+                      setEditingSupply({
+                        productName: '',
+                        quantity: 0,
+                        unitPrice: 0,
+                        totalAmount: 0,
+                        deliveryDate: new Date().toISOString().split('T')[0],
+                        expectedDate: '',
+                        notes: '',
+                        isCleared: false
+                      });
+                      setShowSupplyModal(true);
+                    }}
+                    className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 p-1"
+                    title="Add Supply"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedSupplier(supplier);
+                      setEditingSupplier(supplier);
+                      setShowEditModal(true);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs px-2 py-1"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSupplier(supplier.id)}
+                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-xs px-2 py-1"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => {
-                    setSelectedSupplier(supplier);
-                    setShowSupplyDetailsModal(true);
-                  }}
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-                  title="View Supplies"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedSupplier(supplier);
-                    setEditingSupply({
-                      productName: '',
-                      quantity: 0,
-                      unitPrice: 0,
-                      totalAmount: 0,
-                      deliveryDate: new Date().toISOString().split('T')[0],
-                      expectedDate: '',
-                      notes: '',
-                      isCleared: false
-                    });
-                    setShowSupplyModal(true);
-                  }}
-                  className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 p-1"
-                  title="Add Supply"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedSupplier(supplier);
-                    setEditingSupplier(supplier);
-                    setShowEditModal(true);
-                  }}
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs px-2 py-1"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteSupplier(supplier.id)}
-                  className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-xs px-2 py-1"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Create Supplier Modal */}
       <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Add New Supplier">

@@ -16,6 +16,7 @@ import Modal from '../components/Modal';
 import { toast } from 'react-toastify';
 import { Download, Trash2, Upload, WifiOff } from 'lucide-react';
 import { ReceiptService } from '../services/ReceiptService';
+import Dropdown from '../components/UI/Dropdown';
 
 interface OfflineOrder {
   id?: string;
@@ -43,29 +44,110 @@ const OfflineOrders: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<OfflineOrder | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilterMode, setDateFilterMode] = useState<'all' | 'today' | 'day'>('all');
+  const [showSynced, setShowSynced] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const saved = window.localStorage.getItem('offlineOrders-showSynced');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [filterDate, setFilterDate] = useState<string>(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
 
   useEffect(() => {
     if (currentUser?.shopId) {
+      const branch = selectedBranch as BranchName;
       fetchOfflineOrders();
+      refreshPendingCount(branch);
     }
   }, [currentUser?.shopId, selectedBranch]);
+
+  // Persist activation switch preference
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('offlineOrders-showSynced', showSynced ? 'true' : 'false');
+    } catch {
+      // ignore storage errors
+    }
+  }, [showSynced]);
 
   const fetchOfflineOrders = async () => {
     try {
       setLoading(true);
       const branch = selectedBranch as BranchName;
       
-      // Load from IndexedDB only (source of truth for offline orders)
-      const cacheKey = `offline-orders-${branch}`;
-      const cached = await indexedDb.localCache.get(cacheKey);
-      const localOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
+      // When OFFLINE: show raw IndexedDB offline queue orders
+      if (!navigator.onLine) {
+        const cacheKey = `offline-orders-${branch}`;
+        const cached = await indexedDb.localCache.get(cacheKey);
+        const localOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
+        setOfflineOrders(localOrders);
+        return;
+      }
+
+      // When ONLINE: show history of OFFLINE orders that have been synced into the MAIN orders collection
+      const ordersCollectionName = getShopCollectionName('orders', branch);
+      const qMain = query(
+        collection(db, ordersCollectionName),
+        where('syncedFromOffline', '==', true),
+        where('shopName', '==', branch),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(qMain);
+      const syncedOrders: OfflineOrder[] = snapshot.docs.map((docSnap) => {
+        const data: any = docSnap.data();
+        const created = data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date());
+        return {
+          id: docSnap.id,
+          items: data.items || [],
+          subtotal: data.subtotal || 0,
+          tax: data.tax || 0,
+          total: data.total || 0,
+          status: data.status || 'completed',
+          paymentMethod: data.paymentMethod || 'cash',
+          createdAt: created,
+          employeeId: data.employeeId || '',
+          employeeName: data.employeeName,
+          customerName: data.customerName || 'Walk In Customer',
+          customerPhone: data.customerPhone,
+          shopName: data.shopName || branch,
+          synced: true,
+          syncedAt: data.syncedAt?.toDate ? data.syncedAt.toDate() : undefined
+        };
+      });
       
-      setOfflineOrders(localOrders);
+      setOfflineOrders(syncedOrders);
     } catch (error) {
       console.error('Error fetching offline orders:', error);
       toast.error('Failed to load offline orders');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load how many pending (unsynced) offline orders exist in local cache
+  const refreshPendingCount = async (branch: BranchName) => {
+    try {
+      const cacheKey = `offline-orders-${branch}`;
+      const cached = await indexedDb.localCache.get(cacheKey);
+      const cachedOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
+      const count = cachedOrders.filter((o: OfflineOrder) => !o.synced).length;
+      setPendingCount(count);
+    } catch (error) {
+      console.warn('Error loading pending offline orders count:', error);
+      setPendingCount(0);
     }
   };
 
@@ -78,160 +160,17 @@ const OfflineOrders: React.FC = () => {
     try {
       setIsSyncing(true);
       const branch = selectedBranch as BranchName;
-      const ordersCollectionName = getShopCollectionName('orders', branch);
-      const offlineOrdersCollection = `OfflineOrders${branch}`;
-      
-      let syncedCount = 0;
-      let errorCount = 0;
-      
-      for (const order of offlineOrders) {
-        try {
-          // Validate order has required fields before syncing
-          if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
-            console.warn(`Skipping invalid order: missing or empty items array`);
-            errorCount++;
-            continue;
-          }
-          
-          if (order.total === undefined || order.total === null || order.total < 0) {
-            console.warn(`Skipping invalid order: invalid total value`);
-            errorCount++;
-            continue;
-          }
-          
-          if (!order.employeeId) {
-            console.warn(`Skipping invalid order: missing employeeId`);
-            errorCount++;
-            continue;
-          }
-          
-          // Check for duplicate order before creating
-          // Check by employeeId, total, and createdAt (within 10 seconds)
-          try {
-            // Normalize createdAt to a valid Timestamp for duplicate checking
-            let createdAtTimestamp: Timestamp | null = null;
-            if (order.createdAt instanceof Timestamp) {
-              createdAtTimestamp = order.createdAt;
-            } else if (order.createdAt instanceof Date) {
-              createdAtTimestamp = Timestamp.fromDate(order.createdAt);
-            } else if (order.createdAt) {
-              const parsed = new Date(order.createdAt);
-              if (!isNaN(parsed.getTime())) {
-                createdAtTimestamp = Timestamp.fromDate(parsed);
-              }
-            }
+      const { syncOfflineOrdersForBranch } = await import('../offline/offlineOrders');
+      const { syncedCount, errorCount } = await syncOfflineOrdersForBranch(branch);
 
-            if (createdAtTimestamp) {
-              const baseDate = createdAtTimestamp.toDate();
-              if (!isNaN(baseDate.getTime())) {
-                const startTime = new Date(baseDate.getTime() - 10000);
-                const endTime = new Date(baseDate.getTime() + 10000);
-                
-                const duplicateCheck = query(
-                  collection(db, ordersCollectionName),
-                  where('employeeId', '==', order.employeeId),
-                  where('total', '==', order.total),
-                  where('createdAt', '>=', Timestamp.fromDate(startTime)),
-                  where('createdAt', '<=', Timestamp.fromDate(endTime))
-                );
-                
-                const existing = await getDocs(duplicateCheck);
-                if (!existing.empty) {
-                  console.warn(`Skipping duplicate order: order already exists in main collection`);
-                  // Remove from offline orders since it's already synced
-                  if (order.id) {
-                    try {
-                      await deleteDoc(doc(db, offlineOrdersCollection, order.id));
-                    } catch (deleteError) {
-                      console.warn('Error deleting duplicate from offline orders:', deleteError);
-                    }
-                  }
-                  continue;
-                }
-              }
-            }
-          } catch (duplicateCheckError) {
-            console.warn('Error checking for duplicate (non-blocking):', duplicateCheckError);
-            // Continue with sync even if duplicate check fails
-          }
-          
-          // Filter out undefined values to prevent Firestore errors
-          const orderData: any = {
-            items: order.items,
-            subtotal: order.subtotal || 0,
-            tax: order.tax || 0,
-            total: order.total,
-            status: order.status || 'completed',
-            paymentMethod: order.paymentMethod || 'cash',
-            createdAt: order.createdAt instanceof Timestamp ? order.createdAt : Timestamp.fromDate(new Date(order.createdAt)),
-            employeeId: order.employeeId,
-            customerName: order.customerName || 'Walk In Customer',
-            shopName: order.shopName || branch,
-            syncedFromOffline: true,
-            syncedAt: Timestamp.now()
-          };
-          
-          // Only add optional fields if they exist and are not undefined
-          if (order.employeeName) {
-            orderData.employeeName = order.employeeName;
-          }
-          if (order.customerPhone) {
-            orderData.customerPhone = order.customerPhone;
-          }
-          if (order.customerEmail) {
-            orderData.customerEmail = order.customerEmail;
-          }
-          if (order.customerId) {
-            orderData.customerId = order.customerId;
-          }
-          
-          // Add to main orders collection (this is the ONLY place where orders should be added to main collection)
-          await addDoc(collection(db, ordersCollectionName), orderData);
-          
-          // Remove from offline orders collection if it has an ID
-          if (order.id) {
-            try {
-              await deleteDoc(doc(db, offlineOrdersCollection, order.id));
-            } catch (deleteError) {
-              console.warn('Error deleting from offline orders collection:', deleteError);
-            }
-          }
-          
-          syncedCount++;
-        } catch (error: any) {
-          console.error('Error syncing order:', error);
-          errorCount++;
-          
-          // Handle quota exceeded - stop syncing to avoid more errors
-          if (error.code === 'resource-exhausted' || error.message?.includes('Quota exceeded')) {
-            toast.warn('Firestore quota exceeded. Please try again later.');
-            break; // Stop syncing to avoid more quota errors
-          }
-          
-          // If it's a duplicate or permission error, remove from offline orders anyway
-          if (error.message?.includes('already exists') || error.code === 'permission-denied') {
-            if (order.id) {
-              try {
-                await deleteDoc(doc(db, offlineOrdersCollection, order.id));
-              } catch (deleteError) {
-                console.warn('Error deleting duplicate order:', deleteError);
-              }
-            }
-          }
-        }
+      if (syncedCount === 0 && errorCount === 0) {
+        toast.info('No offline orders to sync');
+      } else {
+        toast.success(`Synced ${syncedCount} orders${errorCount > 0 ? ` (${errorCount} errors)` : ''}`);
       }
-      
-      // Clear local cache
-      const cacheKey = `offline-orders-${branch}`;
-      await indexedDb.localCache.put({
-        id: cacheKey,
-        collection: offlineOrdersCollection,
-        data: [],
-        lastSynced: new Date()
-      });
-      
-      toast.success(`Synced ${syncedCount} orders${errorCount > 0 ? ` (${errorCount} errors)` : ''}`);
+
       await fetchOfflineOrders();
+      await refreshPendingCount(branch);
     } catch (error) {
       console.error('Error syncing offline orders:', error);
       toast.error('Failed to sync offline orders');
@@ -286,8 +225,38 @@ const OfflineOrders: React.FC = () => {
     return dateObj.toLocaleString('en-KE');
   };
 
+  const getOrderDateString = (date: Date | Timestamp) => {
+    const dateObj = date instanceof Timestamp ? date.toDate() : new Date(date);
+    if (isNaN(dateObj.getTime())) return '';
+    return dateObj.toISOString().split('T')[0];
+  };
+
+  const filteredOrders = offlineOrders.filter((order) => {
+    // Synced visibility filter
+    if (!showSynced && order.synced) {
+      return false;
+    }
+
+    // Status filter
+    if (statusFilter !== 'all' && (order.status || 'pending') !== statusFilter) {
+      return false;
+    }
+
+    const orderDate = getOrderDateString(order.createdAt);
+
+    // Date filter (today / specific day)
+    if (dateFilterMode === 'today') {
+      const todayStr = getOrderDateString(new Date() as any);
+      if (!orderDate || orderDate !== todayStr) return false;
+    } else if (dateFilterMode === 'day') {
+      if (!orderDate || orderDate !== filterDate) return false;
+    }
+
+    return true;
+  });
+
   const tableHeaders = ['Order ID', 'Date', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Actions'];
-  const tableRows = offlineOrders.map((order) => [
+  const tableRows = filteredOrders.map((order) => [
     order.id?.substring(0, 8) || 'N/A',
     formatDate(order.createdAt),
     order.customerName || 'Walk In Customer',
@@ -329,24 +298,81 @@ const OfflineOrders: React.FC = () => {
             Orders created while offline. Sync them to the main orders collection when online.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedBranch}
-            onChange={(e) => setSelectedBranch(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
-            <option value={BRANCHES.CENTRAL}>Central Shop</option>
-            <option value={BRANCHES.KAMWENE}>Kamwene Shop</option>
-          </select>
-          <Button
-            onClick={syncOfflineOrdersToFirestore}
-            disabled={isSyncing || !navigator.onLine || offlineOrders.length === 0}
-            className="flex items-center gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            {isSyncing ? 'Syncing...' : `Sync ${offlineOrders.length} Orders`}
-          </Button>
-        </div>
+          <div className="flex flex-col md:flex-row md:items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Dropdown
+                value={selectedBranch}
+                onChange={setSelectedBranch}
+                options={[
+                  { value: BRANCHES.CENTRAL, label: 'Central Shop' },
+                  { value: BRANCHES.KAMWENE, label: 'Kamwene Shop' }
+                ]}
+                placeholder="Select Branch"
+              />
+              <Button
+                onClick={syncOfflineOrdersToFirestore}
+                disabled={isSyncing || !navigator.onLine || pendingCount === 0}
+                className="flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                {isSyncing ? 'Syncing...' : `Sync ${pendingCount} Orders`}
+              </Button>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Dropdown
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { value: 'all', label: 'All Statuses' },
+                  { value: 'completed', label: 'Completed' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'partial', label: 'Partial' }
+                ]}
+                placeholder="Filter Status"
+              />
+
+              <Dropdown
+                value={dateFilterMode}
+                onChange={(v) => setDateFilterMode(v as 'all' | 'today' | 'day')}
+                options={[
+                  { value: 'all', label: 'All days' },
+                  { value: 'today', label: 'Today' },
+                  { value: 'day', label: 'Specific day' }
+                ]}
+                placeholder="Filter Date"
+              />
+
+              {dateFilterMode === 'day' && (
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs md:text-sm"
+                />
+              )}
+
+              {/* Show/hide offline orders switch */}
+              <button
+                type="button"
+                onClick={() => setShowSynced(prev => !prev)}
+                className={`relative inline-flex items-center h-6 rounded-full w-14 border border-gray-300 dark:border-gray-600 transition-colors ${
+                  showSynced ? 'bg-[#4A90A4]' : 'bg-gray-200 dark:bg-gray-700'
+                }`}
+                aria-label="Toggle offline orders visibility"
+              >
+                <span
+                  className={`inline-block w-5 h-5 transform bg-white rounded-full shadow transition-transform ${
+                    showSynced ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+                <span className="ml-2 text-[10px] md:text-xs text-gray-700 dark:text-gray-300">
+                  {showSynced ? 'Show' : 'Hide'}
+                </span>
+              </button>
+            </div>
+          </div>
       </div>
 
       {/* Orders Table */}
@@ -361,7 +387,8 @@ const OfflineOrders: React.FC = () => {
         </Card>
       ) : (
         <Card>
-          <Table headers={tableHeaders} rows={tableRows} />
+          {/* Table component expects 'data', not 'rows' */}
+          <Table headers={tableHeaders} data={tableRows} />
         </Card>
       )}
 
