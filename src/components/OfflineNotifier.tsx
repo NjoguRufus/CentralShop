@@ -16,6 +16,7 @@ const OfflineNotifier: React.FC = () => {
   const [showBanner, setShowBanner] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [countdown, setCountdown] = useState(6);
+  const [offlineCountdown, setOfflineCountdown] = useState(5);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -27,6 +28,7 @@ const OfflineNotifier: React.FC = () => {
     const handleOffline = () => {
       setIsOffline(true);
       setShowBanner(true);
+      setOfflineCountdown(5); // Reset countdown when going offline
     };
 
     window.addEventListener('online', handleOnline);
@@ -43,6 +45,23 @@ const OfflineNotifier: React.FC = () => {
     if (showBanner && !isOffline && !isSyncing) {
       const interval = setInterval(() => {
         setCountdown((prev) => {
+          if (prev <= 1) {
+            setShowBanner(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [showBanner, isOffline, isSyncing]);
+
+  // Countdown timer for "Working Offline" notification (5 seconds)
+  useEffect(() => {
+    if (showBanner && isOffline && !isSyncing) {
+      const interval = setInterval(() => {
+        setOfflineCountdown((prev) => {
           if (prev <= 1) {
             setShowBanner(false);
             return 0;
@@ -109,6 +128,9 @@ const OfflineNotifier: React.FC = () => {
                 </p>
                 <p className="text-xs text-orange-700 dark:text-orange-300">
                   Changes will be saved and can be synced when you're back online.
+                  {offlineCountdown > 0 && (
+                    <span className="ml-1 font-medium">({offlineCountdown}s)</span>
+                  )}
                 </p>
               </div>
             </>

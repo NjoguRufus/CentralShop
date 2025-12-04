@@ -64,21 +64,25 @@ const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ data, onPrintComplete }
             margin: 0;
             padding: 10px;
             width: 300px;
+            color: #000000;
           }
           .header {
             text-align: center;
             border-bottom: 1px dashed #000;
             padding-bottom: 10px;
             margin-bottom: 10px;
+            color: #000000;
           }
           .shop-name {
             font-size: 16px;
             font-weight: bold;
             margin-bottom: 5px;
+            color: #000000;
           }
           .order-info {
             font-size: 10px;
             margin-bottom: 10px;
+            color: #000000;
           }
           .items {
             margin-bottom: 10px;
@@ -87,16 +91,20 @@ const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ data, onPrintComplete }
             display: flex;
             justify-content: space-between;
             margin-bottom: 3px;
+            color: #000000;
           }
           .item-name {
             flex: 1;
+            color: #000000;
           }
           .item-qty {
             margin: 0 10px;
+            color: #000000;
           }
           .item-price {
             text-align: right;
             min-width: 60px;
+            color: #000000;
           }
           .totals {
             border-top: 1px dashed #000;
@@ -107,6 +115,7 @@ const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ data, onPrintComplete }
             display: flex;
             justify-content: space-between;
             margin-bottom: 3px;
+            color: #000000;
           }
           .total-final {
             font-weight: bold;
@@ -114,21 +123,25 @@ const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ data, onPrintComplete }
             border-top: 1px solid #000;
             padding-top: 5px;
             margin-top: 5px;
+            color: #000000;
           }
           .payment-info {
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px dashed #000;
+            color: #000000;
           }
           .customer-info {
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px dashed #000;
+            color: #000000;
           }
           .footer {
             text-align: center;
             margin-top: 20px;
             font-size: 10px;
+            color: #000000;
           }
           @media print {
             body { margin: 0; }

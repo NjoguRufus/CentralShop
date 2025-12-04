@@ -340,39 +340,39 @@ export class ReceiptService {
 
             ${receiptData.paymentMethod === 'split' && receiptData.cashAmount !== undefined && receiptData.mpesaAmount !== undefined ? `
             <div class="stat-grid" style="margin-top:8px;">
-              <div class="stat-card" style="border-color:#3b82f6;">
+              <div class="stat-card" style="border-color:#000000;">
                 <div class="stat-label">Cash Paid</div>
-                <div class="stat-value" style="color:#3b82f6;">${formatCurrency(receiptData.cashAmount)}</div>
+                <div class="stat-value" style="color:#000000;">${formatCurrency(receiptData.cashAmount)}</div>
               </div>
-              <div class="stat-card" style="border-color:#10b981;">
+              <div class="stat-card" style="border-color:#000000;">
                 <div class="stat-label">M-Pesa Paid</div>
-                <div class="stat-value" style="color:#10b981;">${formatCurrency(receiptData.mpesaAmount)}</div>
+                <div class="stat-value" style="color:#000000;">${formatCurrency(receiptData.mpesaAmount)}</div>
               </div>
               ${receiptData.mpesaCode ? `
               <div class="stat-card">
                 <div class="stat-label">M-Pesa Code</div>
-                <div class="stat-value" style="font-size:10px;">${receiptData.mpesaCode}</div>
+                <div class="stat-value" style="font-size:10px; color:#000000;">${receiptData.mpesaCode}</div>
               </div>` : ''}
             </div>` : ''}
             ${receiptData.debtAmount || receiptData.partialAmount ? `
             <div class="stat-grid" style="margin-top:8px;">
               ${receiptData.debtAmount ? `
-              <div class="stat-card" style="border-color:#b45309;">
+              <div class="stat-card" style="border-color:#000000;">
                 <div class="stat-label">Debt Amount</div>
-                <div class="stat-value" style="color:#b45309;">${formatCurrency(receiptData.debtAmount)}</div>
+                <div class="stat-value" style="color:#000000;">${formatCurrency(receiptData.debtAmount)}</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Due Date</div>
-                <div class="stat-value">${receiptData.dueDate || '—'}</div>
+                <div class="stat-value" style="color:#000000;">${receiptData.dueDate || '—'}</div>
               </div>` : ''}
               ${receiptData.partialAmount ? `
-              <div class="stat-card" style="border-color:#f97316;">
+              <div class="stat-card" style="border-color:#000000;">
                 <div class="stat-label">Partial Paid</div>
-                <div class="stat-value" style="color:#c2410c;">${formatCurrency(receiptData.partialAmount)}</div>
+                <div class="stat-value" style="color:#000000;">${formatCurrency(receiptData.partialAmount)}</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Balance</div>
-                <div class="stat-value" style="color:#b91c1c;">${formatCurrency(receiptData.remainingAmount || 0)}</div>
+                <div class="stat-value" style="color:#000000;">${formatCurrency(receiptData.remainingAmount || 0)}</div>
               </div>` : ''}
             </div>` : ''}
           
@@ -778,7 +778,7 @@ export class ReceiptService {
     `;
 
     const helper = document.createElement('p');
-    helper.textContent = 'Long-press to share or tap download to keep a copy.';
+    helper.textContent = 'Tap Print to open print dialog, or Share to send via apps.';
     helper.style.cssText = `
       font-size: 12px;
       color: #475569;
@@ -816,11 +816,31 @@ export class ReceiptService {
       color: #ffffff;
       border: none;
       border-radius: 12px;
-      padding: 10px;
+      padding: 12px;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 15px;
       cursor: pointer;
+      min-height: 44px;
     `;
+
+    const shareBtn = document.createElement('button');
+    shareBtn.textContent = 'Share';
+    shareBtn.style.cssText = `
+      flex: 1;
+      background: #10b981;
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      min-height: 44px;
+    `;
+    // Hide share button if Web Share API is not available
+    if (!navigator.share) {
+      shareBtn.style.display = 'none';
+    }
 
     const downloadBtn = document.createElement('button');
     downloadBtn.textContent = 'Download PDF';
@@ -830,10 +850,11 @@ export class ReceiptService {
       color: #ffffff;
       border: none;
       border-radius: 12px;
-      padding: 10px;
+      padding: 12px;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 15px;
       cursor: pointer;
+      min-height: 44px;
     `;
 
     const closeBtn = document.createElement('button');
@@ -868,62 +889,138 @@ export class ReceiptService {
       event.stopPropagation();
       printBtn.disabled = true;
       const originalText = printBtn.textContent;
-      printBtn.textContent = 'Printing...';
+      printBtn.textContent = 'Opening print dialog...';
       
-      // Create a hidden iframe for printing
-      const printIframe = document.createElement('iframe');
-      printIframe.style.cssText = `
-        position: fixed;
-        right: 0;
-        bottom: 0;
-        width: ${Math.round(widthPx)}px;
-        height: 1px;
-        border: none;
-        opacity: 0;
-        pointer-events: none;
-      `;
-      document.body.appendChild(printIframe);
-      
-      const printIframeDoc = printIframe.contentDocument || printIframe.contentWindow?.document;
-      if (printIframeDoc) {
-        printIframeDoc.open();
-        printIframeDoc.write(html);
-        printIframeDoc.close();
-        
-        // Wait for content to load
-        await new Promise(resolve => {
-          const checkReady = () => {
-            if (printIframeDoc.readyState === 'complete') {
-              resolve(true);
-            } else {
-              setTimeout(checkReady, 50);
-            }
-          };
-          checkReady();
-        });
-        
-        // Small delay for images
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Trigger print
-        const printWindow = printIframe.contentWindow;
+      try {
+        // For mobile, open print dialog in a new window for better compatibility
+        const printWindow = window.open('', '_blank');
         if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          
+          // Wait for content to load
+          await new Promise(resolve => {
+            const checkReady = () => {
+              if (printWindow.document.readyState === 'complete') {
+                resolve(true);
+              } else {
+                setTimeout(checkReady, 100);
+              }
+            };
+            checkReady();
+          });
+          
+          // Small delay for images
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Trigger print dialog
           printWindow.focus();
           requestAnimationFrame(() => {
             printWindow.print();
+            // Close window after print dialog is dismissed (user can cancel)
+            setTimeout(() => {
+              if (!printWindow.closed) {
+                printWindow.close();
+              }
+            }, 500);
           });
-        }
-        
-        // Clean up after print dialog appears
-        setTimeout(() => {
-          if (document.body.contains(printIframe)) {
-            document.body.removeChild(printIframe);
+        } else {
+          // Fallback to iframe method if popup is blocked
+          const printIframe = document.createElement('iframe');
+          printIframe.style.cssText = `
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            width: ${Math.round(widthPx)}px;
+            height: 1px;
+            border: none;
+            opacity: 0;
+            pointer-events: none;
+          `;
+          document.body.appendChild(printIframe);
+          
+          const printIframeDoc = printIframe.contentDocument || printIframe.contentWindow?.document;
+          if (printIframeDoc) {
+            printIframeDoc.open();
+            printIframeDoc.write(html);
+            printIframeDoc.close();
+            
+            await new Promise(resolve => {
+              const checkReady = () => {
+                if (printIframeDoc.readyState === 'complete') {
+                  resolve(true);
+                } else {
+                  setTimeout(checkReady, 50);
+                }
+              };
+              checkReady();
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            const iframeWindow = printIframe.contentWindow;
+            if (iframeWindow) {
+              iframeWindow.focus();
+              requestAnimationFrame(() => {
+                iframeWindow.print();
+              });
+            }
+            
+            setTimeout(() => {
+              if (document.body.contains(printIframe)) {
+                document.body.removeChild(printIframe);
+              }
+            }, 1000);
           }
-        }, 1000);
+        }
+      } catch (error) {
+        console.error('Print error:', error);
+        alert('Failed to open print dialog. Please try downloading the PDF instead.');
       }
       
       printBtn.textContent = originalText || 'Print';
       printBtn.disabled = false;
+    });
+
+    // Add share functionality for mobile
+    shareBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      shareBtn.disabled = true;
+      const originalText = shareBtn.textContent;
+      shareBtn.textContent = 'Preparing...';
+      
+      try {
+        // Try to share as PDF
+        const pdfBlob = await this.generatePDFBlob(html, widthPx);
+        const file = new File([pdfBlob], `${fileName}.pdf`, { type: 'application/pdf' });
+        
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `Receipt - ${receiptData.orderId}`,
+            text: `Receipt for order ${receiptData.orderId}`,
+            files: [file]
+          });
+        } else {
+          // Fallback: download PDF
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${fileName}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      } catch (error: any) {
+        // If share fails or is cancelled, try download
+        if (error.name !== 'AbortError') {
+          console.error('Share error:', error);
+          await this.saveAsPDF(html, fileName, widthPx);
+        }
+      }
+      
+      shareBtn.textContent = originalText || 'Share';
+      shareBtn.disabled = false;
     });
 
     downloadBtn.addEventListener('click', async (event) => {
@@ -941,11 +1038,46 @@ export class ReceiptService {
     dialog.appendChild(header);
     dialog.appendChild(body);
     actions.appendChild(printBtn);
+    if (navigator.share) {
+      actions.appendChild(shareBtn);
+    }
     actions.appendChild(downloadBtn);
     actions.appendChild(closeBtn);
     dialog.appendChild(actions);
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
+  }
+
+  private static async generatePDFBlob(html: string, widthPx: number): Promise<Blob> {
+    // Use html2pdf.js to generate PDF blob
+    const html2pdf = (await import('html2pdf.js')).default;
+    const element = document.createElement('div');
+    element.innerHTML = html;
+    element.style.width = `${widthPx}px`;
+    document.body.appendChild(element);
+    
+    const opt = {
+      margin: [0, 0, 0, 0] as [number, number, number, number],
+      filename: 'receipt.pdf',
+      image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true,
+        logging: false,
+        width: widthPx,
+        windowWidth: widthPx
+      },
+      jsPDF: { unit: 'mm' as 'mm', format: [widthPx * 0.264583, 200] as [number, number], orientation: 'portrait' as 'portrait' }
+    };
+    
+    try {
+      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+      document.body.removeChild(element);
+      return pdfBlob;
+    } catch (error) {
+      document.body.removeChild(element);
+      throw error;
+    }
   }
 
   private static async detectPrinterWidthPx(): Promise<number> {
@@ -1051,6 +1183,22 @@ export class ReceiptService {
     });
   }
 
+  private static isMobileDevice(): boolean {
+    if (typeof window === 'undefined') return false;
+    
+    // Check screen width
+    const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;
+    
+    // Check user agent for mobile devices
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+    
+    // Check for touch support
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    return isSmallScreen || (isMobileUA && hasTouch);
+  }
+
   private static async printReceipt(
     receiptData: ReceiptData,
     widthPx: number,
@@ -1058,10 +1206,7 @@ export class ReceiptService {
   ): Promise<boolean> {
     try {
       const html = prebuiltHtml ?? this.buildReceiptHTML(receiptData, widthPx);
-      const isMobile =
-        typeof window !== 'undefined' &&
-        typeof window.matchMedia !== 'undefined' &&
-        window.matchMedia('(max-width: 640px)').matches;
+      const isMobile = this.isMobileDevice();
 
       if (isMobile) {
         this.renderMobileReceiptPreview(html, receiptData, widthPx);
