@@ -140,3 +140,4 @@ After clearing, verify:
 - ✅ No collections in Firestore (check Firebase Console)
 - ✅ App loads fresh (visit `/setup` to create admin)
 
+
