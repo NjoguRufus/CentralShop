@@ -34,6 +34,7 @@ interface OfflineOrder {
   shopName?: string;
   synced?: boolean;
   syncedAt?: Date;
+  firestoreId?: string; // Firestore document ID for synced orders
 }
 
 const OfflineOrders: React.FC = () => {
@@ -86,17 +87,20 @@ const OfflineOrders: React.FC = () => {
     try {
       setLoading(true);
       const branch = selectedBranch as BranchName;
-      
-      // When OFFLINE: show raw IndexedDB offline queue orders
+
+      // Always start from local cache: this includes unsynced queue and any entries we have marked as synced
+      const cacheKey = `offline-orders-${branch}`;
+      const offlineOrdersCollection = `OfflineOrders${branch}`;
+      const cached = await indexedDb.localCache.get(cacheKey);
+      const localOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
+
+      // If offline, just show local queue
       if (!navigator.onLine) {
-        const cacheKey = `offline-orders-${branch}`;
-        const cached = await indexedDb.localCache.get(cacheKey);
-        const localOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
         setOfflineOrders(localOrders);
         return;
       }
 
-      // When ONLINE: show history of OFFLINE orders that have been synced into the MAIN orders collection
+      // When online, also load history from main Orders where syncedFromOffline == true
       const ordersCollectionName = getShopCollectionName('orders', branch);
       const qMain = query(
         collection(db, ordersCollectionName),
@@ -106,15 +110,16 @@ const OfflineOrders: React.FC = () => {
       );
 
       const snapshot = await getDocs(qMain);
-      const syncedOrders: OfflineOrder[] = snapshot.docs.map((docSnap) => {
+      const syncedFromServer: OfflineOrder[] = snapshot.docs.map((docSnap) => {
         const data: any = docSnap.data();
         const created = data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date());
         return {
           id: docSnap.id,
+          firestoreId: docSnap.id, // Store Firestore ID for reference
           items: data.items || [],
           subtotal: data.subtotal || 0,
           tax: data.tax || 0,
-          total: data.total || 0,
+          total: data.total,
           status: data.status || 'completed',
           paymentMethod: data.paymentMethod || 'cash',
           createdAt: created,
@@ -127,8 +132,46 @@ const OfflineOrders: React.FC = () => {
           syncedAt: data.syncedAt?.toDate ? data.syncedAt.toDate() : undefined
         };
       });
-      
-      setOfflineOrders(syncedOrders);
+
+      // Merge: keep all local orders (unsynced + locally-synced markers),
+      // and add any server-synced orders that don't already exist in cache.
+      const localIds = new Set([
+        ...localOrders.map(o => o.id).filter(Boolean) as string[],
+        ...localOrders.map(o => o.firestoreId).filter(Boolean) as string[]
+      ]);
+      const extras = syncedFromServer.filter(o => {
+        const orderId = o.id || o.firestoreId;
+        return !orderId || !localIds.has(orderId);
+      });
+      const combined = [...localOrders, ...extras];
+
+      // Cache synced orders from Firestore into IndexedDB for offline viewing
+      // This ensures synced orders are available when the user goes offline
+      if (extras.length > 0) {
+        const updatedLocalOrders = [...localOrders];
+        extras.forEach(extra => {
+          // Check if this order already exists in local cache by comparing IDs
+          const exists = localOrders.some(lo => 
+            (lo.id && extra.id && lo.id === extra.id) ||
+            (lo.firestoreId && extra.firestoreId && lo.firestoreId === extra.firestoreId) ||
+            (lo.firestoreId && extra.id && lo.firestoreId === extra.id) ||
+            (lo.id && extra.firestoreId && lo.id === extra.firestoreId)
+          );
+          if (!exists) {
+            updatedLocalOrders.push(extra);
+          }
+        });
+        
+        // Update cache with merged orders (synced + unsynced)
+        await indexedDb.localCache.put({
+          id: cacheKey,
+          collection: offlineOrdersCollection,
+          data: updatedLocalOrders,
+          lastSynced: new Date()
+        });
+      }
+
+      setOfflineOrders(combined);
     } catch (error) {
       console.error('Error fetching offline orders:', error);
       toast.error('Failed to load offline orders');
