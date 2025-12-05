@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { getShopCollectionName, BRANCHES, BranchName } from '../config/shopConfig';
 import { syncOfflineOrdersForBranch } from '../offline/offlineOrders';
 import { db } from '../offline/db';
+import { collection, getDocs, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { db as firestoreDb } from '../firebase';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Table from '../components/UI/Table';
@@ -77,12 +79,59 @@ const OfflineOrders: React.FC = () => {
     try {
       setLoading(true);
       const branch = selectedBranch;
+      const offlineOrdersCollection = `OfflineOrders${branch}`;
       const cacheKey = `offline-orders-${branch}`;
       
+      // Fetch from Firestore (shared across all devices)
+      let firestoreOrders: OfflineOrder[] = [];
+      if (navigator.onLine) {
+        try {
+          const q = query(
+            collection(firestoreDb, offlineOrdersCollection),
+            orderBy('createdAt', 'desc')
+          );
+          const snapshot = await getDocs(q);
+          firestoreOrders = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              createdAt: data.createdAt,
+              synced: data.synced || false,
+              syncedAt: data.syncedAt?.toDate ? data.syncedAt.toDate() : (data.syncedAt instanceof Date ? data.syncedAt : undefined),
+              firestoreId: doc.id
+            } as OfflineOrder;
+          });
+        } catch (error) {
+          console.error('Error fetching offline orders from Firestore:', error);
+          // Continue with IndexedDB data if Firestore fails
+        }
+      }
+      
+      // Also fetch from IndexedDB (local cache, may have orders not yet synced to Firestore)
       const cached = await db.localCache.get(cacheKey);
       const cachedOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
       
-      cachedOrders.sort((a, b) => {
+      // Merge orders from both sources, deduplicating by ID
+      const ordersMap = new Map<string, OfflineOrder>();
+      
+      // Add Firestore orders first (they are the source of truth)
+      firestoreOrders.forEach(order => {
+        if (order.id) {
+          ordersMap.set(order.id, order);
+        }
+      });
+      
+      // Add IndexedDB orders, but don't overwrite Firestore orders
+      cachedOrders.forEach(order => {
+        if (order.id && !ordersMap.has(order.id)) {
+          ordersMap.set(order.id, order);
+        }
+      });
+      
+      // Convert map to array and sort by createdAt descending
+      const allOrders = Array.from(ordersMap.values());
+      allOrders.sort((a, b) => {
         const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 
                      (a.createdAt instanceof Date ? a.createdAt.getTime() : 
                      (a.createdAt ? new Date(a.createdAt).getTime() : 0));
@@ -92,7 +141,7 @@ const OfflineOrders: React.FC = () => {
         return dateB - dateA;
       });
       
-      setOfflineOrders(cachedOrders);
+      setOfflineOrders(allOrders);
     } catch (error) {
       console.error('Error loading offline orders:', error);
       toast.error('Failed to load offline orders');
@@ -179,7 +228,28 @@ const OfflineOrders: React.FC = () => {
     try {
       setIsDeleting(true);
       const branch = selectedBranch;
+      const offlineOrdersCollection = `OfflineOrders${branch}`;
       const cacheKey = `offline-orders-${branch}`;
+      
+      // Delete from Firestore if online and order has a Firestore ID
+      if (navigator.onLine && orderToDelete.firestoreId) {
+        try {
+          await deleteDoc(doc(firestoreDb, offlineOrdersCollection, orderToDelete.firestoreId));
+        } catch (error) {
+          console.error('Error deleting order from Firestore:', error);
+          // Continue with local deletion even if Firestore deletion fails
+        }
+      }
+      
+      // Also delete using the order ID if firestoreId is not available
+      if (navigator.onLine && orderToDelete.id && !orderToDelete.firestoreId) {
+        try {
+          await deleteDoc(doc(firestoreDb, offlineOrdersCollection, orderToDelete.id));
+        } catch (error) {
+          console.error('Error deleting order from Firestore by ID:', error);
+          // Continue with local deletion even if Firestore deletion fails
+        }
+      }
       
       // Get current cached orders
       const cached = await db.localCache.get(cacheKey);
@@ -191,7 +261,7 @@ const OfflineOrders: React.FC = () => {
       // Update cache
       await db.localCache.put({
         id: cacheKey,
-        collection: `OfflineOrders${branch}`,
+        collection: offlineOrdersCollection,
         data: updatedOrders,
         lastSynced: cached?.lastSynced || new Date()
       });

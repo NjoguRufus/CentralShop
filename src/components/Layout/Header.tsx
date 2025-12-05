@@ -3,6 +3,7 @@ import { Sun, Moon, User, LogOut, Bell, Menu, X, Wifi, WifiOff } from 'lucide-re
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationContext';
+import ConfirmationModal from '../UI/ConfirmationModal';
 
 interface HeaderProps {
   onProfileClick: () => void;
@@ -23,6 +24,7 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
     }
     return true; // Default to online if navigator is not available
   });
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
 
   useEffect(() => {
     // Function to check actual connectivity with timeout
@@ -170,8 +172,9 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
           </button>
 
           <button
-            onClick={logout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="p-1.5 md:p-2 rounded-lg text-gray-900 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title="Sign Out"
           >
             <LogOut className="w-4 h-4 md:w-5 md:h-5" />
           </button>
@@ -193,6 +196,21 @@ const Header: React.FC<HeaderProps> = ({ onProfileClick, onNotificationClick, no
           </div>
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={async () => {
+          setShowLogoutConfirm(false);
+          await logout();
+        }}
+        title="Sign Out"
+        message="Are you sure you want to sign out? You will need to log in again to access the system."
+        type="warning"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+      />
     </header>
   );
 };

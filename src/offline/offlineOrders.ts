@@ -3,7 +3,7 @@
  * Handles queuing orders for sync when offline
  */
 import { db, OfflineOrder } from './db';
-import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 import { getShopCollectionName, BranchName } from '../config/shopConfig';
 
@@ -165,18 +165,33 @@ export async function syncOfflineOrdersForBranch(
               // Duplicate already in main collection, mark as synced in cache
               if (order.id) {
                 const idx = cachedOrders.findIndex((o: any) => o.id === order.id);
-                if (idx !== -1) {
-                  cachedOrders[idx] = {
-                    ...cachedOrders[idx],
-                    synced: true,
-                    syncedAt: new Date(),
-                    firestoreId: existing.docs[0].id // Use existing Firestore ID
-                  };
-                }
-                successfullySyncedOrderIds.add(order.id);
+            if (idx !== -1) {
+              cachedOrders[idx] = {
+                ...cachedOrders[idx],
+                synced: true,
+                syncedAt: new Date(),
+                firestoreId: existing.docs[0].id // Use existing Firestore ID
+              };
+            }
+            successfullySyncedOrderIds.add(order.id);
+            
+            // Also update the order in Firestore OfflineOrders collection to mark as synced
+            try {
+              const offlineOrderDocRef = doc(firestoreDb, offlineOrdersCollection, order.id);
+              await updateDoc(offlineOrderDocRef, {
+                synced: true,
+                syncedAt: Timestamp.now(),
+                firestoreId: existing.docs[0].id
+              });
+            } catch (updateError: any) {
+              // If the document doesn't exist in Firestore (e.g., was only in IndexedDB), that's okay
+              if (updateError?.code !== 'not-found') {
+                console.warn('Error updating sync status in Firestore OfflineOrders:', updateError);
               }
-              syncedCount++;
-              continue;
+            }
+          }
+          syncedCount++;
+          continue;
             }
           }
         }
@@ -227,6 +242,22 @@ export async function syncOfflineOrdersForBranch(
           };
         }
         successfullySyncedOrderIds.add(order.id);
+        
+        // Also update the order in Firestore OfflineOrders collection to mark as synced
+        // This ensures all devices see the correct sync status
+        try {
+          const offlineOrderDocRef = doc(firestoreDb, offlineOrdersCollection, order.id);
+          await updateDoc(offlineOrderDocRef, {
+            synced: true,
+            syncedAt: Timestamp.now(),
+            firestoreId: firestoreId
+          });
+        } catch (updateError: any) {
+          // If the document doesn't exist in Firestore (e.g., was only in IndexedDB), that's okay
+          if (updateError?.code !== 'not-found') {
+            console.warn('Error updating sync status in Firestore OfflineOrders:', updateError);
+          }
+        }
       }
 
       syncedCount++;

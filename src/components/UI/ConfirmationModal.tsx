@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle, Info, XCircle } from 'lucide-react';
 
 interface ConfirmationModalProps {
@@ -54,8 +55,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[9999]">
+  const modalContent = (
+    <div className="fixed inset-0 z-[99999]" style={{ zIndex: 99999 }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
       <div className="relative mx-auto my-10 max-w-md w-[92%]">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-800 overflow-hidden">
@@ -99,6 +100,11 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       </div>
     </div>
   );
+
+  // Render modal using portal to ensure it's in the outermost layer
+  return typeof document !== 'undefined' 
+    ? createPortal(modalContent, document.body)
+    : null;
 };
 
 export default ConfirmationModal;
