@@ -499,17 +499,46 @@ const Sales: React.FC = () => {
                         ? 'Debt'
                         : method || 'N/A';
 
-                    // Calculate cash amount
-                    let cash = order.cashAmount || 0;
-                    // Calculate M-Pesa amount - handle mobile payments
-                    let mpesa = order.mpesaAmount || 0;
-                    if (mpesa === 0 && (method === 'mpesa' || method === 'm-pesa' || method === 'mobile')) {
-                      // If payment method is mobile/mpesa but mpesaAmount is not set, use amountReceived or total
-                      mpesa = order.amountReceived || order.total || 0;
+                    // Calculate cash amount - ensure proper number conversion
+                    // Handle null, undefined, or string values
+                    let cash = 0;
+                    if (order.cashAmount !== null && order.cashAmount !== undefined) {
+                      cash = Number(order.cashAmount) || 0;
                     }
-                    // If payment method is cash but cashAmount is not set, use amountReceived or total
-                    if (cash === 0 && method === 'cash') {
-                      cash = order.amountReceived || order.total || 0;
+                    
+                    // Calculate M-Pesa amount - ensure proper number conversion
+                    let mpesa = 0;
+                    if (order.mpesaAmount !== null && order.mpesaAmount !== undefined) {
+                      mpesa = Number(order.mpesaAmount) || 0;
+                    }
+                    
+                    // Handle split payments - ensure both cash and mpesa amounts are displayed
+                    if (method === 'split') {
+                      // For split payments, explicitly get the stored amounts
+                      cash = order.cashAmount !== null && order.cashAmount !== undefined ? Number(order.cashAmount) : 0;
+                      mpesa = order.mpesaAmount !== null && order.mpesaAmount !== undefined ? Number(order.mpesaAmount) : 0;
+                      
+                      // Debug: Log split payment data if amounts are 0
+                      if (cash === 0 && mpesa === 0) {
+                        console.warn('Split payment with zero amounts:', {
+                          orderId: order.id,
+                          paymentMethod: order.paymentMethod,
+                          cashAmount: order.cashAmount,
+                          mpesaAmount: order.mpesaAmount,
+                          amountReceived: order.amountReceived,
+                          total: order.total
+                        });
+                      }
+                    } else if (mpesa === 0 && (method === 'mpesa' || method === 'm-pesa' || method === 'mobile')) {
+                      // If payment method is mobile/mpesa but mpesaAmount is not set, use amountReceived or total
+                      mpesa = order.amountReceived !== null && order.amountReceived !== undefined 
+                        ? Number(order.amountReceived) 
+                        : (order.total ? Number(order.total) : 0);
+                    } else if (cash === 0 && method === 'cash') {
+                      // If payment method is cash but cashAmount is not set, use amountReceived or total
+                      cash = order.amountReceived !== null && order.amountReceived !== undefined 
+                        ? Number(order.amountReceived) 
+                        : (order.total ? Number(order.total) : 0);
                     }
                     const paid = cash + mpesa + (order.partialAmount || 0);
                     const debt =
@@ -531,10 +560,10 @@ const Sales: React.FC = () => {
                           {formatCurrency(order.total || 0)}
                         </td>
                         <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white text-xs sm:text-sm md:text-base tabular-nums whitespace-nowrap">
-                          {cash > 0 ? formatCurrency(cash) : '-'}
+                          {method === 'split' ? formatCurrency(cash) : (cash > 0 ? formatCurrency(cash) : '-')}
                         </td>
                         <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white text-xs sm:text-sm md:text-base tabular-nums whitespace-nowrap">
-                          {mpesa > 0 ? formatCurrency(mpesa) : '-'}
+                          {method === 'split' ? formatCurrency(mpesa) : (mpesa > 0 ? formatCurrency(mpesa) : '-')}
                         </td>
                         <td className="px-2 sm:px-3 py-2 text-right text-gray-900 dark:text-white text-xs sm:text-sm md:text-base tabular-nums whitespace-nowrap">
                           {debt > 0 ? formatCurrency(debt) : '-'}
