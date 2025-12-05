@@ -61,6 +61,9 @@ const OfflineOrders: React.FC = () => {
     currentUser?.role === 'Admin' ||
     currentUser?.role === 'astraronix';
 
+  // Check if user can delete orders (not cashiers)
+  const canDeleteOrders = currentUser?.role !== 'Cashier';
+
   useEffect(() => {
     if (currentUser?.shopName) {
       const saved = localStorage.getItem('selectedBranch');
@@ -465,14 +468,16 @@ const OfflineOrders: React.FC = () => {
                       <Eye className="w-4 h-4" />
                       <span className="hidden sm:inline">View</span>
                     </button>
-                    <button
-                      onClick={() => handleDeleteOrder(row)}
-                      className="flex items-center gap-1 px-2 py-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium transition-colors"
-                      title="Delete Order"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Delete</span>
-                    </button>
+                    {canDeleteOrders && (
+                      <button
+                        onClick={() => handleDeleteOrder(row)}
+                        className="flex items-center gap-1 px-2 py-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium transition-colors"
+                        title="Delete Order"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </button>
+                    )}
                   </div>
                 )
               }
