@@ -17,7 +17,7 @@ import FormInput from '../components/UI/FormInput';
 import Table from '../components/UI/Table';
 import Modal from '../components/Modal';
 import Button from '../components/UI/Button';
-import { Download, Trash2, Archive, Upload } from 'lucide-react';
+import { Download, Trash2, Archive, Upload, Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ReceiptService, ReceiptData } from '../services/ReceiptService';
 import { BusinessSettingsService } from '../services/BusinessSettingsService';
@@ -77,6 +77,8 @@ interface OrderRecord {
   lastModifiedBy?: string;
   lastModifiedById?: string;
   lastModifiedAt?: Date;
+  syncedFromOffline?: boolean;
+  syncedAt?: any;
 }
 
 interface Customer {
@@ -1012,6 +1014,27 @@ const Orders: React.FC = () => {
           <Table
             columns={[
               { header: 'Order ID', accessor: 'id' },
+              {
+                header: 'Source',
+                accessor: 'syncedFromOffline',
+                render: (row: OrderRecord) => {
+                  if (row.syncedFromOffline) {
+                    const syncedDate = row.syncedAt?.toDate ? row.syncedAt.toDate() : (row.syncedAt ? new Date(row.syncedAt) : null);
+                    return (
+                      <div className="flex items-center gap-1.5" title={`Synced from offline${syncedDate ? ` on ${syncedDate.toLocaleString()}` : ''}`}>
+                        <WifiOff className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                        <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">Offline</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="flex items-center gap-1.5" title="Order created online">
+                      <Wifi className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">Online</span>
+                    </div>
+                  );
+                }
+              },
               { 
                 header: 'Customer Name', 
                 accessor: 'customerId',
@@ -1171,6 +1194,25 @@ const Orders: React.FC = () => {
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">Sold By</h3>
                 <p className="text-gray-900 dark:text-white">{selectedOrder.employeeName || 'N/A'}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Order Source</h3>
+                {selectedOrder.syncedFromOffline ? (
+                  <div className="flex items-center gap-2">
+                    <WifiOff className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                    <span className="text-orange-600 dark:text-orange-400 font-medium">Offline Order (Synced)</span>
+                    {selectedOrder.syncedAt && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        (Synced: {selectedOrder.syncedAt?.toDate ? selectedOrder.syncedAt.toDate().toLocaleString() : new Date(selectedOrder.syncedAt).toLocaleString()})
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Wifi className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-600 dark:text-green-400 font-medium">Online Order</span>
+                  </div>
+                )}
               </div>
               {(selectedOrder.paymentMethod === 'debt' || selectedOrder.paymentMethod === 'partial') && (
                 <div>

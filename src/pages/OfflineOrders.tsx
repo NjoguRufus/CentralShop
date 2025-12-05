@@ -8,8 +8,10 @@ import Button from '../components/UI/Button';
 import Table from '../components/UI/Table';
 import Dropdown from '../components/UI/Dropdown';
 import FormInput from '../components/UI/FormInput';
-import { Upload, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Upload, RefreshCw, AlertCircle, CheckCircle2, Eye, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import Modal from '../components/Modal';
+import ConfirmationModal from '../components/UI/ConfirmationModal';
 
 interface OfflineOrder {
   id: string;
@@ -42,6 +44,11 @@ const OfflineOrders: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedBranch, setSelectedBranch] = useState<BranchName>(BRANCHES.CENTRAL);
+  const [selectedOrder, setSelectedOrder] = useState<OfflineOrder | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [orderToDelete, setOrderToDelete] = useState<OfflineOrder | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const canSwitchBranches =
     (Array.isArray((currentUser as any)?.assignedShops) &&
@@ -155,6 +162,60 @@ const OfflineOrders: React.FC = () => {
   };
 
   const formatCurrency = (value: number) => `KSH ${value.toLocaleString()}`;
+
+  const viewOrderDetails = (order: OfflineOrder): void => {
+    setSelectedOrder(order);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleDeleteOrder = (order: OfflineOrder): void => {
+    setOrderToDelete(order);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteOrder = async (): Promise<void> => {
+    if (!orderToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      const branch = selectedBranch;
+      const cacheKey = `offline-orders-${branch}`;
+      
+      // Get current cached orders
+      const cached = await db.localCache.get(cacheKey);
+      const cachedOrders: OfflineOrder[] = cached && Array.isArray(cached.data) ? cached.data : [];
+      
+      // Remove the order from cache
+      const updatedOrders = cachedOrders.filter((o: any) => o.id !== orderToDelete.id);
+      
+      // Update cache
+      await db.localCache.put({
+        id: cacheKey,
+        collection: `OfflineOrders${branch}`,
+        data: updatedOrders,
+        lastSynced: cached?.lastSynced || new Date()
+      });
+
+      // Also try to remove from db.orders if it exists there
+      if (orderToDelete.id) {
+        try {
+          await db.orders.delete(orderToDelete.id);
+        } catch (error) {
+          // Ignore if order doesn't exist in db.orders
+        }
+      }
+      
+      toast.success('Order deleted successfully');
+      setIsDeleteModalOpen(false);
+      setOrderToDelete(null);
+      await loadOfflineOrders();
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('Failed to delete order');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -320,6 +381,30 @@ const OfflineOrders: React.FC = () => {
                 header: 'Synced At',
                 accessor: 'syncedAt',
                 render: (row: OfflineOrder) => row.synced ? formatDate(row.syncedAt) : '-'
+              },
+              {
+                header: 'Actions',
+                accessor: 'actions',
+                render: (row: OfflineOrder) => (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => viewOrderDetails(row)}
+                      className="flex items-center gap-1 px-2 py-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium transition-colors"
+                      title="View Order Details"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span className="hidden sm:inline">View</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteOrder(row)}
+                      className="flex items-center gap-1 px-2 py-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium transition-colors"
+                      title="Delete Order"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">Delete</span>
+                    </button>
+                  </div>
+                )
               }
             ]}
             data={filteredOrders}
@@ -327,6 +412,149 @@ const OfflineOrders: React.FC = () => {
           />
         )}
       </Card>
+
+      {/* Order Details Modal */}
+      <Modal
+        open={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={`Offline Order Details - ${selectedOrder?.id || ''}`}
+        size="lg"
+      >
+        {selectedOrder && (
+          <div className="space-y-4 p-2 md:p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Order ID</h3>
+                <p className="text-gray-900 dark:text-white font-mono text-sm">{selectedOrder.id || '-'}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Status</h3>
+                {selectedOrder.synced ? (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span className="text-green-600 dark:text-green-400 font-medium">Synced</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-yellow-600" />
+                    <span className="text-yellow-600 dark:text-yellow-400 font-medium">Pending Sync</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Customer</h3>
+                <p className="text-gray-900 dark:text-white">{selectedOrder.customerName || 'Walk In Customer'}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Phone</h3>
+                <p className="text-gray-900 dark:text-white">{selectedOrder.customerPhone || '-'}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Created At</h3>
+                <p className="text-gray-900 dark:text-white">{formatDate(selectedOrder.createdAt)}</p>
+              </div>
+              {selectedOrder.synced && (
+                <div>
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Synced At</h3>
+                  <p className="text-gray-900 dark:text-white">{formatDate(selectedOrder.syncedAt)}</p>
+                </div>
+              )}
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Payment Method</h3>
+                <p className="text-gray-900 dark:text-white capitalize">{selectedOrder.paymentMethod || 'cash'}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Employee</h3>
+                <p className="text-gray-900 dark:text-white">{selectedOrder.employeeName || selectedOrder.employeeId || 'N/A'}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Subtotal</h3>
+                <p className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.subtotal || 0)}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Tax</h3>
+                <p className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.tax || 0)}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Total</h3>
+                <p className="text-gray-900 dark:text-white font-bold text-lg">{formatCurrency(selectedOrder.total || 0)}</p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Order Items</h3>
+              <div className="border rounded-lg overflow-hidden dark:border-gray-600 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Product</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Quantity</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Price</th>
+                      <th className="px-2 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-300">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                      selectedOrder.items.map((item, index) => (
+                        <tr key={index}>
+                          <td className="px-2 md:px-4 py-2 text-sm text-gray-900 dark:text-white">
+                            {item.name || `Product ${item.productId}`}
+                          </td>
+                          <td className="px-2 md:px-4 py-2 text-sm text-gray-900 dark:text-white">
+                            {item.quantity}
+                          </td>
+                          <td className="px-2 md:px-4 py-2 text-sm text-gray-900 dark:text-white">
+                            {formatCurrency(item.price)}
+                          </td>
+                          <td className="px-2 md:px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(item.price * item.quantity)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-2 text-center text-gray-500 dark:text-gray-400">
+                          No items found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <td colSpan={3} className="px-2 md:px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
+                        Total:
+                      </td>
+                      <td className="px-2 md:px-4 py-2 font-semibold text-gray-900 dark:text-white">
+                        {formatCurrency(selectedOrder.total || 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button onClick={() => setIsDetailModalOpen(false)}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setOrderToDelete(null);
+        }}
+        onConfirm={confirmDeleteOrder}
+        title="Delete Offline Order"
+        message={orderToDelete ? `Are you sure you want to delete order ${orderToDelete.id}? This action cannot be undone and the order will be permanently removed from local storage.` : ''}
+        type="danger"
+        confirmText="Delete Order"
+        cancelText="Cancel"
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

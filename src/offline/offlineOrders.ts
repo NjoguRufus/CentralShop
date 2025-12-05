@@ -114,6 +114,7 @@ export async function syncOfflineOrdersForBranch(
 
   let syncedCount = 0;
   let errorCount = 0;
+  const successfullySyncedOrderIds = new Set<string>();
 
   for (const order of pendingOrders) {
     try {
@@ -161,7 +162,20 @@ export async function syncOfflineOrdersForBranch(
 
             const existing = await getDocs(duplicateCheck);
             if (!existing.empty) {
-              // Duplicate already in main collection, skip
+              // Duplicate already in main collection, mark as synced in cache
+              if (order.id) {
+                const idx = cachedOrders.findIndex((o: any) => o.id === order.id);
+                if (idx !== -1) {
+                  cachedOrders[idx] = {
+                    ...cachedOrders[idx],
+                    synced: true,
+                    syncedAt: new Date(),
+                    firestoreId: existing.docs[0].id // Use existing Firestore ID
+                  };
+                }
+                successfullySyncedOrderIds.add(order.id);
+              }
+              syncedCount++;
               continue;
             }
           }
@@ -201,7 +215,7 @@ export async function syncOfflineOrdersForBranch(
       const docRef = await addDoc(collection(firestoreDb, ordersCollectionName), orderData);
       const firestoreId = docRef.id;
 
-      // Mark as synced in local cache and store Firestore ID for offline viewing
+      // Mark as synced in local cache and store Firestore ID
       if (order.id) {
         const idx = cachedOrders.findIndex((o: any) => o.id === order.id);
         if (idx !== -1) {
@@ -209,9 +223,10 @@ export async function syncOfflineOrdersForBranch(
             ...cachedOrders[idx],
             synced: true,
             syncedAt: new Date(),
-            firestoreId: firestoreId // Store Firestore ID for reference when offline
+            firestoreId: firestoreId // Store Firestore ID for reference
           };
         }
+        successfullySyncedOrderIds.add(order.id);
       }
 
       syncedCount++;
@@ -225,23 +240,32 @@ export async function syncOfflineOrdersForBranch(
     }
   }
 
-  // After successful sync, update the cache to keep synced orders (for offline viewing)
-  // but remove only the successfully synced unsynced orders from the pending queue.
-  // This preserves synced orders in cache so they can be viewed when offline.
-  const updatedCachedOrders = cachedOrders.map((o: any) => {
-    // Keep orders that were just synced (marked as synced: true)
-    // and keep orders that were already synced
-    // Only remove orders that failed validation or were duplicates (not in the loop)
-    return o;
-  });
-
-  // Save updated cache with synced orders preserved
+  // After successful sync, update the cache to mark synced orders
+  // Keep all orders (synced and pending) so they can be viewed in the Offline Orders page
+  // The synced orders will be marked with synced: true and syncedAt timestamp
   await db.localCache.put({
     id: cacheKey,
     collection: offlineOrdersCollection,
-    data: updatedCachedOrders,
+    data: cachedOrders, // Keep all orders, including synced ones
     lastSynced: new Date()
   });
+
+  // Also update db.orders table to mark orders as synced
+  if (successfullySyncedOrderIds.size > 0) {
+    try {
+      for (const orderId of successfullySyncedOrderIds) {
+        const order = await db.orders.get(orderId);
+        if (order) {
+          await db.orders.update(orderId, {
+            synced: true,
+            syncedAt: new Date()
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('Error updating synced orders in db.orders:', error);
+    }
+  }
 
   return { syncedCount, errorCount };
 }
