@@ -234,7 +234,7 @@ const Sales: React.FC = () => {
         // Base payment breakdown
         if (paymentMethod === 'cash') {
           cashTotal += cashAmount || amountReceived || total;
-        } else if (paymentMethod === 'mpesa' || paymentMethod === 'm-pesa') {
+        } else if (paymentMethod === 'mpesa' || paymentMethod === 'm-pesa' || paymentMethod === 'mobile') {
           mpesaTotal += mpesaAmount || amountReceived || total;
         } else if (paymentMethod === 'split') {
           cashTotal += cashAmount;
@@ -390,7 +390,7 @@ const Sales: React.FC = () => {
 
         <Card className="p-3 md:p-4">
           <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">
-            Mpesa Total
+            M-Pesa Total
           </p>
           <p className="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
             {formatCurrency(summary.mpesaTotal)}
@@ -471,7 +471,7 @@ const Sales: React.FC = () => {
                       Cash
                     </th>
                     <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                      Mpesa
+                      M-Pesa
                     </th>
                     <th className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
                       Debt
@@ -489,8 +489,8 @@ const Sales: React.FC = () => {
 
                     const method = (order.paymentMethod || '').toLowerCase();
                     const label =
-                      method === 'mpesa' || method === 'm-pesa'
-                        ? 'Mpesa'
+                      method === 'mpesa' || method === 'm-pesa' || method === 'mobile'
+                        ? 'M-Pesa'
                         : method === 'cash'
                         ? 'Cash'
                         : method === 'split'
@@ -499,8 +499,18 @@ const Sales: React.FC = () => {
                         ? 'Debt'
                         : method || 'N/A';
 
-                    const cash = order.cashAmount || 0;
-                    const mpesa = order.mpesaAmount || 0;
+                    // Calculate cash amount
+                    let cash = order.cashAmount || 0;
+                    // Calculate M-Pesa amount - handle mobile payments
+                    let mpesa = order.mpesaAmount || 0;
+                    if (mpesa === 0 && (method === 'mpesa' || method === 'm-pesa' || method === 'mobile')) {
+                      // If payment method is mobile/mpesa but mpesaAmount is not set, use amountReceived or total
+                      mpesa = order.amountReceived || order.total || 0;
+                    }
+                    // If payment method is cash but cashAmount is not set, use amountReceived or total
+                    if (cash === 0 && method === 'cash') {
+                      cash = order.amountReceived || order.total || 0;
+                    }
                     const paid = cash + mpesa + (order.partialAmount || 0);
                     const debt =
                       order.remainingAmount != null

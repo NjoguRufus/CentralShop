@@ -521,7 +521,7 @@ const Orders: React.FC = () => {
       if (paymentMethodFilter === 'cash') {
         matchesPaymentMethod = orderPaymentMethod === 'cash';
       } else if (paymentMethodFilter === 'mpesa') {
-        matchesPaymentMethod = orderPaymentMethod === 'mpesa' || orderPaymentMethod === 'm-pesa';
+        matchesPaymentMethod = orderPaymentMethod === 'mpesa' || orderPaymentMethod === 'm-pesa' || orderPaymentMethod === 'mobile';
       } else if (paymentMethodFilter === 'debt') {
         matchesPaymentMethod = orderPaymentMethod === 'debt' || !!order.debtAmount;
       }
@@ -987,7 +987,7 @@ const Orders: React.FC = () => {
             options={[
               { value: 'all', label: 'All Payment Methods' },
               { value: 'cash', label: 'Cash' },
-              { value: 'mpesa', label: 'Mpesa' },
+              { value: 'mpesa', label: 'M-Pesa' },
               { value: 'debt', label: 'Debt' }
             ]}
             placeholder="Filter by payment"
@@ -1189,7 +1189,14 @@ const Orders: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">Payment Method</h3>
-                <p className="text-gray-900 dark:text-white">{selectedOrder.paymentMethod || 'Credit Card'}</p>
+                <p className="text-gray-900 dark:text-white">
+                  {(() => {
+                    const method = (selectedOrder.paymentMethod || '').toLowerCase();
+                    if (method === 'mobile') return 'M-Pesa';
+                    if (method === 'mpesa' || method === 'm-pesa') return 'M-Pesa';
+                    return selectedOrder.paymentMethod ? selectedOrder.paymentMethod.charAt(0).toUpperCase() + selectedOrder.paymentMethod.slice(1) : 'N/A';
+                  })()}
+                </p>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">Sold By</h3>

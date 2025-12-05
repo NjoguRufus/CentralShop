@@ -82,7 +82,7 @@ export const usePaymentSettings = () => {
       methods.push({ value: 'cash', label: 'Cash', icon: 'Banknote' });
     }
     if (paymentSettings.enableMobilePayments) {
-      methods.push({ value: 'mobile', label: 'Mobile', icon: 'Smartphone' });
+      methods.push({ value: 'mobile', label: 'M-Pesa', icon: 'Smartphone' });
     }
     // Split payment (Cash + M-Pesa) - only show if both cash and mobile are enabled
     if (paymentSettings.enableCashPayments && paymentSettings.enableMobilePayments) {

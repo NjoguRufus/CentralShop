@@ -723,7 +723,7 @@ const POSSystem: React.FC = () => {
         ...(paymentData.paymentMethod === 'cash' && {
           cashAmount: paymentData.amountReceived || total,
         }),
-        ...(paymentData.paymentMethod === 'mpesa' && {
+        ...((paymentData.paymentMethod === 'mpesa' || paymentData.paymentMethod === 'm-pesa' || paymentData.paymentMethod === 'mobile') && {
           mpesaAmount: paymentData.amountReceived || total,
         }),
         // Track who issued debt/partial payment

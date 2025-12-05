@@ -531,7 +531,14 @@ const OfflineOrders: React.FC = () => {
               )}
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Payment Method</h3>
-                <p className="text-gray-900 dark:text-white capitalize">{selectedOrder.paymentMethod || 'cash'}</p>
+                <p className="text-gray-900 dark:text-white">
+                  {(() => {
+                    const method = (selectedOrder.paymentMethod || 'cash').toLowerCase();
+                    if (method === 'mobile') return 'M-Pesa';
+                    if (method === 'mpesa' || method === 'm-pesa') return 'M-Pesa';
+                    return method.charAt(0).toUpperCase() + method.slice(1);
+                  })()}
+                </p>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Employee</h3>

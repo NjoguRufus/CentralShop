@@ -502,8 +502,8 @@ const Settings: React.FC = () => {
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">Mobile Payments (M-Pesa)</h4>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Allow customers to pay via mobile money</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">M-Pesa Payments</h4>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Allow customers to pay via M-Pesa</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input

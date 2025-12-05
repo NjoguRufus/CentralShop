@@ -795,14 +795,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Mobile Payment Fields */}
+              {/* M-Pesa Payment Fields */}
               {paymentMethod === 'mobile' && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center space-x-3 mb-4">
                         <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                           <Smartphone className="w-4 h-4 text-blue-600" />
                         </div>
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Mobile Payment</h4>
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">M-Pesa Payment</h4>
                       </div>
                       <div className="space-y-4">
                   <FormInput

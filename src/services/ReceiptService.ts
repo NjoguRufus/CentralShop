@@ -71,6 +71,14 @@ export class ReceiptService {
     return `${productName}_${dateStr}_${timeStr}`;
   }
 
+  private static formatPaymentMethod(paymentMethod: string): string {
+    // Format payment method for display
+    if (paymentMethod === 'mobile') {
+      return 'M-PESA';
+    }
+    return paymentMethod.toUpperCase();
+  }
+
   static buildReceiptHTML(receiptData: ReceiptData, widthPx: number = DEFAULT_PRINTER_WIDTH_PX): string {
     const formatCurrency = (amount: number) => `KSH ${amount.toFixed(2)}`;
     const brandName = receiptData.businessName || 'CENTRAL SHOP';
@@ -314,7 +322,7 @@ export class ReceiptService {
                 <span>Served By</span>
                 <span>${receiptData.employeeName}</span>
               </div>` : ''}
-              <div class="badge">${receiptData.paymentMethod.toUpperCase()}</div>
+              <div class="badge">${ReceiptService.formatPaymentMethod(receiptData.paymentMethod)}</div>
           </div>
           
           <div class="items">

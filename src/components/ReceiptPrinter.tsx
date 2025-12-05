@@ -190,7 +190,7 @@ const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ data, onPrintComplete }
         </div>
 
         <div class="payment-info">
-          <div><strong>Payment Method:</strong> ${data.paymentMethod.toUpperCase()}</div>
+          <div><strong>Payment Method:</strong> ${data.paymentMethod === 'mobile' ? 'M-PESA' : data.paymentMethod.toUpperCase()}</div>
           ${data.amountReceived ? `<div><strong>Amount Received:</strong> ${formatCurrency(data.amountReceived)}</div>` : ''}
           ${data.change ? `<div><strong>Change:</strong> ${formatCurrency(data.change)}</div>` : ''}
           ${data.mpesaCode ? `<div><strong>M-Pesa Code:</strong> ${data.mpesaCode}</div>` : ''}
